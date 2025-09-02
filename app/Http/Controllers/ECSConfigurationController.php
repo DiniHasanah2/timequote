@@ -63,18 +63,28 @@ class ECSConfigurationController extends Controller
         $validated['csbs_local_retention_copies'] = $fullCopies + $incrementalCopies + 1;
     }
 
-    // Step 3: csbs_estimated_incremental_data_change
-    $initialSize = $validated['csbs_initial_data_size'] ?? 0;
-    $changePercent = $validated['csbs_incremental_change'] ?? 0;
-    $validated['csbs_estimated_incremental_data_change'] = (int) round($initialSize * ($changePercent / 100));
+   
 
-    // Step 2: csbs_total_storage
-    $fullCopies = $validated['full_backup_total_retention_full_copies'] ?? 0;
-    $incrementalCopies = $validated['incremental_backup_total_retention_incremental_copies'] ?? 0;
-    $estimatedChange = $validated['csbs_estimated_incremental_data_change'] ?? 0;
-    $validated['csbs_total_storage'] = ceil(
-        $initialSize + ($initialSize * $fullCopies) + ($estimatedChange * $incrementalCopies)
-    );
+
+$initialSize   = (float) ($validated['csbs_initial_data_size'] ?? 0);
+$changePercent = (float) ($validated['csbs_incremental_change'] ?? 0);
+
+// keep decimal (contoh 6.3), simpan paparan sebagai int kalau perlu
+$estChangeRaw  = $initialSize * ($changePercent / 100.0);
+//$validated['csbs_estimated_incremental_data_change'] = (int) $estChangeRaw;
+
+$validated['csbs_estimated_incremental_data_change'] = round($estChangeRaw, 2);
+
+$fullCopies        = (int) ($validated['full_backup_total_retention_full_copies'] ?? 0);
+$incrementalCopies = (int) ($validated['incremental_backup_total_retention_incremental_copies'] ?? 0);
+
+
+
+$validated['csbs_total_storage'] = (int) ceil(
+    $initialSize + ($initialSize * $fullCopies) + ($estChangeRaw * $incrementalCopies)
+);
+
+
 
     // Step 6: total_replication_copy_retained_second_site (if required=Yes)
     if (($validated['required'] ?? '') === 'Yes') {
@@ -111,8 +121,14 @@ $validated['suggestion_estimated_storage_full_backup']
     = $systemDisk + $dataDisk + ($extraFullCopies * $estFull);
 
 // 2) suggestion_estimated_storage_incremental_backup
+/*$validated['suggestion_estimated_storage_incremental_backup']
+    = $incrCopies * $estIncrChg;*/
+
+
+    // 2) suggestion_estimated_storage_incremental_backup (guna DECIMAL)
 $validated['suggestion_estimated_storage_incremental_backup']
-    = $incrCopies * $estIncrChg;
+    = (int) ($incrCopies * $estChangeRaw);
+
 
 // 3) suggestion_estimated_storage_csbs_replication
 $validated['suggestion_estimated_storage_csbs_replication']
@@ -124,75 +140,43 @@ $validated['suggestion_estimated_storage_csbs_replication']
 
 }
 
-/*public function import(Request $request)
-{
-    $request->validate([
-        'import_file' => 'required|file|mimes:xlsx|max:81920', // buang txt
-        'version_id'  => 'required|exists:versions,id',
-    ]);
-
-    try {
-        Excel::import(new ECSConfigurationImport($request->version_id), $request->file('import_file'));
-
-        // Ambil import terbaru utk version ni
-        $import = ECSImport::where('version_id', $request->version_id)->latest()->first();
-
-        if (!$import) {
-            return redirect()->back()->withErrors('Import gagal: tiada data disimpan.');
-        }
-
-        // Pastikan decoded kepada array
-        $decoded = is_array($import->import_data)
-            ? $import->import_data
-            : (json_decode($import->import_data, true) ?? []);
-
-        if (empty($decoded)) {
-            // importer berjaya baca file tapi tiada baris sah
-            $routeName = $request->input('source', 'ecs') === 'backup'
-                ? 'versions.backup.create'
-                : 'versions.ecs_configuration.create';
-
-            return redirect()
-                ->route($routeName, $request->version_id)
-                ->withErrors('File dibaca tetapi tiada baris sah. Pastikan sekurang-kurangnya Region, VM Name, vCPU dan vRAM diisi.');
-        }
-
-        $routeName = $request->input('source', 'ecs') === 'backup'
-            ? 'versions.backup.create'
-            : 'versions.ecs_configuration.create';
-
-        return redirect()
-            ->route($routeName, $request->version_id)
-            ->with('importPreview', $decoded)   // hantar yang decoded
-            ->with('success', 'Excel loaded for preview!');
-
-    } catch (\Throwable $e) {
-        \Log::error('Import failed: '.$e->getMessage(), ['trace' => $e->getTraceAsString()]);
-        return redirect()->back()->withErrors('Import failed: '.$e->getMessage());
-    }
-}*/
 
 
-
-// ...
-
-/**
- * Auto-persist baris import ke ecs_configurations (replace semua data version ini).
- */
 private function persistImportedRows(Version $version, array $rows): void
 {
     DB::transaction(function () use ($version, $rows) {
         ECSConfiguration::where('version_id', $version->id)->delete();
 
         foreach ($rows as $row) {
-            $region = $row['region'] ?? null;
+            /*$region = $row['region'] ?? null;
             $drAct  = $row['dr_activation'] ?? 'No';
             $base   = $row['ecs_flavour_mapping'] ?? null;
 
             // Cyberjaya + DR Yes -> base .dr (guna helper sedia ada)
             $ecsDr  = ($drAct === 'Yes' && $region === 'Cyberjaya' && $base)
                         ? $this->makeDrName($base)
-                        : null;
+                        : null;*/
+
+
+
+            $region = $row['region'] ?? null;
+$drAct  = $row['dr_activation'] ?? 'No';
+
+// Always recompute base mapping IGNORING DDH
+$baseMap = $this->calculateFlavourMapping(
+    (int)($row['ecs_vcpu'] ?? 0),
+    (int)($row['ecs_vram'] ?? 0),
+    $row['ecs_pin'] ?? 'No',
+    $row['ecs_gpu'] ?? 'No',
+    'No' // force-ignore DDH for base mapping
+);
+
+// Cyberjaya + DR Yes -> baseMap .dr
+$ecsDr  = ($drAct === 'Yes' && $region === 'Cyberjaya' && $baseMap)
+            ? $this->makeDrName($baseMap)
+            : null;
+
+
 
             ECSConfiguration::create([
                 // relationships
@@ -209,7 +193,9 @@ private function persistImportedRows(Version $version, array $rows): void
                 'ecs_ddh'               => $row['ecs_ddh'] ?? 'No',
                 'ecs_vcpu'              => (int)($row['ecs_vcpu'] ?? 0),
                 'ecs_vram'              => (int)($row['ecs_vram'] ?? 0),
-                'ecs_flavour_mapping'   => $row['ecs_flavour_mapping'] ?? null,
+                //'ecs_flavour_mapping'   => $row['ecs_flavour_mapping'] ?? null,
+                'ecs_flavour_mapping'   => $baseMap,
+
 
                 // Storage
                 'storage_system_disk'   => (int)($row['storage_system_disk'] ?? 40),
@@ -273,10 +259,6 @@ private function persistImportedRows(Version $version, array $rows): void
     });
 }
 
-/**
- * Import Excel → simpan preview ke ecs_imports → AUTO-PERSIST ke ecs_configurations.
- * (skip preview table — terus save)
- */
 public function import(Request $request)
 {
     $request->validate([
@@ -301,7 +283,7 @@ public function import(Request $request)
             : (json_decode($import->import_data, true) ?? []);
 
         if (empty($decoded)) {
-            return back()->withErrors('File dibaca tetapi tiada baris sah. Pastikan sekurang-kurangnya Region, VM Name, vCPU dan vRAM diisi.');
+            return back()->withErrors('The file was read but no valid rows were found. Please make sure at least Region, VM Name, vCPU, and vRAM are filled in.');
         }
 
         // 4) Auto-persist (skip preview UI)
@@ -331,11 +313,7 @@ public function import(Request $request)
 
 public function store(Request $request, $versionId)
 {
-    Log::info('VALIDATION TEST', $request->all());
-
-    //Log::info('Incoming ECS Configuration Data:', $request->all());
-    //Log::info('Submitted Form Data:', $request->all());
-
+   
 
     $version = Version::with('project')->findOrFail($versionId);
 
@@ -344,9 +322,7 @@ public function store(Request $request, $versionId)
 
             // === CSV or Multi-row import ===
             if ($request->has('rows')) {
-                Log::info('Form rows:', $request->input('rows'));
-
-                //foreach ($request->input('rows') as $i => $row) {
+              
 
                 $rows = $request->input('rows', []);
 
@@ -456,9 +432,9 @@ foreach ($filteredRows as $i => $row) {
                         'csdr_needed' => 'nullable|in:Yes,No',
                         'csdr_storage' => 'nullable|integer|min:0|max:10000',
 
-                        'suggestion_estimated_storage_full_backup' => 'nullable|integer',
-    'suggestion_estimated_storage_incremental_backup' => 'nullable|integer',
-    'suggestion_estimated_storage_csbs_replication' => 'nullable|integer',
+                        'suggestion_estimated_storage_full_backup' => 'nullable|numeric|min:0',
+    'suggestion_estimated_storage_incremental_backup' => 'nullable|numeric|min:0',
+    'suggestion_estimated_storage_csbs_replication' => 'nullable|numeric|min:0',
                     ])->validate();
 
                     // Derived values
@@ -491,8 +467,7 @@ if ($drAct === 'Yes' && $region === 'Cyberjaya') {
                     $validated['customer_id'] = $version->project->customer_id;
                     $validated['presale_id'] = $version->project->presale_id;
 
-                    //ECSConfiguration::create($validated);
-
+                   
                     if (!empty($row['id'])) {
     // Update existing
     $ecs = ECSConfiguration::find($row['id']);
@@ -507,69 +482,61 @@ if ($drAct === 'Yes' && $region === 'Cyberjaya') {
                 }
             }
 
-            // === Single form ===
             else {
 
-                Log::info('Manual ECS Submit:', $request->all());
+    Log::info('Manual ECS Submit:', $request->all());
 
-                $validated = $this->validateRequest($request);
+    $validated = $this->validateRequest($request);
 
-                foreach ($validated as $key => $value) {
-                    if ($value === '') $validated[$key] = null;
-                }
+    // Kosong string → null
+    foreach ($validated as $key => $value) {
+        if ($value === '') $validated[$key] = null;
+    }
 
-                /*$validated['ecs_flavour_mapping'] = $this->calculateFlavourMapping(
-                    $validated['ecs_vcpu'] ?? 0,
-                    $validated['ecs_vram'] ?? 0
-                );*/
-                $validated['ecs_flavour_mapping'] = $this->calculateFlavourMapping(
-    $validated['ecs_vcpu'] ?? 0,
-    $validated['ecs_vram'] ?? 0,
-    $validated['ecs_pin'] ?? 'No',
-    $validated['ecs_gpu'] ?? 'No',
-    $validated['ecs_ddh'] ?? 'No'
-);
+    // (1) KIRA RETENTION TOTALS DULU (PERLU sebelum calculateAutoFields)
+    $validated['full_backup_total_retention_full_copies'] =
+        (int)($validated['full_backup_daily'] ?? 0) +
+        (int)($validated['full_backup_weekly'] ?? 0) +
+        (int)($validated['full_backup_monthly'] ?? 0) +
+        (int)($validated['full_backup_yearly'] ?? 0);
+
+    $validated['incremental_backup_total_retention_incremental_copies'] =
+        (int)($validated['incremental_backup_daily'] ?? 0) +
+        (int)($validated['incremental_backup_weekly'] ?? 0) +
+        (int)($validated['incremental_backup_monthly'] ?? 0) +
+        (int)($validated['incremental_backup_yearly'] ?? 0);
+
+    // (2) Flavour mapping (ikut pin/gpu/ddh)
+    $validated['ecs_flavour_mapping'] = $this->calculateFlavourMapping(
+        $validated['ecs_vcpu'] ?? 0,
+        $validated['ecs_vram'] ?? 0,
+        $validated['ecs_pin']  ?? 'No',
+        $validated['ecs_gpu']  ?? 'No',
+        $validated['ecs_ddh']  ?? 'No'
+    );
+
+    // (3) Auto fields ikut OPTION A (kau dah ubah dalam calculateAutoFields())
+    $this->calculateAutoFields($validated);
+
+    // (4) Nama DR (.dr) bila Cyberjaya + DR Yes
+    $region = $validated['region'] ?? null;
+    $drAct  = $validated['dr_activation'] ?? 'No';
+    $base   = $validated['ecs_flavour_mapping'] ?? null;
+    $validated['ecs_dr'] = ($drAct === 'Yes' && $region === 'Cyberjaya' && $base)
+        ? $this->makeDrName($base)
+        : null;
 
 
-                $this->calculateAutoFields($validated);
-
-                $region = $validated['region'] ?? null;
-$drAct  = $validated['dr_activation'] ?? 'No';
-$base   = $validated['ecs_flavour_mapping'] ?? null;
-
-// Formula COUNTIFS kau → senarai DR di site sekunder (Cyberjaya) bila DR=Yes
-if ($drAct === 'Yes' && $region === 'Cyberjaya') {
-    $validated['ecs_dr'] = $this->makeDrName($base); // guna helper kau di bawah
-} else {
-    $validated['ecs_dr'] = null;
+    ECSConfiguration::updateOrCreate(
+        ['version_id' => $version->id],
+        $validated + [
+            'project_id'  => $version->project_id,
+            'customer_id' => $version->project->customer_id,
+            'presale_id'  => $version->project->presale_id,
+        ]
+    );
 }
 
-
-                $validated['full_backup_total_retention_full_copies'] = 
-                    ($validated['full_backup_daily'] ?? 0) + 
-                    ($validated['full_backup_weekly'] ?? 0) + 
-                    ($validated['full_backup_monthly'] ?? 0) + 
-                    ($validated['full_backup_yearly'] ?? 0);
-
-                $validated['incremental_backup_total_retention_incremental_copies'] = 
-                    ($validated['incremental_backup_daily'] ?? 0) + 
-                    ($validated['incremental_backup_weekly'] ?? 0) + 
-                    ($validated['incremental_backup_monthly'] ?? 0) + 
-                    ($validated['incremental_backup_yearly'] ?? 0);
-
-                $validated['csbs_estimated_incremental_data_change'] = 
-                    ($validated['csbs_initial_data_size'] ?? 0) * 
-                    (($validated['csbs_incremental_change'] ?? 0) / 100);
-
-                ECSConfiguration::updateOrCreate(
-                    ['version_id' => $version->id],
-                    $validated + [
-                        'project_id' => $version->project_id,
-                        'customer_id' => $version->project->customer_id,
-                        'presale_id' => $version->project->presale_id,
-                    ]
-                );
-            }
         });
 
         session()->forget('importPreview');
@@ -626,7 +593,7 @@ if ($drAct === 'Yes' && $region === 'Cyberjaya') {
     'csbs_total_storage' => 'nullable|integer|min:0|max:10000',
     'csbs_initial_data_size' => 'nullable|integer|min:0|max:10000',
     'csbs_incremental_change' => 'nullable|integer|min:0|max:100',
-    'csbs_estimated_incremental_data_change' => 'sometimes|nullable|integer|min:0|max:10000',
+    'csbs_estimated_incremental_data_change' => 'sometimes|nullable|numeric|min:0|max:10000',
     
     // Full Backup
     'full_backup_daily' => 'nullable|integer|min:0|max:30',
@@ -662,9 +629,9 @@ if ($drAct === 'Yes' && $region === 'Cyberjaya') {
     'csdr_storage' => 'nullable|integer|min:0|max:10000',
 
 
-    'suggestion_estimated_storage_full_backup' => 'nullable|integer',
-    'suggestion_estimated_storage_incremental_backup' => 'nullable|integer',
-    'suggestion_estimated_storage_csbs_replication' => 'nullable|integer',
+    'suggestion_estimated_storage_full_backup' => 'nullable|numeric|min:0',
+    'suggestion_estimated_storage_incremental_backup' => 'nullable|numeric|min:0',
+    'suggestion_estimated_storage_csbs_replication' => 'nullable|numeric|min:0',
 ]);
     }
 
@@ -726,19 +693,31 @@ if ($drAct === 'Yes' && $region === 'Cyberjaya') {
 ];
 
 
-    /*$suitable = collect($flavours)
-    ->where('vcpu', '>=', $vcpu)
-    ->where('vram', '>=', $vram)
-    ->sortBy([
-        ['vcpu', 'asc'],
-        ['vram', 'asc'],
-    ])
-    ->first();
+     $pool = collect($flavours)->where('ddh', 'No');
+
+    // Try exact match on PIN/GPU + capacity
+    $suitable = $pool
+        ->where('vcpu', '>=', $vcpu)
+        ->where('vram', '>=', $vram)
+        ->where('pin', $pin)
+        ->where('gpu', $gpu)
+        ->sortBy([['vcpu', 'asc'], ['vram', 'asc']])
+        ->first();
+
+    // Fallback: only capacity
+    if (!$suitable) {
+        $suitable = $pool
+            ->where('vcpu', '>=', $vcpu)
+            ->where('vram', '>=', $vram)
+            ->sortBy([['vcpu', 'asc'], ['vram', 'asc']])
+            ->first();
+    }
 
     return $suitable['name'] ?? 'No suitable flavour';
-}*/
+}
 
-  $suitable = collect($flavours)
+
+  /*$suitable = collect($flavours)
         ->where('vcpu', '>=', $vcpu)
         ->where('vram', '>=', $vram)
         ->where('pin', $pin)
@@ -751,7 +730,7 @@ if ($drAct === 'Yes' && $region === 'Cyberjaya') {
         ->first();
 
     return $suitable['name'] ?? 'No suitable flavour';
-}
+}*/
 
 
 
@@ -793,6 +772,7 @@ public function storePreview(Request $request, $versionId)
             $base   = $row['ecs_flavour_mapping'] ?? null;
             $ecsDr  = ($drAct === 'Yes' && $region === 'Cyberjaya' && $base) ? $this->makeDrName($base) : null;
 
+
             ECSConfiguration::create([
                 // relationships
                 'version_id'  => $version->id,
@@ -808,7 +788,9 @@ public function storePreview(Request $request, $versionId)
                 'ecs_ddh'               => $row['ecs_ddh'] ?? 'No',
                 'ecs_vcpu'              => $row['ecs_vcpu'] ?? 0,
                 'ecs_vram'              => $row['ecs_vram'] ?? 0,
-                'ecs_flavour_mapping'   => $row['ecs_flavour_mapping'] ?? null,
+                //'ecs_flavour_mapping'   => $row['ecs_flavour_mapping'] ?? null,
+                'ecs_flavour_mapping'   => $baseMap,
+
 
                 // Storage
                 'storage_system_disk'   => $row['storage_system_disk'] ?? 40,
@@ -893,10 +875,6 @@ public function storePreview(Request $request, $versionId)
         return (int) round($initialSize * ($changePercent / 100));
     }
 
-    /**
- * Pulangkan "<base>.dr" jika wujud dalam config/pricing.php (rujuk field ['name']).
- * Jika tak jumpa pun, kita tetap pulangkan candidate (atau tukar ke null kalau nak strict).
- */
 
 
 
@@ -914,11 +892,9 @@ private function makeDrName(?string $base): ?string
         }
     }
 
-    // fallback: tetap bagi candidate
+   
     return $candidate;
 
-    // kalau nak strict hanya bila jumpa dalam pricing, guna:
-    // return null;
 }
 
 

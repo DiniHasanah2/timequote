@@ -46,20 +46,11 @@ class ProjectObserver
         //
     }
     
-    //{]public function saving(Project $project)
-        //$project->quotation_value = $project->total_quotation_value;\
-        
-        // Update quotation_value whenever project is saved
-        /*$project->quotation_value = $project->versions->sum(function($version) {
-            return $version->quotations->sum('total_amount');
-        });
-}*/
-
 
 
         public function saved(Project $project)
 {
-    $project->load('versions.quotations'); // reload untuk pastikan ada data
+    $project->load('versions.quotations'); // reload 
 
     $totalQuotation = $project->versions->sum(function($version) {
         return $version->quotations->sum('total_amount');
@@ -68,7 +59,7 @@ class ProjectObserver
     // Elak infinite loop
     if ($project->quotation_value != $totalQuotation) {
         $project->quotation_value = $totalQuotation;
-        $project->saveQuietly(); // guna quietly untuk elak trigger observer lagi
+        $project->saveQuietly(); // quietly use to prevent more trigger observer
     }
 }
 

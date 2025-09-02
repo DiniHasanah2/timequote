@@ -95,6 +95,9 @@ public function showInternalSummary($versionId)
     {
         return $this->hasMany(Quotation::class);
     }
+  
+
+
 
     
 
@@ -129,4 +132,13 @@ public function showInternalSummary($versionId)
             ]);
         });
     }
+    // app/Models/Version.php
+
+public function latestQuotation()
+{
+    // uses updated_at to decide "latest"
+    return $this->hasOne(\App\Models\Quotation::class)->latestOfMany('updated_at');
+}
+
+
 }

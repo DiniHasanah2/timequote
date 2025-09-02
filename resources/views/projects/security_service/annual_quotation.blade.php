@@ -1,10 +1,16 @@
 
-
 @extends('layouts.app')
 
 @php
     $solution_type = $solution_type ?? $version->solution_type ?? null;
 @endphp
+
+@php
+    $mode = $mode ?? 'annual'; // view ini memang annual, tapi biar defensif
+    $mult = ($mode === 'annual') ? 12 : 1; // 12 untuk annual, 1 untuk monthly
+    $periodLabel = ($mult === 12) ? 'Annual' : 'Monthly';
+@endphp
+
 
 
 @php
@@ -150,10 +156,19 @@
 
         <div style="border: 1px solid #ddd; border-radius: 5px; padding: 20px; background: #fff;">
                
-<p style="font-size: 15px; margin-top: 5px;">
-    Confidential | {{ now()->format('d/m/Y') }} | Quotation ID: {{ $quotation->id ?? $quotationId }}
-</p>
 
+
+
+@php
+    $catalogMeta   = config('pricing._catalog');
+    $catalogLabel  = is_array($catalogMeta)
+        ? ($catalogMeta['version_name'] ?? ($catalogMeta['version_code'] ?? null))
+        : null;
+@endphp
+
+<p style="font-size: 15px; margin-top: 5px;">
+    Confidential | {{ now()->format('d/m/Y') }} | Quotation ID: {{ $quotation->id ?? $quotationId }}@if($catalogLabel) | Catalog Version: {{ $catalogLabel }} @endif
+</p>
 
 
 
@@ -197,6 +212,8 @@
        
        
         {{ $monthlyTotal > 0 ? 'RM' . number_format($monthlyTotal * $duration, 2) : 'RM -' }}
+
+        
 
     </td>
 
@@ -302,7 +319,7 @@
     <tr style="background: rgb(147, 145, 145); color: #fff;">
         <th rowspan="2" style="border: 1px solid #000; padding: 4px; font-weight: normal;">Category</th>
         <th rowspan="2" style="border: 1px solid #000; padding: 4px; font-weight: normal;">One Time<br>Charges</th>
-        <th colspan="2" style="border: 1px solid #000; padding: 4px; font-weight: normal;">Monthly Charges</th>
+        <th colspan="2" style="border: 1px solid #000; padding: 4px; font-weight: normal;">{{ $periodLabel }} Charges</th>
         <th rowspan="2" style="border: 1px solid #000; padding: 4px; font-weight: normal;">Total Charges</th>
     </tr>
     <tr style="background: rgb(147, 145, 145); color: #fff;">
@@ -328,15 +345,15 @@
                         <td></td>
     <td style="border: 1px solid #000; padding: 4px;">
     @php $t = collect($managedSummary)->sum('kl_price'); @endphp
-    RM{{ $t > 0 ? number_format($t, 2) : '-' }}
+    RM{{ $t > 0 ? number_format($t * $mult, 2) : '-' }}
 </td>
 
 <td style="border: 1px solid #000; padding: 4px;">
     @php $t = collect($managedSummary)->sum('cj_price'); @endphp
-    RM{{ $t > 0 ? number_format($t, 2) : '-' }}
+    RM{{ $t > 0 ? number_format($t * $mult, 2) : '-' }}
 </td>
 <td style="border: 1px solid #000; padding: 4px;">
-    RM{{ ($totalManagedCharges > 0) ? number_format($totalManagedCharges, 2) : '-' }}
+    RM{{ ($totalManagedCharges > 0) ? number_format($totalManagedCharges * $mult, 2) : '-' }}
 </td>
 
 
@@ -346,18 +363,18 @@
     <td style="border: 1px solid #000; padding: 4px;"></td>
 
     <td style="border: 1px solid #000; padding: 4px;">
-        RM{{ ($klTotal ?? 0) > 0 ? number_format($klTotal, 2) : '-' }}
+        RM{{ ($klTotal ?? 0) > 0 ? number_format(($klTotal ?? 0) * $mult, 2) : '-' }}
     </td>
 
     <td style="border: 1px solid #000; padding: 4px;">
-        RM{{ ($cjTotal ?? 0) > 0 ? number_format($cjTotal, 2) : '-' }}
+        RM{{ ($cjTotal ?? 0) > 0 ? number_format(($cjTotal ?? 0) * $mult, 2) : '-' }}
     </td>
 
     <td style="border: 1px solid #000; padding: 4px;">
         @php
             $total = ($klTotal ?? 0) + ($cjTotal ?? 0);
         @endphp
-        RM{{ $total > 0 ? number_format($total, 2) : '-' }}
+        RM{{ $total > 0 ? number_format($total * $mult, 2) : '-' }}
     </td>
 </tr>
 
@@ -384,9 +401,9 @@
 <tr>
     <td style="border: 1px solid #000; padding: 4px;">Compute - ECS</td>
     <td style="border: 1px solid #000; padding: 4px;"></td>
-    <td style="border: 1px solid #000; padding: 4px;">{{ $klEcsTotal > 0 ? 'RM' . number_format($klEcsTotal, 2) : 'RM -' }}</td>
-    <td style="border: 1px solid #000; padding: 4px;">{{ $cjEcsTotal > 0 ? 'RM' . number_format($cjEcsTotal, 2) : 'RM -' }}</td>
-    <td style="border: 1px solid #000; padding: 4px;">{{ ($klEcsTotal + $cjEcsTotal) > 0 ? 'RM' . number_format($klEcsTotal + $cjEcsTotal, 2) : 'RM -' }}</td>
+    <td style="border: 1px solid #000; padding: 4px;">{{ $klEcsTotal > 0 ? 'RM' . number_format($klEcsTotal * $mult, 2) : 'RM -' }}</td>
+    <td style="border: 1px solid #000; padding: 4px;">{{ $cjEcsTotal > 0 ? 'RM' . number_format($cjEcsTotal * $mult, 2) : 'RM -' }}</td>
+    <td style="border: 1px solid #000; padding: 4px;">{{ ($klEcsTotal + $cjEcsTotal) > 0 ? 'RM' . number_format(($klEcsTotal + $cjEcsTotal) * $mult, 2) : 'RM -' }}</td>
 </tr>
 
 
@@ -411,20 +428,20 @@
     <td style="border: 1px solid #000; padding: 4px;"></td>
 
     <td style="border: 1px solid #000; padding: 4px;">
-        {{ collect($licenseRateCard)->sum('kl_price') > 0 
-            ? 'RM' . number_format(collect($licenseRateCard)->sum('kl_price'), 2) 
+        {{ $licenseKL > 0 
+            ? 'RM' . number_format($licenseKL * $mult, 2) 
             : 'RM-' }}
     </td>
 
     <td style="border: 1px solid #000; padding: 4px;">
-        {{ collect($licenseRateCard)->sum('cj_price') > 0 
-            ? 'RM' . number_format(collect($licenseRateCard)->sum('cj_price'), 2) 
+        {{ $licenseCJ > 0 
+            ? 'RM' . number_format($licenseCJ * $mult, 2) 
             : 'RM-' }}
     </td>
 
     <td style="border: 1px solid #000; padding: 4px;">
-        {{ (collect($licenseRateCard)->sum('kl_price') + collect($licenseRateCard)->sum('cj_price')) > 0 
-            ? 'RM' . number_format(collect($licenseRateCard)->sum('kl_price') + collect($licenseRateCard)->sum('cj_price'), 2)
+        {{ ($licenseKL + $licenseCJ) > 0 
+            ? 'RM' . number_format(($licenseKL + $licenseCJ) * $mult, 2)
             : 'RM-' }}
     </td>
 </tr>
@@ -434,20 +451,20 @@
     <td style="border: 1px solid #000; padding: 4px;"></td>
 
     <td style="border: 1px solid #000; padding: 4px;">
-        {{ collect($storageSummary)->sum('kl_price') > 0 
-            ? 'RM' . number_format(collect($storageSummary)->sum('kl_price'), 2) 
+        {{ $klStorageTotal > 0 
+            ? 'RM' . number_format($klStorageTotal * $mult, 2) 
             : 'RM -' }}
     </td>
 
     <td style="border: 1px solid #000; padding: 4px;">
-        {{ collect($storageSummary)->sum('cj_price') > 0 
-            ? 'RM' . number_format(collect($storageSummary)->sum('cj_price'), 2) 
+        {{ $cjStorageTotal > 0 
+            ? 'RM' . number_format($cjStorageTotal * $mult, 2) 
             : 'RM -' }}
     </td>
 
     <td style="border: 1px solid #000; padding: 4px;">
         {{ $totalStorageCharges > 0 
-            ? 'RM' . number_format($totalStorageCharges, 2) 
+            ? 'RM' . number_format($totalStorageCharges * $mult, 2) 
             : 'RM -' }}
     </td>
 </tr>
@@ -459,20 +476,20 @@
 	<td style="border: 1px solid #000; padding: 4px;"></td>
 
 	<td style="border: 1px solid #000; padding: 4px;">
-    	{{ collect($backupSummary)->sum('kl_price') > 0
-        	? 'RM' . number_format(collect($backupSummary)->sum('kl_price'), 2)
+    	{{ $klBackupTotal > 0
+        	? 'RM' . number_format($klBackupTotal * $mult, 2)
         	: 'RM -' }}
 	</td>
 
 	<td style="border: 1px solid #000; padding: 4px;">
-    	{{ collect($backupSummary)->sum('cj_price') > 0
-        	? 'RM' . number_format(collect($backupSummary)->sum('cj_price'), 2)
+    	{{ $cjBackupTotal > 0
+        	? 'RM' . number_format($cjBackupTotal * $mult, 2)
         	: 'RM -' }}
 	</td>
 
 	<td style="border: 1px solid #000; padding: 4px;">
     	{{ $totalBackupCharges > 0
-        	? 'RM' . number_format($totalBackupCharges, 2)
+        	? 'RM' . number_format($totalBackupCharges * $mult, 2)
         	: 'RM -' }}
 	</td>
 </tr>
@@ -493,20 +510,20 @@
     <td style="border: 1px solid #000; padding: 4px;"></td>
 
     <td style="border: 1px solid #000; padding: 4px;">
-        {{ collect($cloudSecuritySummary)->sum('kl_price') > 0 
-            ? 'RM' . number_format(collect($cloudSecuritySummary)->sum('kl_price'), 2) 
-            : 'RM -' }}
+        {{ $cloudSecuritySummary ? (collect($cloudSecuritySummary)->sum('kl_price') > 0 
+            ? 'RM' . number_format(collect($cloudSecuritySummary)->sum('kl_price') * $mult, 2) 
+            : 'RM -') : 'RM -' }}
     </td>
 
     <td style="border: 1px solid #000; padding: 4px;">
-        {{ collect($cloudSecuritySummary)->sum('cj_price') > 0 
-            ? 'RM' . number_format(collect($cloudSecuritySummary)->sum('cj_price'), 2) 
-            : 'RM -' }}
+        {{ $cloudSecuritySummary ? (collect($cloudSecuritySummary)->sum('cj_price') > 0 
+            ? 'RM' . number_format(collect($cloudSecuritySummary)->sum('cj_price') * $mult, 2) 
+            : 'RM -') : 'RM -' }}
     </td>
 
     <td style="border: 1px solid #000; padding: 4px;">
         {{ $totalcloudSecurityCharges > 0 
-            ? 'RM' . number_format($totalcloudSecurityCharges, 2) 
+            ? 'RM' . number_format($totalcloudSecurityCharges * $mult, 2) 
             : 'RM -' }}
     </td>
 </tr>
@@ -535,20 +552,20 @@
     <td style="border: 1px solid #000; padding: 4px;"></td>
 
     <td style="border: 1px solid #000; padding: 4px;">
-        {{ collect($monitoringSummary)->sum('kl_price') > 0 
-            ? 'RM' . number_format(collect($monitoringSummary)->sum('kl_price'), 2) 
-            : 'RM -' }}
+        {{ $monitoringSummary ? (collect($monitoringSummary)->sum('kl_price') > 0 
+            ? 'RM' . number_format(collect($monitoringSummary)->sum('kl_price') * $mult, 2) 
+            : 'RM -') : 'RM -' }}
     </td>
 
     <td style="border: 1px solid #000; padding: 4px;">
-        {{ collect($monitoringSummary)->sum('cj_price') > 0 
-            ? 'RM' . number_format(collect($monitoringSummary)->sum('cj_price'), 2) 
-            : 'RM -' }}
+        {{ $monitoringSummary ? (collect($monitoringSummary)->sum('cj_price') > 0 
+            ? 'RM' . number_format(collect($monitoringSummary)->sum('cj_price') * $mult, 2) 
+            : 'RM -') : 'RM -' }}
     </td>
 
     <td style="border: 1px solid #000; padding: 4px;">
         {{ $totalMonitoringCharges > 0 
-            ? 'RM' . number_format($totalMonitoringCharges, 2) 
+            ? 'RM' . number_format($totalMonitoringCharges * $mult, 2) 
             : 'RM -' }}
     </td>
 </tr>
@@ -562,20 +579,20 @@
     <td style="border: 1px solid #000; padding: 4px;"></td>
     
      <td style="border: 1px solid #000; padding: 4px;">
-        {{ collect($securitySummary)->sum('kl_price') > 0 
-            ? 'RM' . number_format(collect($securitySummary)->sum('kl_price'), 2) 
-            : 'RM -' }}
+        {{ $securitySummary ? (collect($securitySummary)->sum('kl_price') > 0 
+            ? 'RM' . number_format(collect($securitySummary)->sum('kl_price') * $mult, 2) 
+            : 'RM -') : 'RM -' }}
     </td>
 
     <td style="border: 1px solid #000; padding: 4px;">
-        {{ collect($securitySummary)->sum('cj_price') > 0 
-            ? 'RM' . number_format(collect($securitySummary)->sum('cj_price'), 2) 
-            : 'RM -' }}
+        {{ $securitySummary ? (collect($securitySummary)->sum('cj_price') > 0 
+            ? 'RM' . number_format(collect($securitySummary)->sum('cj_price') * $mult, 2) 
+            : 'RM -') : 'RM -' }}
     </td>
 
     <td style="border: 1px solid #000; padding: 4px;">
         {{ $totalSecurityCharges > 0 
-            ? 'RM' . number_format($totalSecurityCharges, 2) 
+            ? 'RM' . number_format($totalSecurityCharges * $mult, 2) 
             : 'RM -' }}</td>
 </tr>
 
@@ -598,10 +615,14 @@
 
 <tr>
     <td style="background: #f0f0f0; color: #000; padding: 5px; text-align: right; font-size: 16px;">
-        MONTHLY TOTAL
+        ANNUAL TOTAL
     </td>
     <td style="background: #fff; padding: 5px; text-align: right; border: 1px solid #ccc;">
-   {{ $monthlyTotal > 0 ? 'RM' . number_format($monthlyTotal, 2) : 'RM -' }}
+   <!---{{ $monthlyTotal > 0 ? 'RM' . number_format($monthlyTotal, 2) : 'RM -' }}--->
+
+
+   {{ $monthlyTotal > 0 ? 'RM' . number_format($monthlyTotal * $mult, 2) : 'RM -' }}
+
 </td>
 </tr>
 

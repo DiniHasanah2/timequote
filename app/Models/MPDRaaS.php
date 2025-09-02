@@ -73,6 +73,7 @@ class MPDRaaS extends Model
         'worker_flavour_mapping' => 'array',//'array' if storing JSON in the database*/
          'dr_network' => 'array',
     ];
+
     
    public function version()
 {

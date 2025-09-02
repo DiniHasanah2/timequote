@@ -10,13 +10,7 @@ use Illuminate\Support\Facades\Response;
 
 class ECSFlavourController extends Controller
 {
-    /*public function index()
-    {
-        
-        $ecs_flavours = ECSFlavour::orderBy('id', 'asc')->get();
-
-        return view('products.ecsflavour.index', compact('ecs_flavours'));
-    }*/
+   
 
     public function index(Request $request)
 {

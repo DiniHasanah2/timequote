@@ -320,7 +320,8 @@
                             </td>
                         </tr>
                         <tr>
-                                <td>{{ $pricing['CNET-PLL-SHR-100']['name'] }}</td>
+                                <!---<td>{{ $pricing['CNET-PLL-SHR-100']['name'] }}</td>--->
+                                <td>Virtual Private Leased Line (vPLL)</td>
     <td>{{ $pricing['CNET-PLL-SHR-100']['measurement_unit'] }}</td>
                             <td>
                                 <div class="input-group">

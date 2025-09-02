@@ -13,8 +13,79 @@
         {{ session('success') }}
     </div>
 @endif
+
+
+{{-- Filter + Buttons (one row) --}}
+<div>
+  <div class="card-body py-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-2">
+      
+      {{-- LEFT: Filter form --}}
+      <form method="GET" action="{{ route('projects.index') }}" class="d-flex flex-wrap align-items-end gap-2">
+
+        {{-- Filter by Customer --}}
+        <div>
+          <label class="form-label mb-1">Filter by Customer</label>
+          <select name="customer_id" class="form-select" style="min-width:260px" onchange="this.form.submit()">
+            <option value="">— All Customers —</option>
+            @foreach($customers as $c)
+              <option value="{{ $c->id }}"
+                @if( (string)($selectedCustomerId ?? '') === (string)$c->id ) selected @endif>
+                {{ $c->name }}
+              </option>
+            @endforeach
+          </select>
+        </div>
+
+        {{-- Filter by Project (nama project) --}}
+        <div>
+          <label class="form-label mb-1">Filter by Project</label>
+          <input
+            type="text"
+            name="project"
+            class="form-control"
+            style="min-width:260px"
+            placeholder="Type project name..."
+            value="{{ request('project', $projectKeyword ?? '') }}"
+          >
+        </div>
+
+        {{-- Apply / Search button for project text (customer auto-submit dah ada) --}}
+        <div class="d-flex align-items-end">
+          <button type="submit" class="btn btn-pink">Search</button>
+        </div>
+
+        @if(request()->filled('customer_id') || request()->filled('project'))
+          <div class="d-flex align-items-end">
+            <a href="{{ route('projects.index') }}" class="btn btn-pink">Reset</a>
+          </div>
+        @endif
+      </form>
+
+      {{-- RIGHT: Action buttons --}}
+      <div class="d-flex flex-wrap gap-2">
+        <a href="#" class="btn btn-pink" onclick="toggleForm('addProjectForm'); return false;">
+          Add Project
+        </a>
+
+        @if($projects->isNotEmpty())
+          <a href="{{ route('projects.versions.create', $projects->first()->id) }}" class="btn btn-pink">
+            Add Version
+          </a>
+        @else
+          <a href="#" class="btn btn-pink disabled">Add Version</a>
+        @endif
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+
+
 {{-- Add Project and Version Buttons --}}
-<div class="d-flex justify-content-end mb-3">
+<!---<div class="d-flex justify-content-end mb-3">
     <a href="#" class="btn btn-pink me-2" onclick="toggleForm('addProjectForm'); return false;">
         <i class=""></i> Add Project
     </a>
@@ -30,7 +101,7 @@
         <i class=""></i> Add Version
     </a>
 @endif
-</div>
+</div>--->
 
 {{-- Project Table --}}
 <div class="card shadow-sm">
@@ -41,7 +112,7 @@
                     <th>Customer Name</th>
                     <th>Project Name</th>
                     <th>Project Version</th>
-                    <th>Project Type</th>
+                    <!---<th>Project Type</th>--->
                     <th>Date Created</th>
                     <th>Last Edited Date</th>
                     <th>Quotation Value (RM)</th>
@@ -57,16 +128,21 @@
                         <td>{{ $project->customer->name }}</td>
                         <td>{{ $project->name }}</td>
                         <td>{{ $version->version_name }} (v{{ $version->version_number }})</td>
-                        <td></td>
+                        <!---<td></td>--->
                         <td>{{ $version->created_at->format('d/m/Y') }}</td>
                         <td>{{ $version->updated_at->format('d/m/Y') }}</td>
                         <!---<td>{{ number_format($version->quotations->sum('total_amount'), 2) }}</td>--->
 
-                        @php
-    $quotation = $version->quotations->first();
+
+
+
+@php
+    $quotation = $version->latestQuotation ?? $version->quotations->sortByDesc('updated_at')->first();
+    $display   = $quotation?->total_amount ?? 0; // baca dari kolum DB
 @endphp
+
 <td>
-    {{ $quotation ? number_format($quotation->total_amount, 2) : '0.00' }}
+    {{ $display > 0 ? number_format($display, 2) : '0.00' }}
 </td>
 
 
@@ -98,6 +174,20 @@
    class="btn btn-sm btn-pink">
    <i class="bi bi-pencil"></i> Edit
 </a>
+
+<form action="{{ route('versions.duplicate', $version->id) }}" method="POST" style="display:inline;">
+    @csrf
+    <button type="submit" class="btn btn-sm btn-outline-secondary"
+            onclick="return confirm('Duplicate this version?')"> <i class="bi bi-copy"></i> 
+        Duplicate 
+    </button>
+
+
+</form>
+
+
+
+
 
 
                             <form action="{{ route('versions.destroy', $version->id) }}" method="POST" style="display:inline;">
@@ -131,22 +221,7 @@
     <div class="card-body">
         <form method="POST" action="{{ route('projects.store') }}">
             @csrf
-            <!---<div class="mb-3">
-    <label for="division" class="form-label">Division</label>
-    <select name="division" id="division" class="form-select" required onchange="updateDepartments()">
-         <option value="">-- Select Division --</option>
-        <option value="Enterprise">Enterprise & Public Sector Business</option>
-        <option value="Wholesale">Wholesale</option>
-    </select>
-</div>--->
-
-<!---<div class="mb-3">
-    <label for="department" class="form-label">Department</label>
-    <select name="department" id="department" class="form-select" required onchange="filterCustomers()">
-        <option value="">-- Select Department --</option>
-    </select>
-</div>
-<input type="hidden" name="filter_department" id="filter_department">--->
+        
 
 
 <script>

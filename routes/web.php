@@ -25,6 +25,8 @@ use App\Http\Controllers\NonStandardItemController;
 use App\Http\Controllers\VMMappingsController;
 use App\Http\Controllers\PFlavourMapController;
 use App\Http\Controllers\PriceCatalogController;
+use App\Http\Controllers\QuotationCsvController;
+use App\Http\Controllers\InternalSummaryController;
 use App\Models\Project; 
 use App\Models\Version;
 
@@ -155,10 +157,18 @@ Route::get('non-standard-items/files/{file}/download', [NonStandardItemControlle
     ->name('versions.non_standard_items.files.download');
 
          
+Route::post('duplicate', [ProjectController::class, 'duplicateVersion'])
+    ->name('versions.duplicate');
 
 
    Route::get('internal-summary', [\App\Http\Controllers\InternalSummaryController::class, 'index'])
         ->name('versions.internal_summary.show');
+
+    
+
+Route::post('internal-summary/commit', [InternalSummaryController::class, 'commit'])
+    ->name('versions.internal_summary.commit');
+
 
     Route::post('internal-summary/save', [\App\Http\Controllers\InternalSummaryController::class, 'saveOrUpdate'])
         ->name('versions.internal_summary.save');
@@ -201,6 +211,11 @@ Route::get('quotation', [\App\Http\Controllers\QuotationController::class, 'gene
     Route::get('generate-csv', [\App\Http\Controllers\QuotationCsvController::class, 'generateCsv'])
         ->name('versions.quotation.generate_csv');
 
+    
+    Route::get('quotation.xlsx', [QuotationCsvController::class, 'generateXlsx'])
+        ->name('versions.quotation.generate_xlsx');
+
+
         Route::get('generate-mpdraas-pdf', [QuotationController::class, 'generateMPDRaaSPdf'])
     ->name('versions.quotation.generate_mpdraas_pdf');
 
@@ -237,6 +252,8 @@ Route::delete('non-standard-items/{item}', [NonStandardItemController::class, 'd
       Route::get('download-zip', [\App\Http\Controllers\QuotationController::class, 'downloadZip'])
     ->name('versions.download_zip');
 
+Route::get('internal-summary/pdf', [QuotationController::class, 'internalSummaryPdf'])
+    ->name('versions.internal_summary.pdf');
 
 
 
@@ -321,12 +338,28 @@ Route::delete('non-standard-items/{item}', [NonStandardItemController::class, 'd
 // Jadikan satu versi sebagai "current"
 Route::post('/price-catalogs/{catalog}/make-current', [PriceCatalogController::class, 'makeCurrent'])
     ->name('price-catalogs.makeCurrent');
+
+
+    Route::post('/price-catalogs/{catalog}/commit', [\App\Http\Controllers\PriceCatalogController::class, 'commit'])
+    ->name('price-catalogs.commit');
+
+// Per-service price history across versions
+Route::get('/services/{service}/history', [\App\Http\Controllers\ServiceController::class, 'priceHistory'])
+    ->name('services.priceHistory');
+
+    // routes/web.php
+Route::post('/services/bulk-log', [\App\Http\Controllers\ServiceController::class, 'bulkLog'])
+    ->name('services.bulkLog');
+Route::post('/services/bulk-adjust', [\App\Http\Controllers\ServiceController::class, 'bulkAdjust'])
+    ->name('services.bulkAdjust');
+
     
 
      Route::get('/services/export', [ServiceController::class, 'export'])->name('services.export');
      
     Route::resource('services', ServiceController::class);
     Route::get('/services/{service}/audit-logs', [ServiceController::class, 'auditLogs'])->name('services.audit-logs');
+
     Route::post('/services/import', [ServiceController::class, 'import'])->name('services.import');
 
       // DELETE service

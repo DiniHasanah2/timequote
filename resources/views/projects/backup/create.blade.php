@@ -119,7 +119,7 @@
         @endif
 
 
-         @if($errors->any())
+         <!---@if($errors->any())
     <div class="alert alert-danger">
         <h5>Error!</h5>
         <ul>
@@ -128,7 +128,7 @@
             @endforeach
         </ul>
     </div>
-    @endif
+    @endif--->
 
 
 <div class="alert alert-warning small" role="alert">
@@ -223,7 +223,7 @@
    
         <!---"{{ asset('assets/ECS_Configuration_Template.csv') }}"--->
         
-         <a href="{{ asset('assets/ECSandBackup_Template_AutoCalculation_v1.250804.xlsx') }}"  class="btn btn-pink" download>
+         <a href="{{ asset('assets/ECSandBackup_Template_AutoCalculation_v1.250804 (UPDATE FORMULA).xlsx') }}"  class="btn btn-pink" download>
     <i class="bi bi-download"></i> Download Template </a>
   
 
@@ -1026,7 +1026,7 @@ function calculateFlavourMapping(vcpuInput, vramInput, pinInput, gpuInput, ddhIn
   ];
 
   // cuba match exact (Pin/GPU/DDH sama)
-  let suitable = flavours
+  /*let suitable = flavours
     .filter(f => f.vcpu >= vcpuInput && f.vram >= vramInput && f.pin === pinInput && f.gpu === gpuInput && f.ddh === ddhInput)
     .sort((a, b) => (a.vcpu - b.vcpu) || (a.vram - b.vram));
 
@@ -1037,7 +1037,24 @@ function calculateFlavourMapping(vcpuInput, vramInput, pinInput, gpuInput, ddhIn
       .sort((a, b) => (a.vcpu - b.vcpu) || (a.vram - b.vram));
   }
   return suitable.length ? suitable[0].name : null;
+}*/  // Base mapping MUST NOT use any DDH flavour
+  const pool = flavours.filter(f => f.ddh === 'No');
+
+  // Try exact match on PIN/GPU + capacity
+  let suitable = pool
+    .filter(f => f.vcpu >= vcpuInput && f.vram >= vramInput && f.pin === pinInput && f.gpu === gpuInput)
+    .sort((a,b) => (a.vcpu - b.vcpu) || (a.vram - b.vram));
+
+  // Fallback: only capacity
+  if (!suitable.length) {
+    suitable = pool
+      .filter(f => f.vcpu >= vcpuInput && f.vram >= vramInput)
+      .sort((a,b) => (a.vcpu - b.vcpu) || (a.vram - b.vram));
+  }
+
+  return suitable.length ? suitable[0].name : null;
 }
+
 
 function toInt(v){ const n = parseInt(v,10); return isNaN(n)?0:n; }
 
@@ -1103,17 +1120,40 @@ function attachDynamicListeners(row, index) {
     if (fullTotal) fullTotal.value = fullT;
     if (incTotal)  incTotal.value  = incT;
 
-    const init = toInt(initialSize?.value);
-    const estChange = Math.round(init * (toInt(changePct?.value)/100));
-    if (estChangeOut) estChangeOut.value = estChange;
+    /*const init = toInt(initialSize?.value);
+    //const estChange = Math.round(init * (toInt(changePct?.value)/100));
+    const pct = parseFloat(changePct?.value || 0);
+const estChange = Math.ceil(init * (pct/100));*/
+
+const init = toInt(initialSize?.value);
+
+
+const pctRaw = parseFloat(changePct?.value || 0);
+const estChangeRaw = init * (pctRaw / 100);
+if (estChangeOut) estChangeOut.value = estChangeRaw.toFixed(1);
+
+
+
+
 
     let local = 0;
     const policy = csbsPolicy?.value || 'No Backup';
     if (policy === 'Custom') local = fullT + incT + 1;
     if (localRet) localRet.value = local;
 
-    const totalStore = Math.ceil(init + (init * fullT) + (estChange * incT)); // sama formula asal
-    if (totalStorage) totalStorage.value = (policy === 'No Backup') ? 0 : totalStore;
+    //const totalStore = Math.ceil(init + (init * fullT) + (estChange * incT)); // sama formula asal
+
+    /*const totalStore = init + (init * fullT) + (estChange * incT);
+
+    if (totalStorage) totalStorage.value = (policy === 'No Backup') ? 0 : totalStore;*/
+
+
+   
+
+
+const totalStore = init + (init * fullT) + (estChangeRaw * incT);
+if (totalStorage) totalStorage.value = (policy === 'No Backup') ? 0 : Math.ceil(totalStore);
+
 
     if (replCopies) replCopies.value = (requiredSel?.value === 'Yes') ? local : 0;
 
@@ -1128,8 +1168,19 @@ function attachDynamicListeners(row, index) {
 
     // === Suggestions ===
     if (suggFull) suggFull.value = init * fullT;
-    if (suggInc)  suggInc.value  = estChange * incT;
-    if (suggRepl) suggRepl.value = (requiredSel?.value === 'Yes' && policy !== 'No Backup') ? totalStore : 0;
+    if (suggInc)  suggInc.value  = estChangeRaw * incT;
+    
+
+const replSuggested = (init * fullT) + (estChangeRaw * incT);
+if (suggRepl)
+  suggRepl.value = (requiredSel?.value === 'Yes' && policy !== 'No Backup')
+    ? Math.ceil(replSuggested)
+    : 0;
+
+
+
+
+
   }
 
   function updateFlavour() {

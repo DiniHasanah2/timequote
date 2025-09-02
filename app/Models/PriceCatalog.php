@@ -26,11 +26,28 @@ class PriceCatalog extends Model
         return $q->where('is_current', true);
     }
 
-    // 👉 tambah ni
     public function makeCurrent(): void
-    {
-        static::where('is_current', true)->update(['is_current' => false]);
-        $this->is_current = true;
+{
+    \DB::transaction(function () {
+        // Tutup current lama → jadi "Last"
+        $old = self::where('is_current', true)->first();
+        if ($old && $old->id !== $this->id) {
+            $old->update([
+                'is_current'   => false,
+                'effective_to' => now()->toDateString(), // penting utk papar "Last"
+            ]);
+        }
+
+        // Jadikan model ini current
+        $this->is_current   = true;
+        // kalau effective_from belum diisi, set hari ini
+        if (empty($this->effective_from)) {
+            $this->effective_from = now()->toDateString();
+        }
+        // current yang aktif tak patut ada effective_to
+        $this->effective_to = null;
         $this->save();
-    }
+    });
+}
+
 }

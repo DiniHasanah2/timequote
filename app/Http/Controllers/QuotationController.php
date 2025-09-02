@@ -120,6 +120,36 @@ $pricing = config('pricing');
 
 $licenseSummary = [];
 
+// === Kira & SIMPAN Final Total ke DB (quotations.total_amount) ===
+$licenseKL = collect($licenseRateCard)->sum('kl_price');
+$licenseCJ = collect($licenseRateCard)->sum('cj_price');
+
+$klEcsTotal = collect($ecsSummary)->sum('kl_price');
+$cjEcsTotal = collect($ecsSummary)->sum('cj_price');
+
+$monthlyTotal =
+    ($totalManagedCharges ?? 0) +
+    (($klTotal ?? 0) + ($cjTotal ?? 0)) +
+    (($klEcsTotal ?? 0) + ($cjEcsTotal ?? 0)) +
+    ($totalLicenseCharges ?? ($licenseKL + $licenseCJ)) +
+    ($totalStorageCharges ?? 0) +
+    ($totalBackupCharges ?? 0) +
+    ($totalcloudSecurityCharges ?? 0) +
+    ($totalMonitoringCharges ?? 0) +
+    ($totalSecurityCharges ?? 0);
+
+// Duration ikut dropdown (simbolik sama macam Blade)
+$duration = (int) session("quotation.$versionId.contract_duration", $quotation->contract_duration ?? 12);
+
+$contractTotal = ($monthlyTotal * $duration) + ($totalProfessionalCharges ?? 0);
+$serviceTax    = $contractTotal * 0.08;
+$finalTotal    = $contractTotal + $serviceTax;
+
+// SIMPAN dalam DB
+$quotation->total_amount = round($finalTotal, 2);
+// kalau kau ADA kolum contract_duration dalam table quotations, boleh juga simpan:
+// $quotation->contract_duration = $duration;
+$quotation->save();
 
 
 
@@ -684,10 +714,7 @@ private function computeEcsSummary(\App\Models\Version $version): array
 }
 
 
-/**
- * Bina peta nama flavour -> harga & unit daripada config('pricing').
- * Contoh: 'm3.micro' => 37.00
- */
+
 private function buildEcsPricingLookups(): array
 {
     $pricing = config('pricing');
@@ -730,66 +757,266 @@ private function buildEcsPricingLookups(): array
 
 
 
-    public function downloadZip(Request $request, $versionId)
+public function internalSummaryPdf($versionId)
 {
-    try {
-        // ============== LOAD DATA ASAS (sama macam PDF) ==============
-        $version = Version::with(['project.customer', 'solution_type', 'ecs_configuration', 'security_service'])
-            ->findOrFail($versionId);
+    $version = Version::with([
+        'project.customer',
+        'project.presale',
+        'solution_type',
+        'ecs_configuration',
+        'security_service',
+        'non_standard_items',
+    ])->findOrFail($versionId);
 
-        // Pastikan ada row quotation
+    // Snapshot (kalau belum commit, akan kosong -> view handle default 0)
+    $internal = InternalSummary::where('version_id', $versionId)->first() ?? new InternalSummary();
+
+    // Logo (ikut pattern generateQuotation/downloadZip kau)
+    $logoPath   = public_path('assets/time_logo.png');
+    $logoBase64 = is_file($logoPath) ? 'data:image/png;base64,'.base64_encode(file_get_contents($logoPath)) : null;
+
+    $data = [
+        'version'   => $version,
+        'project'   => $version->project,
+        'internal'  => $internal,   // dalam blade aku pakai $internal / $summary
+        'logoBase64'=> $logoBase64,
+        'logoPath'  => $logoPath,
+    ];
+
+    $fileName = sprintf(
+        'internal_summary_%s_v%s.pdf',
+        $version->project->project_code ?? Str::slug($version->project->name ?? 'project'),
+        $version->version_number ?? '1'
+    );
+
+    $pdf = Pdf::loadView('pdf.internal-summary', $data)
+        ->setPaper('a4', 'landscape') // tukar ke 'portrait' kalau suka
+        ->setOptions(['defaultFont' => 'sans-serif']);
+
+    return $pdf->download($fileName);
+}
+
+
+public function downloadZip(Request $request, $versionId)
+{
+    $tmpDir = null;
+
+    try {
+        // 1) LOAD DATA ASAS
+        $version = Version::with([
+            'project.customer', 'solution_type', 'ecs_configuration', 'security_service'
+        ])->findOrFail($versionId);
+
         $quotation = Quotation::firstOrCreate(
             ['version_id' => $versionId],
             [
                 'project_id' => $version->project_id,
                 'presale_id' => auth()->id(),
                 'status'     => 'pending',
-                'quote_code' => 'Q-' . now()->format('Ymd') . '-' . Str::upper(Str::random(5)),
+                'quote_code' => 'Q-'.now()->format('Ymd').'-'.Str::upper(Str::random(5)),
             ]
         );
 
-        // Internal Summary
         $internal = InternalSummary::where('version_id', $versionId)->first() ?? new InternalSummary();
+        $pricing  = config('pricing');
 
-        // Pricing (kalau perlu untuk helper)
-        $pricing = config('pricing');
+        // 2) KIRA SEMUA SUMMARY
+        [$managedSummary, $totalManagedCharges]             = $this->computeManagedSummary($version);
+        [$licenseRateCard, $totalLicenseCharges]            = $this->computeLicenseRateCard($internal, $pricing);
+        [$ecsSummary, $klEcsTotal, $cjEcsTotal]             = $this->computeEcsSummary($version);
+        [$klTotal, $cjTotal]                                = $this->computeNetworkTotals($internal, $pricing);
+        [$psDays, $psUnit, $totalProfessionalCharges]       = $this->computeProfessionalTotals($internal);
+        [$storageSummary, $totalStorageCharges]             = $this->computeStorageSummary($internal, $pricing);
+        [$cloudSecuritySummary, $totalcloudSecurityCharges] = $this->computeCloudSecuritySummary($internal, $pricing);
+        [$monitoringSummary, $totalMonitoringCharges]       = $this->computeMonitoringSummary($internal, $pricing);
+        [$securitySummary, $totalSecurityCharges]           = $this->computeSecuritySummary($internal, $pricing);
+        [$backupSummary, $totalBackupCharges]               = $this->computeBackupSummary($internal, $pricing);
 
-        // ==== Kiraan summary (guna helper yang sama dengan PDF) ====
-        // NOTE: Helper bawah mesti wujud dalam controller ini. Kalau helper tu ada di QuotationPdfController,
-        // salin masuk sini (computeManagedSummary, computeLicenseRateCard, computeEcsSummary, dsb) — sama macam yang PDF guna.
-        [$managedSummary, $totalManagedCharges]            = $this->computeManagedSummary($version);
-        [$licenseRateCard, $totalLicenseCharges]           = $this->computeLicenseRateCard($internal, $pricing);
-        [$ecsSummary, $klEcsTotal, $cjEcsTotal]            = $this->computeEcsSummary($version);
-        [$klTotal, $cjTotal]                               = $this->computeNetworkTotals($internal, $pricing);
-        [$psDays, $psUnit, $totalProfessionalCharges]      = $this->computeProfessionalTotals($internal);
-        [$storageSummary, $totalStorageCharges]            = $this->computeStorageSummary($internal, $pricing);
-        [$cloudSecuritySummary, $totalcloudSecurityCharges]= $this->computeCloudSecuritySummary($internal, $pricing);
-        [$monitoringSummary, $totalMonitoringCharges]      = $this->computeMonitoringSummary($internal, $pricing);
-        [$securitySummary, $totalSecurityCharges]          = $this->computeSecuritySummary($internal, $pricing);
-        [$backupSummary, $totalBackupCharges]              = $this->computeBackupSummary($internal, $pricing);
-
-        // Duration:
-        //  - Monthly ikut pilihan user di screen (6/12/24/36/48/60) -> baca dari session/quotation (SAMA macam PDF)
-        //  - Annual sentiasa 12
+        // 3) DURATION
         $durationMonthly = (int) (session("quotation.$versionId.contract_duration", $quotation->contract_duration ?? 12));
         $durationAnnual  = 12;
 
-        // Logo (ikut PDF)
+        // 4) LOGO
         $logoPath   = public_path('assets/time_logo.png');
-        $logoBase64 = is_file($logoPath) ? 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath)) : null;
+        $logoBase64 = is_file($logoPath) ? 'data:image/png;base64,'.base64_encode(file_get_contents($logoPath)) : null;
 
-        // Data asas untuk blade (yang common)
+        // 5) DATA COMMON UNTUK BLADE
         $common = [
             'version'                   => $version,
             'quotation'                 => $quotation,
             'internal'                  => $internal,
             'project'                   => $version->project,
 
-            // flags
             'viewOnly'                  => 1,
             'isPdf'                     => 1,
 
-            // summaries
+            'managedSummary'            => $managedSummary,
+            'totalManagedCharges'       => $totalManagedCharges,
+            'licenseRateCard'           => $licenseRateCard,
+            'totalLicenseCharges'       => $totalLicenseCharges,
+            'ecsSummary'                => $ecsSummary,
+            'klEcsTotal'                => $klEcsTotal,
+            'cjEcsTotal'                => $cjEcsTotal,
+            'klTotal'                   => $klTotal,
+            'cjTotal'                   => $cjTotal,
+            'psDays'                    => $psDays,
+            'psUnit'                    => $psUnit,
+            'totalProfessionalCharges'  => $totalProfessionalCharges,
+            'storageSummary'            => $storageSummary,
+            'totalStorageCharges'       => $totalStorageCharges,
+            'cloudSecuritySummary'      => $cloudSecuritySummary,
+            'totalcloudSecurityCharges' => $totalcloudSecurityCharges,
+            'monitoringSummary'         => $monitoringSummary,
+            'totalMonitoringCharges'    => $totalMonitoringCharges,
+            'securitySummary'           => $securitySummary,
+            'totalSecurityCharges'      => $totalSecurityCharges,
+            'backupSummary'             => $backupSummary,
+            'totalBackupCharges'        => $totalBackupCharges,
+            
+            'logoBase64'                => $logoBase64,
+            'logoPath'                  => $logoPath,
+        ];
+
+        // 6) RENDER 3 PDF
+        $monthlyData = $common + ['mode' => 'monthly', 'contractDuration' => $durationMonthly];
+        $annualData  = $common + ['mode' => 'annual',  'contractDuration' => $durationAnnual];
+
+        $pdfMonthly = Pdf::loadView('pdf.quotation-table', $monthlyData)
+            ->setPaper('a4', 'landscape')
+            ->setOptions(['defaultFont' => 'sans-serif'])
+            ->output();
+
+        $pdfAnnual = Pdf::loadView('pdf.quotation-table', $annualData)
+            ->setPaper('a4', 'landscape')
+            ->setOptions(['defaultFont' => 'sans-serif'])
+            ->output();
+
+        $internalData = [
+            'version'   => $version,
+            'project'   => $version->project,
+            'internal'  => $internal,
+            'logoBase64'=> $logoBase64,
+            'logoPath'  => $logoPath,
+        ];
+        $pdfInternal = Pdf::loadView('pdf.internal-summary', $internalData)
+            ->setPaper('a4', 'landscape')
+            ->setOptions(['defaultFont' => 'sans-serif'])
+            ->output();
+
+        // 7) SIMPAN FAIL SEMENTARA
+        $tmpDir = storage_path('app/tmp/'.Str::uuid());
+        File::ensureDirectoryExists($tmpDir);
+
+        $projectCode = $version->project->project_code ?? Str::slug($version->project->name ?? 'project');
+        $verNo       = $version->version_number ?? '1';
+        $base        = "quotation_{$projectCode}_v{$verNo}";
+
+        $monthlyName  = "{$base}_monthly_{$durationMonthly}m.pdf";
+        $annualName   = "{$base}_annual_12m.pdf";
+        $internalName = "{$base}_internal_summary.pdf";
+
+        file_put_contents("$tmpDir/$monthlyName",  $pdfMonthly);
+        file_put_contents("$tmpDir/$annualName",   $pdfAnnual);
+        file_put_contents("$tmpDir/$internalName", $pdfInternal);
+
+        // 8) ZIP
+        $zipPath = "$tmpDir/{$base}_bundle.zip";
+        $zip = new \ZipArchive();
+        $openResult = $zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+        if ($openResult !== true) {
+            throw new \RuntimeException("Cannot create zip file. Code: {$openResult}");
+        }
+        $zip->addFile("$tmpDir/$monthlyName",  $monthlyName);
+        $zip->addFile("$tmpDir/$annualName",   $annualName);
+        $zip->addFile("$tmpDir/$internalName", $internalName);
+        $zip->close();
+
+        // 9) HANTAR ZIP & PADAM ZIP LEPAS HANTAR (folder cleanup selepas response)
+        $response = response()
+            ->download($zipPath, basename($zipPath))
+            ->deleteFileAfterSend(true);
+
+        // Cleanup folder sementara selepas response dihantar
+        app()->terminating(function () use ($tmpDir) {
+            try {
+                \Illuminate\Support\Facades\File::deleteDirectory($tmpDir);
+            } catch (\Throwable $e) {
+                \Log::warning('TMP cleanup failed: '.$e->getMessage());
+            }
+        });
+
+        return $response;
+
+    } catch (\Throwable $e) {
+        // Cleanup segera jika gagal sebelum hantar response
+        if ($tmpDir && is_dir($tmpDir)) {
+            try { File::deleteDirectory($tmpDir); } catch (\Throwable $ex) {}
+        }
+
+        return response()->json([
+            'error'   => 'Failed to generate ZIP',
+            'message' => $e->getMessage(),
+            'file'    => $e->getFile(),
+            'line'    => $e->getLine(),
+        ], 500);
+    }
+}
+
+
+/*public function downloadZip(Request $request, $versionId)
+{
+
+    $tmpDir = null;
+
+    try {
+        // 1) LOAD DATA ASAS
+        $version = Version::with([
+            'project.customer', 'solution_type', 'ecs_configuration', 'security_service'
+        ])->findOrFail($versionId);
+
+        $quotation = Quotation::firstOrCreate(
+            ['version_id' => $versionId],
+            [
+                'project_id' => $version->project_id,
+                'presale_id' => auth()->id(),
+                'status'     => 'pending',
+                'quote_code' => 'Q-'.now()->format('Ymd').'-'.Str::upper(Str::random(5)),
+            ]
+        );
+
+        $internal = InternalSummary::where('version_id', $versionId)->first() ?? new InternalSummary();
+        $pricing  = config('pricing');
+
+        // 2) KIRA SEMUA SUMMARY (guna helper helper sama mcm PDF)
+        [$managedSummary, $totalManagedCharges]             = $this->computeManagedSummary($version);
+        [$licenseRateCard, $totalLicenseCharges]            = $this->computeLicenseRateCard($internal, $pricing);
+        [$ecsSummary, $klEcsTotal, $cjEcsTotal]             = $this->computeEcsSummary($version);
+        [$klTotal, $cjTotal]                                = $this->computeNetworkTotals($internal, $pricing);
+        [$psDays, $psUnit, $totalProfessionalCharges]       = $this->computeProfessionalTotals($internal);
+        [$storageSummary, $totalStorageCharges]             = $this->computeStorageSummary($internal, $pricing);
+        [$cloudSecuritySummary, $totalcloudSecurityCharges] = $this->computeCloudSecuritySummary($internal, $pricing);
+        [$monitoringSummary, $totalMonitoringCharges]       = $this->computeMonitoringSummary($internal, $pricing);
+        [$securitySummary, $totalSecurityCharges]           = $this->computeSecuritySummary($internal, $pricing);
+        [$backupSummary, $totalBackupCharges]               = $this->computeBackupSummary($internal, $pricing);
+
+        // 3) DURATION
+        $durationMonthly = (int) (session("quotation.$versionId.contract_duration", $quotation->contract_duration ?? 12));
+        $durationAnnual  = 12;
+
+        // 4) LOGO
+        $logoPath   = public_path('assets/time_logo.png');
+        $logoBase64 = is_file($logoPath) ? 'data:image/png;base64,'.base64_encode(file_get_contents($logoPath)) : null;
+
+        // 5) DATA COMMON UNTUK BLADE
+        $common = [
+            'version'                   => $version,
+            'quotation'                 => $quotation,
+            'internal'                  => $internal,
+            'project'                   => $version->project,
+
+            'viewOnly'                  => 1,
+            'isPdf'                     => 1,
+
             'managedSummary'            => $managedSummary,
             'totalManagedCharges'       => $totalManagedCharges,
             'licenseRateCard'           => $licenseRateCard,
@@ -813,23 +1040,13 @@ private function buildEcsPricingLookups(): array
             'backupSummary'             => $backupSummary,
             'totalBackupCharges'        => $totalBackupCharges,
 
-            // logo
             'logoBase64'                => $logoBase64,
             'logoPath'                  => $logoPath,
         ];
 
-        // ============== RENDER 2 PDF: MONTHLY & ANNUAL ==============
-        // Monthly → mode=monthly + contractDuration = durationMonthly
-        $monthlyData = $common + [
-            'mode'              => 'monthly',
-            'contractDuration'  => $durationMonthly,
-        ];
-
-        // Annual → mode=annual + contractDuration = 12
-        $annualData = $common + [
-            'mode'              => 'annual',
-            'contractDuration'  => $durationAnnual,
-        ];
+        // 6) RENDER 3 PDF: MONTHLY, ANNUAL, INTERNAL SUMMARY
+        $monthlyData = $common + ['mode' => 'monthly', 'contractDuration' => $durationMonthly];
+        $annualData  = $common + ['mode' => 'annual',  'contractDuration' => $durationAnnual];
 
         $pdfMonthly = Pdf::loadView('pdf.quotation-table', $monthlyData)
             ->setPaper('a4', 'landscape')
@@ -841,46 +1058,64 @@ private function buildEcsPricingLookups(): array
             ->setOptions(['defaultFont' => 'sans-serif'])
             ->output();
 
-        // ============== SIMPAN FAIL & ZIPKAN ==============
-        $tmpDir = storage_path('app/tmp/' . Str::uuid());
+        // Internal Summary PDF (view: resources/views/pdf/internal-summary.blade.php)
+        $internalData = [
+            'version'   => $version,
+            'project'   => $version->project,
+            'internal'  => $internal,
+            'logoBase64'=> $logoBase64,
+            'logoPath'  => $logoPath,
+        ];
+        $pdfInternal = Pdf::loadView('pdf.internal-summary', $internalData)
+            ->setPaper('a4', 'landscape')
+            ->setOptions(['defaultFont' => 'sans-serif'])
+            ->output();
+
+        // 7) SIMPAN FAIL SEMENTARA
+        $tmpDir = storage_path('app/tmp/'.Str::uuid());
         File::ensureDirectoryExists($tmpDir);
 
-        // Nama asas fail
         $projectCode = $version->project->project_code ?? Str::slug($version->project->name ?? 'project');
         $verNo       = $version->version_number ?? '1';
         $base        = "quotation_{$projectCode}_v{$verNo}";
 
-        $monthlyName = "{$base}_monthly_{$durationMonthly}m.pdf";
-        $annualName  = "{$base}_annual_12m.pdf";
+        $monthlyName  = "{$base}_monthly_{$durationMonthly}m.pdf";
+        $annualName   = "{$base}_annual_12m.pdf";
+        $internalName = "{$base}_internal_summary.pdf";
 
-        file_put_contents("$tmpDir/$monthlyName", $pdfMonthly);
-        file_put_contents("$tmpDir/$annualName",  $pdfAnnual);
+        file_put_contents("$tmpDir/$monthlyName",  $pdfMonthly);
+        file_put_contents("$tmpDir/$annualName",   $pdfAnnual);
+        file_put_contents("$tmpDir/$internalName", $pdfInternal);
 
-        // Zip
+        // 8) ZIP
         $zipPath = "$tmpDir/{$base}_bundle.zip";
         $zip = new \ZipArchive();
         if ($zip->open($zipPath, \ZipArchive::CREATE) !== true) {
             throw new \RuntimeException('Cannot create zip file.');
         }
-        $zip->addFile("$tmpDir/$monthlyName", $monthlyName);
-        $zip->addFile("$tmpDir/$annualName",  $annualName);
+        $zip->addFile("$tmpDir/$monthlyName",  $monthlyName);
+        $zip->addFile("$tmpDir/$annualName",   $annualName);
+        $zip->addFile("$tmpDir/$internalName", $internalName);
         $zip->close();
 
-        // (Opsyenal) bersihkan pdf sementara; zip akan auto-delete lepas dihantar
-        @unlink("$tmpDir/$monthlyName");
-        @unlink("$tmpDir/$annualName");
-
+        // 9) HANTAR & AUTO-DELETE ZIP (folder akan dibersihkan dalam finally)
         return response()->download($zipPath)->deleteFileAfterSend(true);
 
     } catch (\Throwable $e) {
-        // Error jelas kalau ada helper tak jumpa dsb.
         return response()->json([
             'error'   => 'Failed to generate ZIP',
             'message' => $e->getMessage(),
             'file'    => $e->getFile(),
             'line'    => $e->getLine(),
         ], 500);
+    } finally {
+        // Cleanup folder sementara (jika sempat dibuat)
+        if ($tmpDir && is_dir($tmpDir)) {
+            try { File::deleteDirectory($tmpDir); } catch (\Throwable $ex) {}
+
+        }
     }
-}
+}*/
+
 
 }

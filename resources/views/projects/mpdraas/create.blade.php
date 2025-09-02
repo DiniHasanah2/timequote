@@ -206,10 +206,119 @@
 
 
 
+{{-- CSRF untuk fetch --}}
+<meta name="csrf-token" content="{{ csrf_token() }}">
+
+<table class="table table-bordered w-auto">
+  <thead class="table-dark">
+    <tr><th colspan="8">Disaster Recovery Components - ONLY ACTIVATED DURING DR</th></tr>
+    <tr>
+      <th class="bg-dark fw-bold" colspan="3">NETWORK</th>
+      <th class="bg-dark fw-bold" colspan="2">QUANTITY</th>
+      <th class="bg-dark fw-bold" colspan="3">MONTHLY RECURRING CHARGES</th>
+    </tr>
+    <tr>
+      <th class="bg-dark">Code</th>
+      <th class="bg-dark">Component Name</th>
+      <th class="bg-dark">Unit</th>
+      <th class="bg-dark">KL</th>
+      <th class="bg-dark">CJ</th>
+      <th class="bg-dark">KL Charges</th>
+      <th class="bg-dark">CJ Charges</th>
+      <th class="bg-dark">Total</th>
+    </tr>
+  </thead>
+  <tbody>
+  @php $saved = $mpdraas->dr_network ?? []; @endphp
+
+  @foreach($drNetworkRows as $row)
+    @php
+      $code  = $row['code'];
+      $price = $row['price'];
+      $prev  = $saved[$code] ?? [];
+      $klQty = $prev['kl_qty'] ?? 0;
+      $cjQty = $prev['cj_qty'] ?? 0;
+      $klAmt = number_format(($prev['kl_amount'] ?? 0), 2);
+      $cjAmt = number_format(($prev['cj_amount'] ?? 0), 2);
+      $tot   = number_format(($prev['total'] ?? 0), 2);
+    @endphp
+    <tr class="dr-line"
+        data-code="{{ $code }}"
+        data-price="{{ $price }}">
+      <td>{{ $code }}</td>
+      <td>{{ $row['name'] }}</td>
+      <td>{{ $row['unit'] }}</td>
+
+      <td style="max-width:120px">
+        <input type="number" min="0" step="1"
+               class="form-control qty-kl"
+               value="{{ $klQty }}">
+      </td>
+      <td style="max-width:120px">
+        <input type="number" min="0" step="1"
+               class="form-control qty-cj"
+               value="{{ $cjQty }}">
+      </td>
+
+      <td class="kl-amount">RM{{ $klAmt }}</td>
+      <td class="cj-amount">RM{{ $cjAmt }}</td>
+      <td class="total-amount">RM{{ $tot }}</td>
+    </tr>
+  @endforeach
+  </tbody>
+</table>
+
+<script>
+(function(){
+  const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+  const autosaveUrl = "{{ route('versions.mpdraas.autosave', $version->id) }}";
+
+  function fmt(n){ return 'RM' + (Number(n||0).toFixed(2)); }
+
+  function recalcAndSave(tr){
+    const price = Number(tr.dataset.price || 0);
+    const code  = tr.dataset.code;
+
+    const klInput = tr.querySelector('.qty-kl');
+    const cjInput = tr.querySelector('.qty-cj');
+
+    const klQty = Number(klInput.value || 0);
+    const cjQty = Number(cjInput.value || 0);
+
+    const klAmt = klQty * price;
+    const cjAmt = cjQty * price;
+    const tot   = klAmt + cjAmt;
+
+    tr.querySelector('.kl-amount').textContent = fmt(klAmt);
+    tr.querySelector('.cj-amount').textContent = fmt(cjAmt);
+    tr.querySelector('.total-amount').textContent = fmt(tot);
+
+    // autosave ke server
+    fetch(autosaveUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': token
+      },
+      body: JSON.stringify({ code: code, kl_qty: klQty, cj_qty: cjQty })
+    }).then(r => r.json()).then(j => {
+      if(!j.ok){ console.warn('Autosave error', j); }
+      // kalau nak update summary total global, boleh baca j.summary
+    }).catch(e => console.error(e));
+  }
+
+  document.querySelectorAll('tr.dr-line').forEach(tr => {
+    tr.querySelectorAll('.qty-kl, .qty-cj').forEach(inp => {
+      inp.addEventListener('input', () => recalcAndSave(tr));
+      inp.addEventListener('change', () => recalcAndSave(tr));
+    });
+  });
+})();
+</script>
 
 
 
-                  <table class="table table-bordered w-auto">
+                 <!-- <table class="table table-bordered w-auto">
                       <body>
                         <thead class="table-dark">
                             <tr>
@@ -340,7 +449,7 @@
                                            
                           
                     </tbody>
-                </table>
+                </table>--->
 
                 
             </div>

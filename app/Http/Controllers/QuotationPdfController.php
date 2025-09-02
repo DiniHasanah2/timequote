@@ -93,7 +93,7 @@ if (is_file($logoPath)) {
                 'contractDuration'          => $contractDuration,
                 'backupSummary'             => $backupSummary,
                 'totalBackupCharges'        => $totalBackupCharges,
-                'logoPath'                  => public_path('assets/time_logo.png'),
+                //'logoPath'                  => public_path('assets/time_logo.png'),
                 'logoBase64' => $logoBase64,
                 'logoPath'   => $logoPath,
             ];
@@ -103,7 +103,16 @@ if (is_file($logoPath)) {
                 ->setPaper('a4', 'landscape')
                 ->setOptions(['defaultFont' => 'sans-serif']);
 
-            $filename = 'quotation_' . ($version->project->project_code ?? 'project') . '_v' . ($version->version_number ?? '1') . '.pdf';
+            //$filename = 'quotation_' . ($version->project->project_code ?? 'project') . '_v' . ($version->version_number ?? '1') . '.pdf';
+
+            $filename = sprintf(
+    'quotation_%s_v%s_%s_%sm.pdf',
+    $version->project->project_code ?? 'project',
+    $version->version_number ?? '1',
+    $mode,                                 // 'monthly' | 'annual'
+    $contractDuration                      // 12 bila annual, x bila monthly ikut session
+);
+
 
             return $pdf->download($filename);
 

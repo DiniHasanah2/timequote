@@ -8,78 +8,60 @@ use App\Models\Version;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+
 
 class ProjectController extends Controller
 {
-    public function index()
-    {
-        $user = Auth::user();
-    
-        if (!$user) {
-            abort(403, 'Unauthorized');
-        }
-    
-        // change query projects based role user (ONLY SEE OWNS PROJECT)
-       
-        
-        /*if ($user->role === 'presale') {
-            $projectsQuery->where('presale_id', $user->id);//view personal project
-        }*/
+    public function index(Request $request)
+{
+    $user = Auth::user();
+    if (!$user) {
+        abort(403, 'Unauthorized');
+    }
 
+    // read filters from query
+    $selectedCustomerId = $request->query('customer_id');
+    $projectKeyword     = trim($request->query('project', ''));
 
+    $projectsQuery = Project::with([
+        'customer',
+        'versions.quotations.products',
+        'versions.latestQuotation',
+        'assigned_presales'
+    ]);
 
+    // role-based scoping
+    if (in_array($user->role, ['presale', 'product'])) {
+        $projectsQuery->where(function ($q) use ($user) {
+            $q->where('presale_id', $user->id)
+              ->orWhereHas('assigned_presales', function ($sub) use ($user) {
+                  $sub->where('users.id', $user->id);
+              });
+        });
+    }
 
-        //PRESALE SEE ALL PROJECTS:  $projectsQuery = Project::with(['customer', 'versions']);
+    // filter by customer (optional)
+    if (!empty($selectedCustomerId)) {
+        $projectsQuery->where('customer_id', $selectedCustomerId);
+    }
 
-        //presale hanya nampak project dia cipta (presale_id) atau yang admin assign kat dia (project_presale table)
-        
-        //$projectsQuery = Project::with(['customer', 'versions', 'assigned_presales']);
-        $projectsQuery = Project::with([
-    'customer',
-    'versions.quotations.products',
-    'assigned_presales'
-]);
+    // filter by project name (optional)
+    if ($projectKeyword !== '') {
+        $projectsQuery->where('name', 'LIKE', '%' . $projectKeyword . '%');
+    }
 
+    $projects  = $projectsQuery->orderBy('created_at', 'asc')->get();
+    $customers = Customer::orderBy('name')->get();
+    $presales  = User::where('role', 'presale')->get();
 
-
-//if ($user->role === 'presale') 
-
-
-if (in_array($user->role, ['presale', 'product'])) {
-
-
-    $projectsQuery->where(function ($q) use ($user) {
-        $q->where('presale_id', $user->id)
-          ->orWhereHas('assigned_presales', function ($sub) use ($user) {
-              $sub->where('users.id', $user->id);
-          });
-    });
+    return view('projects.index', compact(
+        'projects', 'customers', 'presales', 'selectedCustomerId', 'projectKeyword'
+    ));
 }
 
-        
-        //$projects = $projectsQuery->get();
-        $projects = $projectsQuery->orderBy('created_at', 'asc')->get();
 
-        
-        //$customers = Customer::all();
-        $customers = Customer::orderBy('name')->get();
-      
-
-
-
-        /*ORIGINAL ONE
-        $customers = Customer::whereHas('presale', function ($query) use ($user) {
-    $query->where('department', $user->department);
-})->get();*/
-
-        
-        //$customers = Customer::where('presale_id', $user->id)->get(); //show customer that only owns by the current presale
-        $presales = User::where('role', 'presale')->get();
-        
-        return view('projects.index', compact('projects', 'customers', 'presales'));
-        
-  
-    }
 
     public function store(Request $request)
     {
@@ -108,15 +90,6 @@ if (in_array($user->role, ['presale', 'product'])) {
 $projectName = preg_replace('/[^a-zA-Z0-9]/', '', strtolower($validated['name']));
 $versionName = preg_replace('/[^a-zA-Z0-9]/', '', strtolower($validated['version_name']));
 
-//$versionName = strtolower(trim($validated['version_name']));
-
-// Cari projek yang sama untuk customer ini
-/*$existingProject = Project::where('customer_id', $customerId)
-    ->whereRaw('LOWER(name) = ?', [$projectName])
-    ->whereHas('versions', function ($query) use ($versionName) {
-        $query->whereRaw('LOWER(version_name) = ?', [$versionName]);
-    })
-    ->first();*/
 
 
    $existingProjects = Project::where('customer_id', $customerId)
@@ -180,13 +153,6 @@ if (in_array($user->role, ['presale', 'product']) &&
 }
 
 
-// Protect unauthorized presale
-/*if ($user->role === 'presale' && 
-    $project->presale_id !== $user->id && 
-    !$project->assigned_presales->contains('id', $user->id)) {
-    abort(403, 'Unauthorized');
-}*/
-
 
 
     return view('projects.edit', compact('project'));
@@ -207,11 +173,6 @@ if (in_array($user->role, ['presale', 'product']) &&
 }
 
 
-/*if ($user->role === 'presale' && 
-    $project->presale_id !== $user->id && 
-    !$project->assigned_presales->contains('id', $user->id)) {
-    abort(403, 'Unauthorized');
-}*/
 
     
     $project->update([
@@ -251,18 +212,107 @@ if (in_array($user->role, ['presale', 'product']) &&
     abort(403, 'Unauthorized');
 }
 
-
-/*if ($user->role === 'presale' && 
-    $project->presale_id !== $user->id && 
-    !$project->assigned_presales->contains('id', $user->id)) {
-    abort(403, 'Unauthorized');
-}*/
-
  $project->delete();
     
     return redirect()->route('projects.index')
         ->with('success', 'Project deleted!');
 }
+
+
+
+
+
+public function duplicateVersion($versionId)
+{
+    $user = Auth::user();
+
+    // Prevent heavy load relations (cycle less cycle)
+    $version = Version::findOrFail($versionId);
+    $project = Project::findOrFail($version->project_id);
+
+    // Permission check
+    if (in_array($user->role, ['presale', 'product']) &&
+        $project->presale_id !== $user->id &&
+        !$project->assigned_presales()->where('users.id', $user->id)->exists()) {
+        abort(403, 'Unauthorized');
+    }
+
+    $newVersion = null;
+
+    DB::transaction(function () use ($project, $version, &$newVersion) {
+        // 1) next version number (ikut pattern +0.1)
+        $latest = $project->versions()->max('version_number');
+        $next   = $latest ? (float)$latest + 0.1 : 1.0;
+        $next   = round($next, 1);
+
+        // 2) Clone version (tanpa relations) dan SAVE (bukan push)
+        $newVersion = $version->replicate();
+        $newVersion->version_number = $next;
+        $newVersion->version_name   = $version->version_name . ' (Copy)';
+
+        // PENTING: kosongkan relations supaya save() tak cuba cascade
+        $newVersion->setRelations([]);
+        $newVersion->save();
+
+        // Helper untuk clone rows by project_id + version_id
+        $cloneRows = function ($modelClass) use ($project, $version, $newVersion) {
+            if (!class_exists($modelClass)) return;
+
+            $modelClass::where('project_id', $project->id)
+                ->where('version_id', $version->id)
+                ->get()
+                ->each(function ($row) use ($project, $newVersion) {
+                    $clone = $row->replicate();
+                    $clone->project_id = $project->id;
+                    $clone->version_id = $newVersion->id;
+                    // Pastikan tiada relations tersangkut
+                    if (method_exists($clone, 'setRelations')) {
+                        $clone->setRelations([]);
+                    }
+                    $clone->save();
+                });
+        };
+
+        // 3) Clone modules berkaitan
+        $cloneRows(\App\Models\ECSConfiguration::class);
+        $cloneRows(\App\Models\Region::class);
+        $cloneRows(\App\Models\SecurityService::class);
+        $cloneRows(\App\Models\MPDRaaS::class);
+        $cloneRows(\App\Models\NonStandardItem::class);
+
+        // TIP: Jangan clone InternalSummary; ia computed
+        // $cloneRows(\App\Models\InternalSummary::class);
+
+        // 4) Clone quotation + items (jika ada)
+        $oldQuote = $version->quotations()->first();
+        if ($oldQuote) {
+            $newQuote = $oldQuote->replicate();
+            $newQuote->project_id = $project->id;
+            $newQuote->version_id = $newVersion->id;
+            $newQuote->status     = 'pending';
+            $newQuote->quote_code = 'Q-' . now()->format('Ymd') . '-' . Str::upper(Str::random(5));
+            $newQuote->save();
+
+            if (method_exists($oldQuote, 'products')) {
+                foreach ($oldQuote->products as $item) {
+                    $clone = $item->replicate();
+                    if (isset($clone->quotation_id)) {
+                        $clone->quotation_id = $newQuote->id;
+                    }
+                    if (method_exists($clone, 'setRelations')) {
+                        $clone->setRelations([]);
+                    }
+                    $clone->save();
+                }
+            }
+        }
+    });
+
+    return redirect()
+        ->route('versions.solution_type.create', $newVersion->id)
+        ->with('success', "Duplicated to {$newVersion->version_name} (v{$newVersion->version_number}).");
+}
+
 
 
 
@@ -297,7 +347,7 @@ public function assignPresalesForm($projectId)
     $project = Project::with('assigned_presales')->findOrFail($projectId);
     $presales = User::whereIn('role', ['presale', 'product'])->get();
 
-    //$presales = User::where('role', 'presale')->get();
+   
 
     return view('projects.assign_presales', compact('project', 'presales'));
 }
@@ -310,7 +360,9 @@ public function assignPresales(Request $request, $projectId)
     $project->assigned_presales()->sync($presaleIds); // attach/detach in one go
 
     return redirect()->route('projects.index')->with('success', 'Presales updated');
+    
 }
+
 
 
 }

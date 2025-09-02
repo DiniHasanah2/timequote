@@ -47,6 +47,9 @@ class InternalSummary extends Model
         'cyber_nat_gateway_large',
         'cyber_nat_gateway_xlarge',
 
+      
+
+
 
     // Storage
     'kl_scalable_file_service',
@@ -166,7 +169,12 @@ class InternalSummary extends Model
     'kl_dr_rhel_1_8','cyber_dr_rhel_1_8',
     'kl_dr_rhel_9_127','cyber_dr_rhel_9_127',
 
+  // JSON & lock flags
+//'ecs_flavour_summary',
+'is_logged', 'logged_at',
 
+// DR EVS during activation
+'kl_evs_dr', 'cyber_evs_dr',
 
 
 
@@ -179,7 +187,11 @@ class InternalSummary extends Model
         'vcpu_count' => 'integer',
         'vram_count' => 'integer',
         'worker_flavour_mapping' => 'array',//'array' if storing JSON in the database
-    ];
+        'is_logged' => 'boolean',
+        'logged_at' => 'datetime',
+        'ecs_flavour_summary' => 'array', 
+];
+
      
 
 

@@ -144,9 +144,23 @@
 
         <div style="border: 1px solid #ddd; border-radius: 5px; padding: 20px; background: #fff;">
                
+
+
+
+
+
+
+@php
+    $catalogMeta   = config('pricing._catalog');
+    $catalogLabel  = is_array($catalogMeta)
+        ? ($catalogMeta['version_name'] ?? ($catalogMeta['version_code'] ?? null))
+        : null;
+@endphp
+
 <p style="font-size: 15px; margin-top: 5px;">
-    Confidential | {{ now()->format('d/m/Y') }} | Quotation ID: {{ $quotation->id ?? $quotationId }}
+    Confidential | {{ now()->format('d/m/Y') }} | Quotation ID: {{ $quotation->id ?? $quotationId }}@if($catalogLabel) | Catalog Version: {{ $catalogLabel }} @endif
 </p>
+
 
 
 
@@ -717,8 +731,12 @@
 
 
 <!-- CSV Download -->
-<a href="{{ route('versions.quotation.generate_csv', $version->id) }}" class="btn btn-pink">
+<!---<a href="{{ route('versions.quotation.generate_csv', $version->id) }}" class="btn btn-pink">
     <i class="bi bi-download"></i> Download CSV
+</a>--->
+
+<a href="{{ route('versions.quotation.generate_xlsx', $version->id) }}" class="btn btn-pink">
+    <i class="bi bi-download"></i> Download Excel (.xlsx)
 </a>
 
         <a href="{{ route('versions.download_zip', $version->id) }}" class="btn btn-pink">

@@ -49,6 +49,13 @@
     $securitySummary     = $securitySummary     ?? [];
 @endphp
 
+@php
+    // Mode & multiplier untuk paparan PDF
+    $mode = $mode ?? 'monthly';
+    $mult = $mode === 'annual' ? 12 : 1;
+    $chargesLabel = $mult === 12 ? 'Annual Charges' : 'Monthly Charges';
+@endphp
+
 
 <!DOCTYPE html>
 <html>
@@ -71,9 +78,18 @@
 </head>
 <body>
 
-    <p style="font-size: 11px; margin: 0 0 6px;">
-        Confidential | {{ now()->format('d/m/Y') }} | Quotation ID: {{ $quotation->id ?? '-' }}
-    </p>
+   
+
+    @php
+    $catalogMeta   = config('pricing._catalog');
+    $catalogLabel  = is_array($catalogMeta)
+        ? ($catalogMeta['version_name'] ?? ($catalogMeta['version_code'] ?? null))
+        : null;
+@endphp
+
+<p style="font-size: 11px; margin: 0 0 6px;">
+    Confidential | {{ now()->format('d/m/Y') }} | Quotation ID: {{ $quotation->id ?? '-' }}@if($catalogLabel) | Catalog Version: {{ $catalogLabel }} @endif
+</p>
 
     <div class="wrap">
         
@@ -184,15 +200,24 @@
 </div>
 
 
+@php
+    $isMonthly = ($mode ?? 'monthly') === 'monthly';
+    $chargesLabel = $isMonthly ? 'Monthly Charges' : 'Annual Charges';
+@endphp
+
+
         {{-- Summary --}}
         <table style="margin-top:12px;">
             <tr class="pink"><th colspan="5">Summary of Quotation</th></tr>
             <tr class="dark">
                 <th rowspan="2">Category</th>
                 <th rowspan="2">One Time<br>Charges</th>
-                <th colspan="2">Monthly Charges</th>
+               <th colspan="2">{{ $chargesLabel }}</th>
                 <th rowspan="2">Total Charges</th>
             </tr>
+
+
+            
             <tr class="dark">
                 <th>Region 1 (KL)</th>
                 <th>Region 2 (CJ)</th>
@@ -215,9 +240,9 @@
             <tr>
                 <td>Managed Services</td>
                 <td></td>
-                <td class="right">{{ $managedKL > 0 ? 'RM' . number_format($managedKL, 2) : 'RM -' }}</td>
-                <td class="right">{{ $managedCJ > 0 ? 'RM' . number_format($managedCJ, 2) : 'RM -' }}</td>
-                <td class="right">{{ ($totalManagedCharges ?? 0) > 0 ? 'RM' . number_format($totalManagedCharges, 2) : 'RM -' }}</td>
+                <td class="right">{{ $managedKL > 0 ? 'RM' . number_format($managedKL * $mult, 2) : 'RM -' }}</td>
+                <td class="right">{{ $managedCJ > 0 ? 'RM' . number_format($managedCJ * $mult, 2) : 'RM -' }}</td>
+                <td class="right">{{ ($totalManagedCharges ?? 0) > 0 ? 'RM' . number_format(($totalManagedCharges ?? 0) * $mult, 2) : 'RM -' }}</td>
             </tr>
 
             {{-- Network --}}
@@ -225,9 +250,9 @@
             <tr>
                 <td>Network</td>
                 <td></td>
-                <td class="right">{{ ($klTotal ?? 0) > 0 ? 'RM' . number_format($klTotal, 2) : 'RM -' }}</td>
-                <td class="right">{{ ($cjTotal ?? 0) > 0 ? 'RM' . number_format($cjTotal, 2) : 'RM -' }}</td>
-                <td class="right">{{ $networkTotal > 0 ? 'RM' . number_format($networkTotal, 2) : 'RM -' }}</td>
+                <td class="right">{{ ($klTotal ?? 0) > 0 ? 'RM' . number_format(($klTotal ?? 0) * $mult, 2) : 'RM -' }}</td>
+                <td class="right">{{ ($cjTotal ?? 0) > 0 ? 'RM' . number_format(($cjTotal ?? 0) * $mult, 2) : 'RM -' }}</td>
+                <td class="right">{{ $networkTotal > 0 ? 'RM' . number_format($networkTotal * $mult, 2) : 'RM -' }}</td>
             </tr>
 
             {{-- Compute - ECS --}}
@@ -238,18 +263,18 @@
             <tr>
                 <td>Compute - ECS</td>
                 <td></td>
-                <td class="right">{{ $ecsKL > 0 ? 'RM' . number_format($ecsKL, 2) : 'RM -' }}</td>
-                <td class="right">{{ $ecsCJ > 0 ? 'RM' . number_format($ecsCJ, 2) : 'RM -' }}</td>
-                <td class="right">{{ ($ecsKL + $ecsCJ) > 0 ? 'RM' . number_format($ecsKL + $ecsCJ, 2) : 'RM -' }}</td>
+                <td class="right">{{ $ecsKL > 0 ? 'RM' . number_format($ecsKL * $mult, 2) : 'RM -' }}</td>
+                <td class="right">{{ $ecsCJ > 0 ? 'RM' . number_format($ecsCJ * $mult, 2) : 'RM -' }}</td>
+                <td class="right">{{ ($ecsKL + $ecsCJ) > 0 ? 'RM' . number_format(($ecsKL + $ecsCJ) * $mult, 2) : 'RM -' }}</td>
             </tr>
 
             {{-- Licenses --}}
             <tr>
                 <td>Licenses</td>
                 <td></td>
-                <td class="right">{{ $licenseKL > 0 ? 'RM' . number_format($licenseKL, 2) : 'RM -' }}</td>
-                <td class="right">{{ $licenseCJ > 0 ? 'RM' . number_format($licenseCJ, 2) : 'RM -' }}</td>
-                <td class="right">{{ ($licenseKL + $licenseCJ) > 0 ? 'RM' . number_format($licenseKL + $licenseCJ, 2) : 'RM -' }}</td>
+                <td class="right">{{ $licenseKL > 0 ? 'RM' . number_format($licenseKL * $mult, 2) : 'RM -' }}</td>
+                <td class="right">{{ $licenseCJ > 0 ? 'RM' . number_format($licenseCJ * $mult, 2) : 'RM -' }}</td>
+                <td class="right">{{ ($licenseKL + $licenseCJ) > 0 ? 'RM' . number_format(($licenseKL + $licenseCJ) * $mult, 2) : 'RM -' }}</td>
             </tr>
 
             {{-- Storage --}}
@@ -259,9 +284,9 @@
             <tr>
                 <td>Storage</td>
                 <td></td>
-                <td class="right">{{ $klStorageTotal > 0 ? 'RM' . number_format($klStorageTotal, 2) : 'RM -' }}</td>
-                <td class="right">{{ $cjStorageTotal > 0 ? 'RM' . number_format($cjStorageTotal, 2) : 'RM -' }}</td>
-                <td class="right">{{ $storageTotal > 0 ? 'RM' . number_format($storageTotal, 2) : 'RM -' }}</td>
+                <td class="right">{{ $klStorageTotal > 0 ? 'RM' . number_format($klStorageTotal * $mult, 2) : 'RM -' }}</td>
+                <td class="right">{{ $cjStorageTotal > 0 ? 'RM' . number_format($cjStorageTotal * $mult, 2) : 'RM -' }}</td>
+                <td class="right">{{ $storageTotal > 0 ? 'RM' . number_format($storageTotal * $mult, 2) : 'RM -' }}</td>
             </tr>
 
             {{-- Backup --}}
@@ -271,9 +296,9 @@
             <tr>
                 <td>Backup</td>
                 <td></td>
-                <td class="right">{{ $klBackupTotal > 0 ? 'RM' . number_format($klBackupTotal, 2) : 'RM -' }}</td>
-                <td class="right">{{ $cjBackupTotal > 0 ? 'RM' . number_format($cjBackupTotal, 2) : 'RM -' }}</td>
-                <td class="right">{{ $backupTotal > 0 ? 'RM' . number_format($backupTotal, 2) : 'RM -' }}</td>
+                <td class="right">{{ $klBackupTotal > 0 ? 'RM' . number_format($klBackupTotal * $mult, 2) : 'RM -' }}</td>
+                <td class="right">{{ $cjBackupTotal > 0 ? 'RM' . number_format($cjBackupTotal * $mult, 2) : 'RM -' }}</td>
+                <td class="right">{{ $backupTotal > 0 ? 'RM' . number_format($backupTotal * $mult, 2) : 'RM -' }}</td>
             </tr>
 
             {{-- DR (placeholder) --}}
@@ -294,9 +319,9 @@
             <tr>
                 <td>Cloud Security</td>
                 <td></td>
-                <td class="right">{{ $cloudSecKL > 0 ? 'RM' . number_format($cloudSecKL, 2) : 'RM -' }}</td>
-                <td class="right">{{ $cloudSecCJ > 0 ? 'RM' . number_format($cloudSecCJ, 2) : 'RM -' }}</td>
-                <td class="right">{{ $cloudSecTotal > 0 ? 'RM' . number_format($cloudSecTotal, 2) : 'RM -' }}</td>
+                <td class="right">{{ $cloudSecKL > 0 ? 'RM' . number_format($cloudSecKL * $mult, 2) : 'RM -' }}</td>
+                <td class="right">{{ $cloudSecCJ > 0 ? 'RM' . number_format($cloudSecCJ * $mult, 2) : 'RM -' }}</td>
+                <td class="right">{{ $cloudSecTotal > 0 ? 'RM' . number_format($cloudSecTotal * $mult, 2) : 'RM -' }}</td>
             </tr>
 
             {{-- Monitoring --}}
@@ -308,9 +333,9 @@
             <tr>
                 <td>Additional Services - Monitoring</td>
                 <td></td>
-                <td class="right">{{ $monKL > 0 ? 'RM' . number_format($monKL, 2) : 'RM -' }}</td>
-                <td class="right">{{ $monCJ > 0 ? 'RM' . number_format($monCJ, 2) : 'RM -' }}</td>
-                <td class="right">{{ $monTotal > 0 ? 'RM' . number_format($monTotal, 2) : 'RM -' }}</td>
+                <td class="right">{{ $monKL > 0 ? 'RM' . number_format($monKL * $mult, 2) : 'RM -' }}</td>
+                <td class="right">{{ $monCJ > 0 ? 'RM' . number_format($monCJ * $mult, 2) : 'RM -' }}</td>
+                <td class="right">{{ $monTotal > 0 ? 'RM' . number_format($monTotal * $mult, 2) : 'RM -' }}</td>
             </tr>
 
             {{-- Security Services --}}
@@ -322,13 +347,16 @@
             <tr>
                 <td>Security Services</td>
                 <td></td>
-                <td class="right">{{ $secKL > 0 ? 'RM' . number_format($secKL, 2) : 'RM -' }}</td>
-                <td class="right">{{ $secCJ > 0 ? 'RM' . number_format($secCJ, 2) : 'RM -' }}</td>
-                <td class="right">{{ $secTotal > 0 ? 'RM' . number_format($secTotal, 2) : 'RM -' }}</td>
+                <td class="right">{{ $secKL > 0 ? 'RM' . number_format($secKL * $mult, 2) : 'RM -' }}</td>
+                <td class="right">{{ $secCJ > 0 ? 'RM' . number_format($secCJ * $mult, 2) : 'RM -' }}</td>
+                <td class="right">{{ $secTotal > 0 ? 'RM' . number_format($secTotal * $mult, 2) : 'RM -' }}</td>
             </tr>
         </table>
 
         {{-- Totals (bawah) --}}
+        @php
+            $totalsLabel = $mult === 12 ? 'ANNUAL TOTAL' : 'MONTHLY TOTAL';
+        @endphp
         <table class="no-border" style="margin-top:10px;">
             <tr>
                 <td class="grey right" style="font-size:13px;">ONE TIME CHARGES TOTAL</td>
@@ -337,9 +365,9 @@
                 </td>
             </tr>
             <tr>
-                <td class="grey right" style="font-size:13px;">MONTHLY TOTAL</td>
+                <td class="grey right" style="font-size:13px;">{{ $totalsLabel }}</td>
                 <td class="right" style="border:1px solid #ccc;">
-                    {{ $monthlyTotal > 0 ? 'RM' . number_format($monthlyTotal, 2) : 'RM -' }}
+                    {{ $monthlyTotal > 0 ? 'RM' . number_format($monthlyTotal * $mult, 2) : 'RM -' }}
                 </td>
             </tr>
             <tr>
