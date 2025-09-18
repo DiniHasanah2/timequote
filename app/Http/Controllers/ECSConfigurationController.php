@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Models\ECSImport;
 use App\Imports\ECSConfigurationImport;
+use App\Models\InternalSummary;
 
 
 class ECSConfigurationController extends Controller
@@ -21,8 +22,9 @@ class ECSConfigurationController extends Controller
 
         $version = Version::with(['project', 'ecs_configuration'])->findOrFail($versionId);
         
-
-
+    $summary  = InternalSummary::where('version_id', $versionId)->first();
+$isLocked = (bool) optional($summary)->is_logged;
+$lockedAt = optional($summary)->logged_at;
 
     $view = request()->route()->getName() === 'versions.backup.create'
         ? 'projects.backup.create'
@@ -43,6 +45,9 @@ class ECSConfigurationController extends Controller
 
 
             'ddhSummary' => $ddhSummary,
+         
+    'isLocked'        => $isLocked,
+    'lockedAt'        => $lockedAt,
 
             
         ]);
@@ -261,6 +266,12 @@ $ecsDr  = ($drAct === 'Yes' && $region === 'Cyberjaya' && $baseMap)
 
 public function import(Request $request)
 {
+       // 🔒 Block import kalau locked
+    $summary  = InternalSummary::where('version_id', $request->version_id)->first();
+    if (optional($summary)->is_logged) {
+        return back()->with('error', '🔒 This version is locked in Internal Summary. Import is disabled.');
+    }
+
     $request->validate([
         'import_file' => 'required|file|mimes:xlsx|max:81920',
         'version_id'  => 'required|exists:versions,id',
@@ -316,6 +327,12 @@ public function store(Request $request, $versionId)
    
 
     $version = Version::with('project')->findOrFail($versionId);
+
+        $summary  = InternalSummary::where('version_id', $versionId)->first();
+    if (optional($summary)->is_logged) {
+        return back()->with('error', '🔒 This version is locked in Internal Summary. Editing is disabled. Please unlock there if you need to make changes.');
+    }
+
 
     try {
         DB::transaction(function () use ($request, $version) {
@@ -738,12 +755,46 @@ if ($drAct === 'Yes' && $region === 'Cyberjaya') {
 public function destroy($id)
 {
     $config = ECSConfiguration::findOrFail($id);
+      // 🔒 Block delete kalau locked
+    $summary  = InternalSummary::where('version_id', $config->version_id)->first();
+    if (optional($summary)->is_logged) {
+        return response()->json([
+            'success' => false,
+            'message' => '🔒 Locked: cannot delete rows.'
+        ], 423); // 423 Locked
+    }
+
     $config->delete();
+
+    
 
     return response()->json(['success' => true]);
 }
 
 
+public function bulkDestroy(Request $request)
+{
+    $validated = $request->validate([
+        'ids'        => 'required|array',
+        'ids.*'      => 'string',
+        'version_id' => 'required|string',
+    ]);
+
+    // 🔒 Block bulk delete kalau locked
+    $summary  = InternalSummary::where('version_id', $validated['version_id'])->first();
+    if (optional($summary)->is_logged) {
+        return response()->json([
+            'success' => false,
+            'message' => '🔒 Locked: bulk delete disabled.'
+        ], 423);
+    }
+
+    $deleted = ECSConfiguration::where('version_id', $validated['version_id'])
+        ->whereIn('id', $validated['ids'])
+        ->delete();
+
+    return response()->json(['success' => true, 'deleted' => $deleted]);
+}
 
 
 
@@ -752,6 +803,10 @@ public function destroy($id)
 
 public function storePreview(Request $request, $versionId)
 {
+      $summary  = InternalSummary::where('version_id', $versionId)->first();
+    if (optional($summary)->is_logged) {
+        return back()->with('error', '🔒 This version is locked in Internal Summary. Saving preview is disabled.');
+    }
     $previewData = session('importPreview');
 
     if (!is_array($previewData) || empty($previewData)) {

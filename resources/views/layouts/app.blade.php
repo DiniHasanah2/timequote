@@ -164,7 +164,7 @@
     </div>
      
       <a href="{{ route('solutions.index') }}" class="sidebar-link {{ request()->is('solutions*') ? 'active' : '' }}">
-                <i class="bi bi-file-earmark-text"></i> Solution
+                <i class="bi bi-file-earmark-text"></i> Committed Solution
             </a>
    
 

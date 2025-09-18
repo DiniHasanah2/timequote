@@ -8,6 +8,22 @@
 @endphp
 
 @php
+    // safe defaults so optional($region) etc. won't error
+    $region           = $region           ?? null;
+    $security_service = $security_service ?? null;
+    $summary          = $summary          ?? null;
+    $licenseSummary   = $licenseSummary   ?? [];
+    $klManagedServices    = $klManagedServices    ?? [];
+    $cyberManagedServices = $cyberManagedServices ?? [];
+    $usedFlavours     = $usedFlavours     ?? collect();
+    $flavourDetails   = $flavourDetails   ?? collect();
+    $drCountsKL       = $drCountsKL       ?? [];
+    $drCountsCJ       = $drCountsCJ       ?? [];
+    $nonStandardItems = $nonStandardItems ?? collect();
+@endphp
+
+
+@php
     // --- FREEZE WHEN LOGGED ---
     if (!empty($summary) && ($summary->is_logged ?? false)) {
         // Bekukan License Summary daripada snapshot
@@ -127,17 +143,18 @@
                 <span class="breadcrumb-separator">»</span>
             @endif
 
-            {{-- Security Services --}}
-            <a href="{{ route('versions.security_service.create', $version->id) }}"
-               class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.create' ? 'active-link' : '' }}">
-               Security Services
-            </a>
+            <a href="{{ route('versions.security_service.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.create' ? 'active-link' : '' }}">Cloud Security</a>
             <span class="breadcrumb-separator">»</span>
+               <a href="{{ route('versions.security_service.time.create', $version->id) }}"
+   class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.time.create' ? 'active-link' : '' }}">
+  Time Security Services
+</a>
+<span class="breadcrumb-separator">»</span>
 
-            {{-- Other Services --}}
+          
             <a href="{{ route('versions.non_standard_items.create', $version->id) }}"
                class="breadcrumb-link {{ Route::currentRouteName() === 'versions.non_standard_items.create' ? 'active-link' : '' }}">
-               Other Services
+               Non-Standard Services
             </a>
             <span class="breadcrumb-separator">»</span>
 
@@ -935,6 +952,21 @@
                                 </tr>
                             @endforeach
                         @endif
+
+                        <tr>
+  <td colspan="6">
+    <a href="{{ route('versions.customization.show', $version->id) }}"
+       class="btn btn-outline-secondary btn-sm"
+       aria-label="Open customization for entire subscription period">
+      <i class="bi bi-sliders me-1"></i>
+      Customization for entire subscription period
+    </a>
+  </td>
+</tr>
+
+
+
+                
                     </tbody>
                 </table>
             </div>

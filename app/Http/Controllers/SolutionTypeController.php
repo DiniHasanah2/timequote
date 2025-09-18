@@ -6,6 +6,7 @@ use App\Models\Project;
 use App\Models\Version;
 use App\Models\SolutionType;
 use Illuminate\Http\Request;
+use App\Models\InternalSummary;
 
 class SolutionTypeController extends Controller
 {
@@ -13,11 +14,16 @@ class SolutionTypeController extends Controller
     {
         // Dapatkan version 
         $version = Version::with(['project', 'solution_type'])->findOrFail($versionId);
+         $summary  = InternalSummary::where('version_id', $versionId)->first();
+$isLocked = (bool) optional($summary)->is_logged;
+$lockedAt = optional($summary)->logged_at;
         
         return view('projects.solution_type.create', [
             'project' => $version->project,
             'version' => $version,
-            'solution_type' => $version->solution_type 
+            'solution_type' => $version->solution_type,
+               'isLocked'         => $isLocked,
+    'lockedAt'         => $lockedAt,
         ]);
     }
 
@@ -25,6 +31,11 @@ class SolutionTypeController extends Controller
 public function store(Request $request, $versionId)
 {
     $version = Version::with('project')->findOrFail($versionId);
+       // lock guard
+    $summary = InternalSummary::where('version_id', $versionId)->first();
+    if (optional($summary)->is_logged) {
+        return back()->with('error', '🔒 This version is locked in Internal Summary. Editing is disabled. Please unlock there if you need to make changes.');
+    }
 
     /*$validated = $request->validate([
         'solution_type' => 'required|in:TCS Only,MP-DRaaS Only,Both',

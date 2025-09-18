@@ -5,10 +5,13 @@
     $solution_type = $solution_type ?? $version->solution_type ?? null;
 @endphp
 
+
+
 @php
-    $mode = $mode ?? 'annual'; // view ini memang annual, tapi biar defensif
-    $mult = ($mode === 'annual') ? 12 : 1; // 12 untuk annual, 1 untuk monthly
-    $periodLabel = ($mult === 12) ? 'Annual' : 'Monthly';
+    $mode = $mode ?? 'annual';
+    $isPrescaled = $is_prescaled ?? false; 
+    $mult = $isPrescaled ? 1 : (($mode === 'annual') ? 12 : 1);
+    $periodLabel = ($mode === 'annual') ? 'Annual' : 'Monthly';
 @endphp
 
 
@@ -41,27 +44,29 @@
     $cjSecurityTotal = collect($securitySummary)->sum('cj_price');
     
 
-    // Monthly Total 
-    $monthlyTotal = 
-        ($totalManagedCharges ?? 0) +                 // Managed Services (total)
-        (($klTotal ?? 0) + ($cjTotal ?? 0)) +         // Network (KL + CJ)
-        (($klEcsTotal ?? 0) + ($cjEcsTotal ?? 0)) +   // ECS (KL + CJ)
-        ($totalLicenseCharges ?? ($licenseKL + $licenseCJ)) + // License (guna total kalau ada, else KL+CJ)
-        ($totalStorageCharges ?? 0) +                 // Storage (total)
-        ($totalBackupCharges ?? 0) +                  // Backup (total)
-        ($totalcloudSecurityCharges ?? 0) +           // Cloud Security (total)
-        ($totalMonitoringCharges ?? 0) +              // Monitoring (total)
-        ($totalSecurityCharges ?? 0);                 // Security Services (total)
+   
 
-    // Duration: annual = 12, monthly = ikut dropdown
-    $duration = ($mode ?? 'monthly') === 'annual' 
-        ? 12 
-        : ($quotation->contract_duration ?? 12);
+    $licenseKL = collect($licenseRateCard)->sum('kl_price');
+    $licenseCJ = collect($licenseRateCard)->sum('cj_price');
+    $klEcsTotal = collect($ecsSummary)->sum('kl_price');
+    $cjEcsTotal = collect($ecsSummary)->sum('cj_price');
 
-    // Kontrak & SST
-    $contractTotal = ($monthlyTotal * $duration) + ($totalProfessionalCharges ?? 0);
-    $serviceTax    = $contractTotal * 0.08;
-    $finalTotal    = $contractTotal + $serviceTax;
+    $computedMonthlyOrAnnual = 
+        ($totalManagedCharges ?? 0) +
+        (($klTotal ?? 0) + ($cjTotal ?? 0)) +
+        (($klEcsTotal ?? 0) + ($cjEcsTotal ?? 0)) +
+        ($totalLicenseCharges ?? ($licenseKL + $licenseCJ)) +
+        ($totalStorageCharges ?? 0) +
+        ($totalBackupCharges ?? 0) +
+        ($totalcloudSecurityCharges ?? 0) +
+        ($totalMonitoringCharges ?? 0) +
+        ($totalSecurityCharges ?? 0);
+
+    $annualCommitment = $isPrescaled
+        ? $computedMonthlyOrAnnual                    
+        : ($computedMonthlyOrAnnual * 12);             
+
+  
 @endphp
 
 
@@ -116,9 +121,14 @@
             <a href="{{ route('versions.mpdraas.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.mpdraas.create' ? 'active-link' : '' }} {{ $isViewOnly ? 'disabled-link' : '' }}">MP-DRaaS</a>
             <span class="breadcrumb-separator">»</span>
             @endif
-            <a href="{{ route('versions.security_service.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.create' ? 'active-link' : '' }} {{ $isViewOnly ? 'disabled-link' : '' }}">Security Services</a>
+             <a href="{{ route('versions.security_service.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.create' ? 'active-link' : '' }}">Cloud Security</a>
             <span class="breadcrumb-separator">»</span>
-            <a href="{{ route('versions.non_standard_items.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.non_standard_items.create' ? 'active-link' : '' }} {{ $isViewOnly ? 'disabled-link' : '' }}">Other Services</a>
+               <a href="{{ route('versions.security_service.time.create', $version->id) }}"
+   class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.time.create' ? 'active-link' : '' }}">
+  Time Security Services
+</a>
+<span class="breadcrumb-separator">»</span>
+            <a href="{{ route('versions.non_standard_items.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.non_standard_items.create' ? 'active-link' : '' }} {{ $isViewOnly ? 'disabled-link' : '' }}">Non-Standard Services</a>
             <span class="breadcrumb-separator">»</span>
             <a href="{{ route('versions.internal_summary.show', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.internal_summary.show' ? 'active-link' : '' }} {{ $isViewOnly ? 'disabled-link' : '' }}">Internal Summary</a>
               <span class="breadcrumb-separator">»</span>
@@ -211,12 +221,14 @@
     <td rowspan="2" style="background: #fff; padding: 5px;">
        
        
-        {{ $monthlyTotal > 0 ? 'RM' . number_format($monthlyTotal * $duration, 2) : 'RM -' }}
+       
 
-        
+        {{ $annualCommitment > 0 ? 'RM' . number_format($annualCommitment, 2) : 'RM -' }}
+
 
     </td>
 
+    
 
 
 
@@ -287,17 +299,14 @@
    
 
 <span style="font-size: 18px; font-weight: normal; color: #000; line-height: 1;">
-    RM{{ $contractTotal > 0 ? number_format($finalTotal, 2) : '-' }}
+   
+    RM{{ isset($finalTotal) ? number_format($finalTotal, 2) : '-' }}
+
 </span>
 
 
 
 
-  
-  
-  <!---<span style="font-size: 18px; font-weight: normal; color: #000; line-height: 1;">RM-
-    </span>--->
-    
 </div>
 
 
@@ -495,15 +504,6 @@
 </tr>
 
 
-                      <tr>
-                        <td style="border: 1px solid #000; padding: 4px;">DR</td>
-                         <td style="border: 1px solid #000; padding: 4px;"></td>
-                        <td style="border: 1px solid #000; padding: 4px;">RM -</td>
-                         <td style="border: 1px solid #000; padding: 4px;">RM -</td>
-                
-
-                        <td style="border: 1px solid #000; padding: 4px;">RM -</td>
-                    </tr>
 
                         <tr>
     <td style="border: 1px solid #000; padding: 4px;">Cloud Security</td>
@@ -528,17 +528,6 @@
     </td>
 </tr>
 
-
-                      <!---<tr>
-                        <td style="border: 1px solid #000; padding: 4px;">Additional Services - Data Protection</td>
-                         <td style="border: 1px solid #000; padding: 4px;"></td>
-                        <td style="border: 1px solid #000; padding: 4px;">RM -</td>
-                         <td style="border: 1px solid #000; padding: 4px;">RM -</td>
-                
-
-                        <td style="border: 1px solid #000; padding: 4px;">RM -</td>
-                
-        </tr>--->
 
 
 
@@ -613,18 +602,35 @@
     
 
 
-<tr>
+<!---<tr>
     <td style="background: #f0f0f0; color: #000; padding: 5px; text-align: right; font-size: 16px;">
         ANNUAL TOTAL
     </td>
     <td style="background: #fff; padding: 5px; text-align: right; border: 1px solid #ccc;">
-   <!---{{ $monthlyTotal > 0 ? 'RM' . number_format($monthlyTotal, 2) : 'RM -' }}--->
+   
 
 
    {{ $monthlyTotal > 0 ? 'RM' . number_format($monthlyTotal * $mult, 2) : 'RM -' }}
 
 </td>
+</tr>--->
+
+@php
+    // Guna nilai tahunan terus dari controller; fallback: monthly * 12
+    $annualTotal = isset($annualRecurringTotal)
+        ? (float) $annualRecurringTotal
+        : (float) (($monthlyTotal ?? 0) * 12);
+@endphp
+
+<tr>
+    <td style="background: #f0f0f0; color: #000; padding: 5px; text-align: right; font-size: 16px;">
+        ANNUAL TOTAL
+    </td>
+    <td style="background: #fff; padding: 5px; text-align: right; border: 1px solid #ccc;">
+        {{ $annualTotal > 0 ? 'RM' . number_format($annualTotal, 2) : 'RM -' }}
+    </td>
 </tr>
+
 
 
 
@@ -735,14 +741,45 @@
 
 
 
-<!-- CSV Download -->
-<!---<a href="{{ route('versions.quotation.generate_csv', $version->id) }}" class="btn btn-pink">
-    <i class="bi bi-download"></i> Download CSV
-</a>--->
+
+
+<a href="{{ route('versions.quotation.generate_xlsx', $version->id) }}?mode=annual" class="btn btn-pink">
+    <i class="bi bi-download"></i> Download Excel (.xlsx)
+</a>
+
+
 
         <a href="{{ route('versions.download_zip', $version->id) }}" class="btn btn-pink">
             <i class="bi bi-download"></i> Download Zip File
         </a>
+
+
+{{-- NEW: butang generate link untuk Commercial --}}
+<a href="{{ route('versions.export_link', $version->id) }}" class="btn btn-outline-secondary ms-2">
+  <i class="bi bi-link-45deg"></i> Generate Share Link (Commercial)
+</a>
+
+{{-- Bila controller flash 'share_link', kita paparkan link + butang Copy --}}
+@if(session('share_link'))
+  <br>
+  <div class="mt-2 small">
+    Share with Commercial:
+    <a id="shareLinkA" href="{{ session('share_link') }}" target="_blank">
+      {{ session('share_link') }}
+    </a>
+
+    <button type="button" id="copyShareBtn" class="btn btn-sm btn-light ms-1">
+      Copy
+    </button>
+
+    
+
+    <div id="copyMsg" class="alert alert-success py-1 px-2 d-none mt-2 mb-0" role="alert"
+         style="display:inline-block;">
+      ✅ Copied!
+    </div>
+  </div>
+@endif
     </div>
 </div>
 
@@ -750,6 +787,41 @@
 
 @endsection
 
+@if(session('share_link'))
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const btn  = document.getElementById('copyShareBtn');
+  const msg  = document.getElementById('copyMsg');
+  const href = document.getElementById('shareLinkA')?.href || @json(session('share_link'));
+
+  async function copyWithFallback(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+    const tmp = document.createElement('input');
+    tmp.value = text;
+    document.body.appendChild(tmp);
+    tmp.select();
+    tmp.setSelectionRange(0, 99999);
+    const ok = document.execCommand('copy');
+    document.body.removeChild(tmp);
+    if (!ok) window.prompt('Copy this link:', text);
+  }
+
+  btn?.addEventListener('click', async () => {
+    try {
+      await copyWithFallback(href);
+      msg?.classList.remove('d-none');
+      setTimeout(() => msg?.classList.add('d-none'), 2000);
+    } catch (e) {
+      console.error(e);
+      alert('Failed to copy. Please copy manually.');
+    }
+  });
+});
+</script>
+@endif
 
 
 @push('styles')

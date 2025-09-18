@@ -104,9 +104,14 @@
             <a href="{{ route('versions.mpdraas.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.mpdraas.create' ? 'active-link' : '' }} {{ $isViewOnly ? 'disabled-link' : '' }}">MP-DRaaS</a>
             <span class="breadcrumb-separator">»</span>
             @endif
-            <a href="{{ route('versions.security_service.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.create' ? 'active-link' : '' }} {{ $isViewOnly ? 'disabled-link' : '' }}">Security Services</a>
+          <a href="{{ route('versions.security_service.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.create' ? 'active-link' : '' }}">Cloud Security</a>
             <span class="breadcrumb-separator">»</span>
-            <a href="{{ route('versions.non_standard_items.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.non_standard_items.create' ? 'active-link' : '' }} {{ $isViewOnly ? 'disabled-link' : '' }}">Other Services</a>
+               <a href="{{ route('versions.security_service.time.create', $version->id) }}"
+   class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.time.create' ? 'active-link' : '' }}">
+  Time Security Services
+</a>
+<span class="breadcrumb-separator">»</span>
+            <a href="{{ route('versions.non_standard_items.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.non_standard_items.create' ? 'active-link' : '' }} {{ $isViewOnly ? 'disabled-link' : '' }}">Non-Standard Services</a>
             <span class="breadcrumb-separator">»</span>
             <a href="{{ route('versions.internal_summary.show', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.internal_summary.show' ? 'active-link' : '' }} {{ $isViewOnly ? 'disabled-link' : '' }}">Internal Summary</a>
               <span class="breadcrumb-separator">»</span>
@@ -184,12 +189,15 @@
          <tr>
         <td style="font-weight: bold; background: #f0f0f0;padding: 5px;">Contract Duration:</td>
 <td style="background: #fff; padding: 5px;">
-    <select  id="contract_duration" name="contract_duration" class="form-select auto-save"
-            data-field="contract_duration"
-            data-version-id="{{ $version->id }}" style="width: 115px; border-radius: 0; padding: 5px;">
-    @foreach([6, 12, 24, 36, 48, 60] as $duration)
-        <option value="{{ $duration }}" {{ old('contract_duration', $quotation->contract_duration ?? 12) == $duration ? 'selected' : '' }}>
-            {{ $duration }} Months
+ <select id="contract_duration"
+        name="contract_duration"
+        class="form-select auto-save"
+        data-field="contract_duration"
+        data-version-id="{{ $version->id }}"
+        style="width: 115px; border-radius: 0; padding: 5px;">
+    @foreach([6, 12, 24, 36, 48, 60] as $d)
+        <option value="{{ $d }}" {{ (int)($contractDuration ?? 12) === $d ? 'selected' : '' }}>
+            {{ $d }} Months
         </option>
     @endforeach
 </select>
@@ -224,34 +232,35 @@
 @endif
 
 
-        <!---<td style="font-weight: bold; background: #f0f0f0; padding: 5px;">Monthly Commitment<br>(Exclude SST):</td>
-        <td style="background: #fff; padding: 5px;">{{ $monthlyTotal > 0 ? 'RM' . number_format($monthlyTotal, 2) : 'RM -' }}</td>--->
   
         
     </tr>
 
 
-
 <script>
-    document.querySelectorAll('.auto-save').forEach(function (element) {
-        element.addEventListener('change', function () {
-            const field = this.dataset.field;
-            const value = this.value;
-            const versionId = this.dataset.versionId;
+document.querySelectorAll('.auto-save').forEach(function (element) {
+  element.addEventListener('change', function () {
+    const field = this.dataset.field;
+    const value = this.value;
+    const versionId = this.dataset.versionId;
 
-            fetch(`/autosave/quotation/${versionId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                },
-                body: JSON.stringify({ field, value })
-            })
-            .then(res => res.json())
-            .then(data => console.log('Auto-saved:', data))
-            .catch(err => console.error('Auto-save error:', err));
-        });
-    });
+    fetch(`/autosave/quotation/${versionId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+      },
+      body: JSON.stringify({ field, value })
+    })
+    .then(res => res.json())
+    .then(data => {
+      console.log('Auto-saved:', data);
+     
+      window.location.reload();
+    })
+    .catch(err => console.error('Auto-save error:', err));
+  });
+});
 </script>
 
     <tr>
@@ -260,12 +269,6 @@
        
 
 
-    <!---<td style="font-weight: bold; background: #f0f0f0; padding: 5px;">Annual Commitment<br>(Exclude SST):</td>
-    <td style="background: #fff; padding: 5px;">
-       
-        {{ $monthlyTotal > 0 ? 'RM' . number_format($monthlyTotal * 12, 2) : 'RM -' }}
-
-    </td>--->
 
 
 
@@ -295,9 +298,6 @@
 
   
   
-  <!---<span style="font-size: 18px; font-weight: normal; color: #000; line-height: 1;">RM-
-    </span>--->
-    
 </div>
 
 
@@ -380,18 +380,6 @@
 
 
 
-                        <!---<td style="border: 1px solid #000; padding: 4px;">RM{{ number_format($klTotal, 2) }}</td>--->
-                        <!---<td style="border: 1px solid #000; padding: 4px;">RM{{ number_format($cjTotal, 2) }}</td>--->
-                        <!---<td style="border: 1px solid #000; padding: 4px;">RM{{ number_format($klTotal + $cjTotal, 2) }}</td>--->
-
-
-                        <!---<tr>
-                        <td style="border: 1px solid #000; padding: 4px;">Compute - ECS</td>
-                         <td style="border: 1px solid #000; padding: 4px;"></td>
-                         <td style="border: 1px solid #000; padding: 4px;">RM -</td>
-    <td style="border: 1px solid #000; padding: 4px;">RM -</td>
-    <td style="border: 1px solid #000; padding: 4px;">RM -</td>
-</tr>--->
 
 @php
     $klEcsTotal = collect($ecsSummary)->sum('kl_price');
@@ -410,15 +398,6 @@
 
 
 
-                         <!---<tr>
-                        <td style="border: 1px solid #000; padding: 4px;">Compute - CCE</td>
-                         <td style="border: 1px solid #000; padding: 4px;"></td>
-                        <td style="border: 1px solid #000; padding: 4px;">RM -</td>
-                         <td style="border: 1px solid #000; padding: 4px;">RM -</td>
-                
-
-                        <td style="border: 1px solid #000; padding: 4px;">RM -</td>
-                    </tr>--->
 
 
                       
@@ -495,15 +474,6 @@
 </tr>
 
 
-                      <tr>
-                        <td style="border: 1px solid #000; padding: 4px;">DR</td>
-                         <td style="border: 1px solid #000; padding: 4px;"></td>
-                        <td style="border: 1px solid #000; padding: 4px;">RM -</td>
-                         <td style="border: 1px solid #000; padding: 4px;">RM -</td>
-                
-
-                        <td style="border: 1px solid #000; padding: 4px;">RM -</td>
-                    </tr>
 
                         <tr>
     <td style="border: 1px solid #000; padding: 4px;">Cloud Security</td>
@@ -529,16 +499,7 @@
 </tr>
 
 
-                      <!---<tr>
-                        <td style="border: 1px solid #000; padding: 4px;">Additional Services - Data Protection</td>
-                         <td style="border: 1px solid #000; padding: 4px;"></td>
-                        <td style="border: 1px solid #000; padding: 4px;">RM -</td>
-                         <td style="border: 1px solid #000; padding: 4px;">RM -</td>
-                
-
-                        <td style="border: 1px solid #000; padding: 4px;">RM -</td>
-                
-        </tr>--->
+                  
 
 
 
@@ -713,14 +674,10 @@
 
 
 
-    <!--- rate card: {{ route('versions.quotation.generate_pdf', $version->id) }} --->
+   
     <div class="d-flex gap-2 ms-auto">
         
 
-
-<!---<a href="{{ route('versions.quotation.download_table_pdf', $version->id) }}" class="btn btn-pink">
-    <i class="bi bi-download"></i> Download PDF
-</a>--->
 
 
 
@@ -730,18 +687,42 @@
 
 
 
-<!-- CSV Download -->
-<!---<a href="{{ route('versions.quotation.generate_csv', $version->id) }}" class="btn btn-pink">
-    <i class="bi bi-download"></i> Download CSV
-</a>--->
-
 <a href="{{ route('versions.quotation.generate_xlsx', $version->id) }}" class="btn btn-pink">
     <i class="bi bi-download"></i> Download Excel (.xlsx)
 </a>
 
-        <a href="{{ route('versions.download_zip', $version->id) }}" class="btn btn-pink">
-            <i class="bi bi-download"></i> Download Zip File
-        </a>
+      {{-- Button sedia ada --}}
+<a href="{{ route('versions.download_zip', $version->id) }}" class="btn btn-pink">
+  <i class="bi bi-download"></i> Download Zip File
+</a>
+
+{{-- NEW: butang generate link untuk Commercial --}}
+<a href="{{ route('versions.export_link', $version->id) }}" class="btn btn-outline-secondary ms-2">
+  <i class="bi bi-link-45deg"></i> Generate Share Link (Commercial)
+</a>
+
+{{-- Bila controller flash 'share_link', kita paparkan link + butang Copy --}}
+@if(session('share_link'))
+  <br>
+  <div class="mt-2 small">
+    Share with Commercial:
+    <a id="shareLinkA" href="{{ session('share_link') }}" target="_blank">
+      {{ session('share_link') }}
+    </a>
+
+    <button type="button" id="copyShareBtn" class="btn btn-sm btn-light ms-1">
+      Copy
+    </button>
+
+    
+
+    <div id="copyMsg" class="alert alert-success py-1 px-2 d-none mt-2 mb-0" role="alert"
+         style="display:inline-block;">
+      ✅ Copied!
+    </div>
+  </div>
+@endif
+
     </div>
 </div>
 
@@ -750,6 +731,41 @@
 @endsection
 
 
+@if(session('share_link'))
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const btn  = document.getElementById('copyShareBtn');
+  const msg  = document.getElementById('copyMsg');
+  const href = document.getElementById('shareLinkA')?.href || @json(session('share_link'));
+
+  async function copyWithFallback(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+    const tmp = document.createElement('input');
+    tmp.value = text;
+    document.body.appendChild(tmp);
+    tmp.select();
+    tmp.setSelectionRange(0, 99999);
+    const ok = document.execCommand('copy');
+    document.body.removeChild(tmp);
+    if (!ok) window.prompt('Copy this link:', text);
+  }
+
+  btn?.addEventListener('click', async () => {
+    try {
+      await copyWithFallback(href);
+      msg?.classList.remove('d-none');
+      setTimeout(() => msg?.classList.add('d-none'), 2000);
+    } catch (e) {
+      console.error(e);
+      alert('Failed to copy. Please copy manually.');
+    }
+  });
+});
+</script>
+@endif
 
 @push('styles')
 <style>
@@ -764,7 +780,7 @@
 
 	.active-link {
     	font-weight: bold;
-    	color: #FF82E6 !important; /* pink highlight */
+    	color: #FF82E6 !important; 
     	text-decoration: underline;
 	}
 

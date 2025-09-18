@@ -9,7 +9,7 @@ class EnsureVersionUnlocked
 {
     public function handle($request, Closure $next)
     {
-        $versionParam = $request->route('version'); // boleh dapat id atau model
+        $versionParam = $request->route('version'); 
         $versionId = is_object($versionParam) ? $versionParam->getKey() : $versionParam;
 
         $locked = InternalSummary::where('version_id', $versionId)

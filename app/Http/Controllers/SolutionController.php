@@ -6,72 +6,171 @@ use Illuminate\Http\Request;
 use App\Models\Solution;
 use App\Models\Quotation;
 use App\Models\User;
+use App\Models\Project;
+use App\Models\Customer;
 
 class SolutionController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $existingSolutions = Solution::with('quotation', 'version', 'customer', 'project')->get();
+        // --- Filters from query string ---
+        $customerId = $request->query('customer_id');
+        $projectId  = $request->query('project_id');
+        $status     = $request->query('status'); // 'pending' | 'complete' | null
+
+        // Hanya benarkan status ini (case-insensitive handling)
+        $allowedStatuses = ['pending','complete','Pending','Complete','PENDING','COMPLETE'];
+
+        // === Existing Solutions (yang sudah dibuat) ===
+        $existingSolutionsQuery = Solution::with(['quotation', 'version', 'customer', 'project'])
+            ->when($customerId, fn($q) => $q->where('customer_id', $customerId))
+            ->when($projectId,  fn($q) => $q->where('project_id',  $projectId))
+            ->whereIn('status', $allowedStatuses);
+
+        if ($status) {
+            $existingSolutionsQuery->whereIn('status', [$status, ucfirst($status), strtoupper($status)]);
+        }
+
+        $existingSolutions = $existingSolutionsQuery->get();
+
+        // IDs quotation yang sudah ada solution
         $existingQuotationIds = $existingSolutions->pluck('quotation_id')->toArray();
 
-        $quotations = Quotation::with(['version', 'project.customer'])
+        // === Quotations yang belum ada Solution (auto rows) ===
+        $quotationsQuery = Quotation::with(['version', 'project.customer'])
             ->whereNotIn('id', $existingQuotationIds)
-            ->get();
+            ->when($customerId, fn($q) => $q->whereHas('project', fn($qq) => $qq->where('customer_id', $customerId)))
+            ->when($projectId,  fn($q) => $q->where('project_id', $projectId))
+            ->whereIn('status', $allowedStatuses);
 
+        if ($status) {
+            $quotationsQuery->whereIn('status', [$status, ucfirst($status), strtoupper($status)]);
+        }
+
+        $quotations = $quotationsQuery->get();
+
+        // Auto solutions dari quotations yang belum dibuat Solution
         $autoSolutions = $quotations->map(function ($q) {
             return (object)[
-                'version_name' => optional($q->version)->version_name ?? '-',
+                'version_name'  => optional($q->version)->version_name ?? '-',
                 'customer_name' => optional($q->project->customer)->name ?? '-',
-                'project_name' => optional($q->project)->name ?? '-',
-                'status' => $q->status ?? '-',
-                'quotation_id' => $q->id,
-                'version_id' => $q->version_id,
-                'is_auto' => true
+                'project_name'  => optional($q->project)->name ?? '-',
+                'status'        => $q->status ?? '-',
+                'quotation_id'  => $q->id,
+                'version_id'    => $q->version_id,
+                'is_auto'       => true,
             ];
         });
 
+        // Gabung existing + auto
         $allSolutions = $existingSolutions->map(function ($s) {
             return (object)[
-                'version_name' => $s->version_name ?? optional($s->version)->version_name ?? '-',
+                'version_name'  => $s->version_name ?? optional($s->version)->version_name ?? '-',
                 'customer_name' => $s->customer_name ?? optional($s->customer)->name ?? '-',
-                'project_name' => $s->project_name ?? optional($s->project)->name ?? '-',
-                'status' => $s->status,
-                'quotation_id' => $s->quotation_id,
-                'version_id' => $s->version_id,
-                'is_auto' => false
+                'project_name'  => $s->project_name ?? optional($s->project)->name ?? '-',
+                'status'        => $s->status,
+                'quotation_id'  => $s->quotation_id,
+                'version_id'    => $s->version_id,
+                'is_auto'       => false,
             ];
         })->concat($autoSolutions);
 
-        $availableQuotations = $quotations;
-        $presales = User::where('role', 'presale')->get();
+        // Dropdown sources
+        /*$customers = Customer::orderBy('name')->get(['id','name']);
+        $projects  = Project::orderBy('name')->get(['id','name']);*/
+        $user   = auth()->user();
+$userId = $user->id;
+
+if ($user->role === 'admin') {
+    // Admin nampak semua
+    $customers = Customer::orderBy('name')->get(['id','name']);
+    $projects  = Project::orderBy('name')->get(['id','name']);
+} else {
+    // Presale: hanya customer/projek yang dia assigned
+    $customers = Customer::whereHas('projects', function ($q) use ($userId) {
+        $q->where(function ($qq) use ($userId) {
+            // support dua jenis assignment: legacy presale_id atau pivot project_presale
+            $qq->where('presale_id', $userId)
+               ->orWhereHas('assigned_presales', function ($q2) use ($userId) {
+                   $q2->where('users.id', $userId);
+               });
+        });
+    })
+    ->orderBy('name')
+    ->get(['id','name']);
+
+    $projects = Project::where(function ($q) use ($userId) {
+        $q->where('presale_id', $userId)
+          ->orWhereHas('assigned_presales', function ($q2) use ($userId) {
+              $q2->where('users.id', $userId);
+          });
+    })
+    ->orderBy('name')
+    ->get(['id','name']);
+}
+
+
+      
+        $existingIdsAll = Solution::pluck('quotation_id')->toArray();
+        /*$availableQuotations = Quotation::with(['version','project.customer'])
+            ->whereNotIn('id', $existingIdsAll)
+            ->whereIn('status', $allowedStatuses)
+            ->orderByDesc('created_at')
+            ->get();*/
+
+        $availableQuotationsQuery = Quotation::with(['version','project.customer'])
+    ->whereNotIn('id', $existingIdsAll)
+    ->whereIn('status', $allowedStatuses);
+
+if ($user->role !== 'admin') {
+    $availableQuotationsQuery->where(function ($q) use ($userId) {
+        $q->where('presale_id', $userId)
+          ->orWhereHas('project.assigned_presales', function ($q2) use ($userId) {
+              $q2->where('users.id', $userId);
+          });
+    });
+}
+
+$availableQuotations = $availableQuotationsQuery->orderByDesc('created_at')->get();
+
 
         return view('solutions.index', [
-            'solutions' => $allSolutions,
+            'solutions'           => $allSolutions,
             'availableQuotations' => $availableQuotations,
-            'presales' => $presales
+            'presales'            => User::where('role', 'presale')->get(),
+            'customers'           => $customers,
+            'projects'            => $projects,
+            'filters'             => [
+                'customer_id' => $customerId,
+                'project_id'  => $projectId,
+                'status'      => $status,
+            ],
         ]);
     }
 
     public function store(Request $request)
     {
+        // Jadikan status optional; default 'pending'
         $request->validate([
             'quotation_id' => 'required|uuid|exists:quotations,id',
-            'status' => 'required|string',
-            'presale_id' => 'required|uuid|exists:users,id'
+            'presale_id'   => 'required|uuid|exists:users,id',
+            'status'       => 'nullable|in:pending,complete,Pending,Complete,PENDING,COMPLETE',
         ]);
+
+        $status = $request->input('status', 'pending');
 
         $quotation = Quotation::with(['version', 'project.customer'])->findOrFail($request->quotation_id);
 
         Solution::create([
-            'quotation_id' => $quotation->id,
-            'version_id' => $quotation->version_id,
-            'project_id' => $quotation->project_id,
-            'customer_id' => $quotation->project->customer_id,
-            'presale_id' => $request->presale_id,
-            'version_name' => $quotation->version->version_name,
-            'project_name' => $quotation->project->name,
-            'customer_name' => $quotation->project->customer->name,
-            'status' => $request->status
+            'quotation_id'  => $quotation->id,
+            'version_id'    => $quotation->version_id,
+            'project_id'    => $quotation->project_id,
+            'customer_id'   => $quotation->project->customer_id,
+            'presale_id'    => $request->presale_id,
+            'version_name'  => optional($quotation->version)->version_name,
+            'project_name'  => optional($quotation->project)->name,
+            'customer_name' => optional($quotation->project->customer)->name,
+            'status'        => $status,
         ]);
 
         return redirect()->route('solutions.index')->with('success', 'Solution created successfully.');

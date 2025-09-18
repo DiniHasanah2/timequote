@@ -7,22 +7,65 @@
     </div>
 @endif
 
-{{-- Action Buttons --}}
-<div class="d-flex justify-content-end mb-3 gap-2">
-    {{-- Add Solution Button --}}
-    <a href="#" class="btn btn-pink" onclick="document.getElementById('solutionForm').style.display='block'; setFormAction('{{ route('solutions.store') }}', 'Add Solution'); return false;">
-        <i></i> Add Solution
-    </a>
+<form method="GET" action="{{ route('solutions.index') }}" class="mb-3">
+  <div class="d-flex justify-content-between align-items-end flex-wrap gap-2">
+    {{-- Kiri: filter + butang Filter/Reset --}}
+    <div class="d-flex flex-wrap align-items-end gap-2 filter-row">
+      <div class="field">
+        <label class="form-label mb-1">Customer</label>
+        <select name="customer_id" class="form-select">
+          <option value="">All Customers</option>
+          @foreach($customers as $c)
+            <option value="{{ $c->id }}" {{ ($filters['customer_id'] ?? '') == $c->id ? 'selected' : '' }}>
+              {{ $c->name }}
+            </option>
+          @endforeach
+        </select>
+      </div>
 
-    {{-- View Solutions Button (if needed) --}}
-    <a href="{{ route('solutions.index') }}" class="btn btn-pink">
-        <i></i> View Solution
+      <div class="field">
+        <label class="form-label mb-1">Project</label>
+        <select name="project_id" class="form-select">
+          <option value="">All Projects</option>
+          @foreach($projects as $p)
+            <option value="{{ $p->id }}" {{ ($filters['project_id'] ?? '') == $p->id ? 'selected' : '' }}>
+              {{ $p->name }}
+            </option>
+          @endforeach
+        </select>
+      </div>
+
+      <div class="field status">
+        <label class="form-label mb-1">Status</label>
+        <select name="status" class="form-select">
+          <option value="" {{ empty($filters['status']) ? 'selected' : '' }}>All</option>
+          <option value="pending"  {{ ($filters['status'] ?? '') === 'pending'  ? 'selected' : '' }}>pending</option>
+          <option value="complete" {{ ($filters['status'] ?? '') === 'complete' ? 'selected' : '' }}>complete</option>
+        </select>
+      </div>
+
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-pink">Filter</button>
+        <a href="{{ route('solutions.index') }}" class="btn btn-outline-secondary">Reset</a>
+      </div>
+    </div>
+
+    {{-- Kanan: Add Solution di hujung --}}
+    <a href="#"
+       class="btn btn-pink ms-auto"
+       onclick="document.getElementById('solutionForm').style.display='block'; setFormAction('{{ route('solutions.store') }}', 'Add Solution'); return false;">
+      <i></i> Add Solution
     </a>
-</div>
+  </div>
+</form>
+
+
+
          
 {{-- Solution Table --}}
 <div class="card shadow-sm">
     <div class="card-body p-3">
+        
         <table class="table table-striped mb-0">
             <thead class="table-light">
                 <tr>
@@ -220,5 +263,18 @@
         line-height: 1.5;
         border-radius: 0.25rem;
     }
+
+  /* Wrapper untuk field filter supaya tak panjang */
+  .filter-fields { max-width: 360px; }
+  @media (max-width: 576px) {
+    .filter-fields { max-width: 100%; } /* mobile biar penuh */
+  }
+
+   .filter-row .field { width: 260px; }     /* Customer, Project */
+  .filter-row .field.status { width: 180px; } /* Status lebih pendek */
+  @media (max-width: 992px) {
+    .filter-row .field { width: 100%; }    /* Stack on mobile/tablet */
+  }
 </style>
+
 @endpush

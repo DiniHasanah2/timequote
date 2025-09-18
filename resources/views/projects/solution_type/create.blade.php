@@ -1,5 +1,5 @@
 @extends('layouts.app')
-
+@section('content')
 @if($errors->any())
     <div class="alert alert-danger">
         <ul>
@@ -25,7 +25,19 @@
 @endphp
 
 
-@section('content')
+
+@if($isLocked)
+  <div class="alert alert-warning d-flex align-items-center" role="alert">
+    <span class="me-2">🔒</span>
+    <div>
+      This version was locked at
+      <strong>{{ optional($lockedAt)->format('d M Y, H:i') }}</strong>.
+      All fields are read-only.
+    </div>
+  </div>
+@endif
+
+
 
 <div class="card shadow-sm">
     <div class="card-header d-flex justify-between align-items-center">
@@ -85,9 +97,14 @@
             <a href="{{ route('versions.mpdraas.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.mpdraas.create' ? 'active-link' : '' }}">MP-DRaaS</a>
             <span class="breadcrumb-separator">»</span>
             @endif
-            <a href="{{ route('versions.security_service.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.create' ? 'active-link' : '' }}">Security Services</a>
+            <a href="{{ route('versions.security_service.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.create' ? 'active-link' : '' }}">Cloud Security</a>
             <span class="breadcrumb-separator">»</span>
-            <a href="{{ route('versions.non_standard_items.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.non_standard_items.create' ? 'active-link' : '' }}">Other Services</a>
+               <a href="{{ route('versions.security_service.time.create', $version->id) }}"
+   class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.time.create' ? 'active-link' : '' }}">
+  Time Security Services
+</a>
+<span class="breadcrumb-separator">»</span>
+            <a href="{{ route('versions.non_standard_items.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.non_standard_items.create' ? 'active-link' : '' }}">Non-Standard Services</a>
             <span class="breadcrumb-separator">»</span>
             <a href="{{ route('versions.internal_summary.show', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.internal_summary.show' ? 'active-link' : '' }}">Internal Summary</a>
               <span class="breadcrumb-separator">»</span>
@@ -133,6 +150,7 @@
 
                    
             </div>
+              <fieldset @disabled($isLocked)>
             
             <!-- Solution Type Table -->
             <div class="table-responsive mb-4">
@@ -216,7 +234,7 @@ document.addEventListener('DOMContentLoaded', function() {
     $selectedType = old('solution_type', $solution_type->solution_type ?? '');
 @endphp
 
-{{-- TCS ONLY T]ABLE --}}
+{{-- TCS ONLY TABLE --}}
 <div id="tcs_only_table" class="solution-table d-none">
     <table class="table table-bordered">
 
@@ -337,6 +355,8 @@ document.addEventListener('DOMContentLoaded', function() {
     </table>
 </div>
 
+</fieldset>
+
 
                 
             
@@ -347,7 +367,7 @@ document.addEventListener('DOMContentLoaded', function() {
     <div class="d-flex flex-column align-items-centre gap-2">    
 
              <div class="d-flex justify-content-end gap-3"> <!-- Added gap-3 for spacing -->
-                <button type="submit" class="btn btn-pink">Save Solution Type</button>
+                <button type="submit" class="btn btn-pink" @disabled($isLocked)>Save Solution Type</button>
 
             
         

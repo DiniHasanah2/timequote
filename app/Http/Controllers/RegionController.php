@@ -7,6 +7,8 @@ use App\Models\Version;
 use App\Models\SolutionType;
 use App\Models\Region;
 use Illuminate\Http\Request;
+use App\Models\InternalSummary;
+
 
 class RegionController extends Controller
 {
@@ -14,6 +16,9 @@ class RegionController extends Controller
 {
 
     $version = Version::with(['project', 'region', 'solution_type'])->findOrFail($versionId);
+      $summary  = InternalSummary::where('version_id', $versionId)->first();
+$isLocked = (bool) optional($summary)->is_logged;
+$lockedAt = optional($summary)->logged_at;
 
 
           // load pricing config
@@ -37,6 +42,8 @@ class RegionController extends Controller
         'region' => $region, 
         'solution_type' => $version->solution_type,
          'pricing' => $pricing,
+           'isLocked'      => (bool) optional($summary)->is_logged,
+    'lockedAt'      => optional($summary)->logged_at,
     ]);
 }
 
@@ -49,8 +56,19 @@ class RegionController extends Controller
     $project = $version->project;
        // add pricing config
     $pricing = config('pricing');
+      $summary  = InternalSummary::where('version_id', $versionId)->first();
+$isLocked = (bool) optional($summary)->is_logged;
+$lockedAt = optional($summary)->logged_at;
 
-    return view('projects.region.network.create', compact('version', 'region', 'project','pricing'));
+    return view('projects.region.network.create', [
+    'version'  => $version,
+    'region'   => $region,
+    'project'  => $project,
+    'pricing'  => $pricing,
+    'isLocked' => $isLocked,
+    'lockedAt' => $lockedAt,
+]);
+
 }
 
 public function createDr($versionId)
@@ -58,15 +76,30 @@ public function createDr($versionId)
     $version = Version::with('project.customer')->findOrFail($versionId);
     $region = Region::where('version_id', $versionId)->first();
     $project = $version->project;
+      $summary  = InternalSummary::where('version_id', $versionId)->first();
+$isLocked = (bool) optional($summary)->is_logged;
+$lockedAt = optional($summary)->logged_at;
     
 
-    return view('projects.region.dr_settings.create', compact('version', 'region', 'project'));
+  return view('projects.region.dr_settings.create', [
+    'version'  => $version,
+    'region'   => $region,
+    'project'  => $project,
+    'isLocked' => $isLocked,
+    'lockedAt' => $lockedAt,
+]);
+
 }
 
 
 public function storeProfessional(Request $request, $versionId)
 {
     $version = Version::with('project')->findOrFail($versionId);
+    $summary  = InternalSummary::where('version_id', $versionId)->first();
+if (optional($summary)->is_logged) {
+    return back()->with('error', '🔒 This version is locked in Internal Summary. Editing is disabled. Please unlock there if you need to make changes.');
+}
+
 
     $validated = $request->validate([
         'region' => 'required|in:None,Kuala Lumpur,Cyberjaya',
@@ -99,6 +132,11 @@ public function storeProfessional(Request $request, $versionId)
 
 public function storeNetwork(Request $request, $versionId)
 {
+    $summary  = InternalSummary::where('version_id', $versionId)->first();
+if (optional($summary)->is_logged) {
+    return back()->with('error', '🔒 This version is locked in Internal Summary. Editing is disabled. Please unlock there if you need to make changes.');
+}
+
     $validated = $request->validate([
         'kl_bandwidth' => 'nullable|integer',
         'kl_bandwidth_with_antiddos' => 'nullable|integer',
@@ -143,6 +181,12 @@ public function storeNetwork(Request $request, $versionId)
 
 public function storeDr(Request $request, $versionId)
 {
+
+    $summary  = InternalSummary::where('version_id', $versionId)->first();
+if (optional($summary)->is_logged) {
+    return back()->with('error', '🔒 This version is locked in Internal Summary. Editing is disabled. Please unlock there if you need to make changes.');
+}
+
     $validated = $request->validate([
         'dr_location' => 'required|in:None,Kuala Lumpur,Cyberjaya',
         'dr_bandwidth_type' => 'required|in:bandwidth,anti-ddos',
@@ -190,6 +234,10 @@ public function storeDr(Request $request, $versionId)
     {
         // Dapatkan version beserta project
         $version = Version::with('project')->findOrFail($versionId);
+         $summary  = InternalSummary::where('version_id', $versionId)->first();
+if (optional($summary)->is_logged) {
+    return back()->with('error', '🔒 This version is locked in Internal Summary. Editing is disabled. Please unlock there if you need to make changes.');
+}
         
         $validated = $request->validate([
             // Professional Services
@@ -326,6 +374,16 @@ public function storeDr(Request $request, $versionId)
 
 public function autoSave(Request $request, $versionId)
 {
+
+    $summary  = InternalSummary::where('version_id', $versionId)->first();
+if (optional($summary)->is_logged) {
+    return response()->json([
+        'status'  => 'locked',
+        'message' => 'This version is locked in Internal Summary. Autosave disabled.'
+    ], 423); // 423 Locked
+}
+
+
     \Log::info('🔁 AutoSave Hit!', [
         'version_id' => $versionId,
         'payload' => $request->all()

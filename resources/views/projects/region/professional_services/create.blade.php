@@ -1,5 +1,6 @@
 @extends('layouts.app')
 
+@section('content')
 @if($errors->any())
     <div class="alert alert-danger">
         <ul>
@@ -15,7 +16,17 @@
 @endphp
 
 
-@section('content')
+@if($isLocked)
+  <div class="alert alert-warning d-flex align-items-center" role="alert">
+    <span class="me-2">🔒</span>
+    <div>
+      This version was locked at
+      <strong>{{ optional($lockedAt)->format('d M Y, H:i') }}</strong>.
+      All fields are read-only.
+    </div>
+  </div>
+@endif
+
 
 <div class="card shadow-sm">
     <div class="card-header d-flex justify-between align-items-center">
@@ -44,9 +55,14 @@
             <a href="{{ route('versions.mpdraas.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.mpdraas.create' ? 'active-link' : '' }}">MP-DRaaS</a>
             <span class="breadcrumb-separator">»</span>
             @endif
-            <a href="{{ route('versions.security_service.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.create' ? 'active-link' : '' }}">Security Services</a>
+            <a href="{{ route('versions.security_service.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.create' ? 'active-link' : '' }}">Cloud Security</a>
             <span class="breadcrumb-separator">»</span>
-            <a href="{{ route('versions.non_standard_items.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.non_standard_items.create' ? 'active-link' : '' }}">Other Services</a>
+               <a href="{{ route('versions.security_service.time.create', $version->id) }}"
+   class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.time.create' ? 'active-link' : '' }}">
+  Time Security Services
+</a>
+<span class="breadcrumb-separator">»</span>
+            <a href="{{ route('versions.non_standard_items.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.non_standard_items.create' ? 'active-link' : '' }}">Non-Standard Services</a>
             <span class="breadcrumb-separator">»</span>
             <a href="{{ route('versions.internal_summary.show', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.internal_summary.show' ? 'active-link' : '' }}">Internal Summary</a>
               <span class="breadcrumb-separator">»</span>
@@ -88,6 +104,7 @@
 
                    
             </div>
+            <fieldset @disabled($isLocked)>
             
             <!-- Professional Services Table -->
             <div class="table-responsive mb-4">
@@ -218,6 +235,7 @@
                         </tr>
                 </table>
             </div>
+</fieldset>
 
     <div class="d-flex justify-content-between gap-3"> 
     <div>
@@ -258,7 +276,17 @@
     });
 </script>
 
-
+@if($isLocked)
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  
+  document.querySelectorAll('.auto-save').forEach(el => {
+    el.addEventListener('change', e => e.preventDefault(), true);
+    el.addEventListener('input',  e => e.preventDefault(), true);
+  });
+});
+</script>
+@endif
 
 <script>
     // Function to calculate included Elastic IP based on bandwidth
@@ -319,98 +347,97 @@
 
 
 @endsection
-
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+  const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+  const IS_LOCKED = @json($isLocked);
+  // ✅ Guna named route kau sendiri
+  const AUTOSAVE_URL = @json(route('versions.region.autosave', $version->id));
 
-    // Handle deployment method and mandays relationship
-    const deploymentMethodSelect = document.querySelector('select[name="deployment_method"]');
-    const mandaysInput = document.querySelector('input[name="mandays"]');
+  // === Handle deployment method ⇄ mandays ===
+  const deploymentMethodSelect = document.querySelector('select[name="deployment_method"]');
+  const mandaysInput = document.querySelector('input[name="mandays"]');
 
-    function handleDeploymentMethodChange() {
-        const selectedMethod = deploymentMethodSelect.value;
-        
-        if (selectedMethod === 'self-provisioning') {
-            mandaysInput.value = 0;
-            mandaysInput.disabled = true;
-            mandaysInput.setAttribute('readonly', 'readonly');
-            
-            // Trigger auto-save for mandays when it gets set to 0
-            const versionId = mandaysInput.dataset.versionId;
-            fetch(`/autosave/region/${versionId}`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': token,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    mandays: 0
-                })
-            })
-            .then(response => {
-                console.log('Status:', response.status);
-                if (!response.ok) throw new Error('Save failed');
-                console.log('Saved: mandays = 0 (auto-set for self-provisioning)');
-            })
-            .catch(err => {
-                console.error(err);
-                alert("Auto-save failed!");
-            });
-        } else {
-            mandaysInput.disabled = false;
-            mandaysInput.removeAttribute('readonly');
-            
-            // If switching from self-provisioning and mandays is 0, clear it
-            if (mandaysInput.value === '0') {
-                mandaysInput.value = '';
-            }
-        }
+  function handleDeploymentMethodChange() {
+    if (!deploymentMethodSelect || !mandaysInput) return;
+    if (IS_LOCKED) return; // bila locked, jangan ubah apa-apa
+
+    const selectedMethod = deploymentMethodSelect.value;
+
+    if (selectedMethod === 'self-provisioning') {
+      mandaysInput.value = 0;
+      mandaysInput.disabled = true;
+      mandaysInput.setAttribute('readonly', 'readonly');
+
+      // Auto-save mandays=0
+      fetch(AUTOSAVE_URL, {
+        method: 'POST',
+        headers: {
+          'X-CSRF-TOKEN': token,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ mandays: 0 })
+      })
+      .then(r => { if (!r.ok) throw r; })
+      .catch(err => console.error('autosave mandays=0 failed', err));
+    } else {
+      mandaysInput.disabled = false;
+      mandaysInput.removeAttribute('readonly');
+      if (mandaysInput.value === '0') mandaysInput.value = '';
     }
+  }
 
-    // Initial setup on page load
+  if (deploymentMethodSelect) {
     handleDeploymentMethodChange();
-
-    // Add event listener for deployment method changes
     deploymentMethodSelect.addEventListener('change', handleDeploymentMethodChange);
+  }
 
-    // Existing auto-save functionality
-    document.querySelectorAll('.auto-save').forEach(function (element) {
-        element.addEventListener('change', function () {
-            const field = this.dataset.field;
-            const value = this.value;
-            const versionId = this.dataset.versionId;
+  // === AUTOSAVE (on change) ===
+  document.querySelectorAll('.auto-save').forEach(function (element) {
+    element.addEventListener('change', function () {
+      if (IS_LOCKED || this.disabled) return;
 
-            // Skip if disabled (like mandays when self-provisioning is selected)
-            if (this.disabled) {
-                return;
-            }
+      const field = this.dataset.field;
+      const value = this.value;
+      if (!field) return;
 
-            fetch(`/autosave/region/${versionId}`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': token,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    [field]: value
-                })
-            })
-            .then(response => {
-                console.log('Status:', response.status);
-                if (!response.ok) throw new Error('Save failed');
-                console.log(`Saved: ${field} = ${value}`);
-            })
-            .catch(err => {
-                console.error(err);
-                alert("Auto-save failed!");
-            });
-        });
+      fetch(AUTOSAVE_URL, {
+        method: 'POST',
+        headers: {
+          'X-CSRF-TOKEN': token,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ [field]: value })
+      })
+      .then(async r => {
+        if (!r.ok) {
+          const t = await r.text();
+          console.error('autosave error', r.status, t);
+          throw r;
+        }
+      })
+      .catch(err => console.error('autosave failed', err));
     });
+  });
+
+  // Extra guard: bila locked, block supaya autosave lain tak ter-trigger
+  if (IS_LOCKED) {
+    document.querySelectorAll('.auto-save').forEach(el => {
+      el.addEventListener('input',  e => e.preventDefault(), true);
+      el.addEventListener('change', e => e.preventDefault(), true);
+    });
+  }
 });
 </script>
 @endpush
+
+
+
+    
+         
 
 
 @push('styles')

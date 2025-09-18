@@ -2,199 +2,190 @@
 
 @section('content')
 <div class="card shadow-sm">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">Edit Customer</h5>
-        <button type="button" class="btn-close" onclick="window.location.href='{{ route('customers.index') }}'"></button>
-    </div>
-    <div class="card-body">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h5 class="mb-0">Edit Customer</h5>
+    <button type="button" class="btn-close" onclick="window.location.href='{{ route('customers.index') }}'"></button>
+  </div>
 
-       @if(!$canEdit && auth()->user()->role === 'presale')
-            <div class="alert alert-info">
-                You can only view this customer because it belongs to another presale.
-            </div>
+  <div class="card-body">
+    @if(session('success'))
+      <div class="alert alert-success">{{ session('success') }}</div>
+    @endif
+
+    @if(session('error'))
+      <div class="alert alert-danger">{{ session('error') }}</div>
+    @endif
+
+    @if($errors->any())
+      <div class="alert alert-danger">
+        <ul class="mb-0">
+          @foreach($errors->all() as $error)
+            <li>{{ $error }}</li>
+          @endforeach
+        </ul>
+      </div>
+    @endif
+
+    @if(!$canEdit && auth()->user()->role === 'presale')
+      <div class="alert alert-info">
+        You can only view this customer because it belongs to another presale.
+      </div>
+    @endif
+
+    @php
+      $auth = auth()->user();
+      $isPresale = $auth->role === 'presale';
+
+      // Canonicalize division value to 'Enterprise' | 'Wholesale'
+      $divValue = old('division', $customer->division);
+      if ($divValue === 'Enterprise & Public Sector Business') { $divValue = 'Enterprise'; }
+    @endphp
+
+    <form method="POST" action="{{ route('customers.update', $customer->id) }}">
+      @csrf
+      @method('PUT')
+
+      {{-- Division --}}
+      <div class="mb-3">
+        <label for="division" class="form-label">Division</label>
+
+        @if($isPresale)
+          {{-- Presale: cannot change division (locked) --}}
+          <select id="division_display" class="form-select" disabled>
+            <option value="Enterprise" {{ $divValue === 'Enterprise' ? 'selected' : '' }}>
+              Enterprise & Public Sector Business
+            </option>
+            <option value="Wholesale" {{ $divValue === 'Wholesale' ? 'selected' : '' }}>
+              Wholesale
+            </option>
+          </select>
+          <input type="hidden" name="division" id="division" value="{{ $divValue }}">
+        @else
+          {{-- Admin/Product: can change --}}
+          <select name="division" id="division" class="form-select" required>
+            <option value="">-- Select Division --</option>
+            <option value="Enterprise" {{ $divValue === 'Enterprise' ? 'selected' : '' }}>
+              Enterprise & Public Sector Business
+            </option>
+            <option value="Wholesale" {{ $divValue === 'Wholesale' ? 'selected' : '' }}>
+              Wholesale
+            </option>
+          </select>
         @endif
+      </div>
 
-        <form method="POST" action="{{ route('customers.update', $customer->id) }}">
-            @csrf
-            @method('PUT')
+      {{-- Department (populated via JS) --}}
+      <div class="mb-3">
+        <label for="department" class="form-label">Department</label>
+        <select name="department" id="department" class="form-select" required>
+          <option value="">-- Select Department --</option>
+        </select>
+      </div>
 
-            {{-- Division --}}
-            <div class="mb-3">
-                <label for="division" class="form-label">Division</label>
-                  @if($canEdit)
-                    <select name="division" id="division" class="form-select" required onchange="updateDepartments()">
-                        <option value="">-- Select Division --</option>
-                        <option value="Enterprise & Public Sector Business" {{ (old('division', $customer->division) == 'Enterprise & Public Sector Business') ? 'selected' : '' }}>Enterprise & Public Sector Business</option>
-                        <option value="Wholesale" {{ (old('division', $customer->division) == 'Wholesale') ? 'selected' : '' }}>Wholesale</option>
-                    </select>
-                @else
-                    <div class="form-control bg-light py-2">
-                        {{ $customer->division }}
-                    </div>
-                    <input type="hidden" name="division" value="{{ $customer->division }}">
-                @endif
-            </div>
+      {{-- Customer Name --}}
+      <div class="mb-3">
+        <label for="name" class="form-label">Customer Name</label>
+        @if($canEdit && !$isPresale) {{-- Admin/Product boleh tukar nama --}}
+          <input type="text" name="name" id="name" class="form-control" value="{{ old('name', $customer->name) }}" required>
+        @else
+          <div class="form-control bg-light py-2">{{ $customer->name }}</div>
+          <input type="hidden" name="name" value="{{ $customer->name }}">
+        @endif
+      </div>
 
-            {{-- Department --}}
-            <div class="mb-3">
-                <label for="department" class="form-label">Department</label>
-                @if($canEdit)
-                    <select name="department" id="department" class="form-select" required>
-                        <option value="">-- Select Department --</option>
-                       
+      {{-- Client Manager (datalist by name) --}}
+      <div class="mb-3">
+        <label for="client_manager_id" class="form-label">Client Manager</label>
+        @if($canEdit)
+          <input
+            list="client_managers"
+            name="client_manager_id"
+            id="client_manager_id"
+            class="form-control"
+            required
+            placeholder="Search client manager"
+            value="{{ old('client_manager_id', $customer->client_manager) }}"
+          />
+          <datalist id="client_managers">
+            @foreach($clientManagers as $manager)
+              <option value="{{ $manager->name }}"></option>
+            @endforeach
+          </datalist>
+        @else
+          <div class="form-control bg-light py-2">{{ $customer->client_manager }}</div>
+          <input type="hidden" name="client_manager_id" value="{{ $customer->client_manager }}">
+        @endif
+      </div>
 
-                        {{-- Enterprise & Public Sector Business --}}
-<option value="Financial Services" {{ (old('department', $customer->department) == 'Financial Services') ? 'selected' : '' }}>Financial Services</option>
-<option value="Manufacturing & Automotive" {{ (old('department', $customer->department) == 'Manufacturing & Automotive') ? 'selected' : '' }}>Manufacturing & Automotive</option>
-<option value="State Government" {{ (old('department', $customer->department) == 'State Government') ? 'selected' : '' }}>State Government</option>
-<option value="Region-Southern & Eastern" {{ (old('department', $customer->department) == 'Region-Southern & Eastern') ? 'selected' : '' }}>Region-Southern & Eastern</option>
-<option value="Hospitality & Healthcare" {{ (old('department', $customer->department) == 'Hospitality & Healthcare') ? 'selected' : '' }}>Hospitality & Healthcare</option>
-<option value="GLC" {{ (old('department', $customer->department) == 'GLC') ? 'selected' : '' }}>GLC</option>
-<option value="Education" {{ (old('department', $customer->department) == 'Education') ? 'selected' : '' }}>Education</option>
-<option value="Banks" {{ (old('department', $customer->department) == 'Banks') ? 'selected' : '' }}>Banks</option>
-<option value="Enterprise Technology" {{ (old('department', $customer->department) == 'Enterprise Technology') ? 'selected' : '' }}>Enterprise Technology</option>
-<option value="Oil & Gas" {{ (old('department', $customer->department) == 'Oil & Gas') ? 'selected' : '' }}>Oil & Gas</option>
-<option value="Public Sector" {{ (old('department', $customer->department) == 'Public Sector') ? 'selected' : '' }}>Public Sector</option>
-<option value="Region-Northern" {{ (old('department', $customer->department) == 'Region-Northern') ? 'selected' : '' }}>Region-Northern</option>
-<option value="Federal Government" {{ (old('department', $customer->department) == 'Federal Government') ? 'selected' : '' }}>Federal Government</option>
-<option value="Enterprise & Public Sector Business" {{ (old('department', $customer->department) == 'Enterprise & Public Sector Business') ? 'selected' : '' }}>Enterprise & Public Sector Business</option>
-<option value="Retail & Media" {{ (old('department', $customer->department) == 'Retail & Media') ? 'selected' : '' }}>Retail & Media</option>
+      {{-- Presale Assignment (Admin/Product only) --}}
+      @if($canEdit && !$isPresale)
+        <div class="mb-3">
+          <label for="presale_id" class="form-label">Assign to Presale</label>
+          <select name="presale_id" id="presale_id" class="form-select" required>
+            @foreach($presales as $presale)
+              <option value="{{ $presale->id }}" {{ (old('presale_id', $customer->presale_id) == $presale->id) ? 'selected' : '' }}>
+                {{ $presale->name }}
+              </option>
+            @endforeach
+          </select>
+        </div>
+      @endif
 
-{{-- Wholesale --}}
-<option value="Wholesale" {{ (old('department', $customer->department) == 'Wholesale') ? 'selected' : '' }}>Wholesale</option>
-<option value="OTT" {{ (old('department', $customer->department) == 'OTT') ? 'selected' : '' }}>OTT</option>
-<option value="ASP" {{ (old('department', $customer->department) == 'ASP') ? 'selected' : '' }}>ASP</option>
-<option value="Global" {{ (old('department', $customer->department) == 'Global') ? 'selected' : '' }}>Global</option>
-<option value="Domestic" {{ (old('department', $customer->department) == 'Domestic') ? 'selected' : '' }}>Domestic</option>
-
-                    </select>
-                @else
-                    <div class="form-control bg-light py-2">
-                        {{ $customer->department }}
-                    </div>
-                    <input type="hidden" name="department" value="{{ $customer->department }}">
-                @endif
-            </div>
-
-            {{-- Customer Name --}}
-            <div class="mb-3">
-                <label for="name" class="form-label">Customer Name</label>
-                @if($canEdit && auth()->user()->role === 'admin')
-                    <input type="text" name="name" class="form-control" value="{{ $customer->name }}" required>
-                @else
-                    <div class="form-control bg-light py-2">
-                        {{ $customer->name }}
-                    </div>
-                    <input type="hidden" name="name" value="{{ $customer->name }}">
-                @endif
-            </div>
-
-            {{-- Client Manager --}}
-            <div class="mb-3">
-                <label for="client_manager_id" class="form-label">Client Manager</label>
-                @if($canEdit)
-                    <input list="client_managers" 
-                           name="client_manager_id" 
-                           id="client_manager_id" 
-                           class="form-control" 
-                           required 
-                           placeholder="Search client manager"
-                           value="{{ old('client_manager_id', $customer->client_manager) }}" />
-                    <datalist id="client_managers">
-                        @foreach($clientManagers as $manager)
-                            <option value="{{ $manager->name }}"></option>
-                        @endforeach
-                    </datalist>
-                @else
-                    <div class="form-control bg-light py-2">
-                        {{ $customer->client_manager }}
-                    </div>
-                    <input type="hidden" name="client_manager_id" value="{{ $customer->client_manager }}">
-                @endif
-            </div>
-
-            {{-- Presale Assignment --}}
-            @if($canEdit && auth()->user()->role === 'admin')
-                <div class="mb-3">
-                    <label for="presale_id" class="form-label">Assign to Presale</label>
-                    <select name="presale_id" id="presale_id" class="form-select" required>
-                        @foreach($presales as $presale)
-                            <option value="{{ $presale->id }}" {{ $customer->presale_id == $presale->id ? 'selected' : '' }}>
-                                {{ $presale->name }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-            @endif
-
-            @if($canEdit)
-                <button type="submit" class="btn btn-pink">Save Changes</button>
-            @endif
-        </form>
-    </div>
+      @if($canEdit)
+        <button type="submit" class="btn btn-pink">Save Changes</button>
+      @endif
+    </form>
+  </div>
 </div>
 
- @if($canEdit)
+@if($canEdit)
+{{-- Populate Department list based on Division --}}
 <script>
-    const departments = {
-        "Enterprise & Public Sector Business": [
-            "Financial Services",
-            "Manufacturing & Automotive",
-            "State Government",
-            "Region-Southern & Eastern",
-            "Hospitality & Healthcare",
-            //"Enterprise Product",
-            "GLC",
-            //"Sales Operations",
-            "Education",
-            //"Presales Consulting",
-            //"Strategic Partnership",
-            "Banks",
-            "Enterprise Technology",
-            //"Marketing",
-            "Oil & Gas",
-            "Public Sector",
-            "Region-Northern",
-            "Federal Government",
-            "Enterprise & Public Sector Business",
-            //"Insight & Value Management",
-            //"Business Development",
-            "Retail & Media"
-        ],
-        "Wholesale": [
-            "Wholesale",
-            "OTT",
-            "ASP",
-            "Global",
-            //"Strategy Management",
-            //"Business Operations",
-            //"Product & Marketing",
-            "Domestic",
-            //"Site Acquisition, Operations and Maintenance"
-        ]
-    };
+  const departments = {
+    Enterprise: [
+      "Financial Services","Manufacturing & Automotive","State Government",
+      "Region-Southern & Eastern","Hospitality & Healthcare","GLC","Education",
+      "Banks","Enterprise Technology","Oil & Gas","Public Sector","Region-Northern",
+      "Federal Government","Enterprise & Public Sector Business","Retail & Media"
+    ],
+    Wholesale: ["Wholesale","OTT","ASP","Global","Domestic"]
+  };
 
-    function updateDepartments() {
-        const division = document.getElementById('division').value;
-        const departmentSelect = document.getElementById('department');
-        const selectedDept = "{{ old('department', $customer->department) }}";
+  function canonDivision() {
+    // Presale (hidden), or Admin/Product (select). Also read disabled display if needed.
+    const hidden = document.getElementById('division');
+    const select = document.querySelector('select#division');
+    const display = document.getElementById('division_display');
+    if (hidden && hidden.value) return hidden.value;
+    if (select && select.value) return select.value;
+    if (display && display.value) return display.value;
+    return '';
+  }
 
-        departmentSelect.innerHTML = '<option value="">-- Select Department --</option>';
+  function fillDepartments(division, selected) {
+    const sel = document.getElementById('department');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">-- Select Department --</option>';
+    (departments[division] || []).forEach(d => {
+      const opt = document.createElement('option');
+      opt.value = d; opt.textContent = d;
+      if (selected && d === selected) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  }
 
-        if (departments[division]) {
-            departments[division].forEach(dept => {
-                const option = document.createElement('option');
-                option.value = dept;
-                option.textContent = dept;
-                if (dept === selectedDept) {
-                    option.selected = true;
-                }
-                departmentSelect.appendChild(option);
-            });
-        }
+  document.addEventListener('DOMContentLoaded', function () {
+    const selectedDept = @json(old('department', $customer->department));
+    const divVal = canonDivision(); // 'Enterprise' | 'Wholesale'
+    if (divVal) fillDepartments(divVal, selectedDept);
+  });
+
+  // When Admin/Product changes division
+  document.addEventListener('change', function (e) {
+    if (e.target && e.target.id === 'division') {
+      fillDepartments(e.target.value, null);
     }
-
-    window.addEventListener('DOMContentLoaded', updateDepartments);
+  });
 </script>
 @endif
 @endsection

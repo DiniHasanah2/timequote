@@ -27,6 +27,9 @@ use App\Http\Controllers\PFlavourMapController;
 use App\Http\Controllers\PriceCatalogController;
 use App\Http\Controllers\QuotationCsvController;
 use App\Http\Controllers\InternalSummaryController;
+use App\Http\Controllers\NonStandardOfferingController;
+use App\Http\Controllers\CustomizationController;
+
 use App\Models\Project; 
 use App\Models\Version;
 
@@ -41,21 +44,10 @@ Route::get('logout', [AuthController::class, 'logout'])->name('logout');
 Route::get('/register', [AuthController::class, 'showRegisterForm'])->name('register');
 Route::post('/register', [AuthController::class, 'register']);
 
-
-// Dashboard redirect based on role
-/*Route::get('/dashboard', function () {
-    if (Auth::check()) {
-        if (Auth::user()->role === 'admin') {
-            return redirect()->route('admin.dashboard');
-        } elseif (Auth::user()->role === 'presale') {
-            return redirect()->route('presale.dashboard');
-        }
-    }
-    return redirect()->route('login');
-})->name('dashboard');*/
-
-
-
+// Signed download for share link
+Route::get('exports/d/{token}/{file}', [\App\Http\Controllers\QuotationController::class, 'shareDownload'])
+    ->name('exports.download')
+    ->middleware('signed'); // penting: signed URL
 
 Route::get('/dashboard', function () {
     if (Auth::check()) {
@@ -70,7 +62,6 @@ Route::get('/dashboard', function () {
     return redirect()->route('login');
 })->name('dashboard');
 
-
 // Routes untuk user yang dah login
 Route::middleware(['auth'])->group(function () {
 
@@ -80,208 +71,180 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/customers/{customer}', [CustomerController::class, 'show'])->name('customers.show');
  
     Route::get('/projects/{project}/versions/create', [VersionController::class, 'create'])
-    ->name('projects.versions.create');
+        ->name('projects.versions.create');
     Route::get('/projects/{project}/versions', [VersionController::class, 'index'])
-    ->name('projects.versions.index');
+        ->name('projects.versions.index');
     Route::get('projects/versions/create/select', [VersionController::class, 'create'])->name('projects.versions.select');
     Route::post('/projects/{project}/versions', [VersionController::class, 'store'])
-    ->name('projects.versions.store');
+        ->name('projects.versions.store');
 
-     Route::get('/projects/{project}/assign-presales', [ProjectController::class, 'assignPresalesForm'])->name('projects.assignPresalesForm');
+    Route::get('/projects/{project}/assign-presales', [ProjectController::class, 'assignPresalesForm'])->name('projects.assignPresalesForm');
     Route::post('/projects/{project}/assign-presales', [ProjectController::class, 'assignPresales'])->name('projects.assignPresales');
     
     Route::prefix('versions/{version}')->group(function() {
-    
 
+        Route::get('solution_type', [SolutionTypeController::class, 'create'])->name('versions.solution_type.create');
+        Route::match(['post', 'put'], 'solution_type', [SolutionTypeController::class, 'store'])->name('versions.solution_type.store');
 
-             Route::get('solution_type', [SolutionTypeController::class, 'create'])->name('versions.solution_type.create');
-    Route::match(['post', 'put'], 'solution_type', [SolutionTypeController::class, 'store'])->name('versions.solution_type.store');
+        Route::get('region', [RegionController::class, 'create'])->name('versions.region.create');
+        Route::match(['post', 'put'], 'region', [RegionController::class, 'store'])->name('versions.region.store');
 
+        // Professional Services
+        Route::get('region/professional-services/create', [RegionController::class, 'createProfessional'])->name('versions.region.professional.create');
+        Route::match(['post', 'put'], 'region/professional-services', [RegionController::class, 'storeProfessional'])->name('versions.region.professional.store');
 
+        // Network
+        Route::get('region/network/create', [RegionController::class, 'createNetwork'])->name('versions.region.network.create');
+        Route::post('region/network', [RegionController::class, 'storeNetwork'])->name('versions.region.network.store');
 
-             Route::get('region', [RegionController::class, 'create'])->name('versions.region.create');
-    Route::match(['post', 'put'], 'region', [RegionController::class, 'store'])->name('versions.region.store');
+        // DR Settings
+        Route::get('region/dr-settings/create', [RegionController::class, 'createDr'])->name('versions.region.dr.create');
+        Route::post('region/dr-settings', [RegionController::class, 'storeDr'])->name('versions.region.dr.store');
 
-    // ⬇ Tambah sini
-    // Professional Services
-    Route::get('region/professional-services/create', [RegionController::class, 'createProfessional'])->name('versions.region.professional.create');
-    Route::match(['post', 'put'], 'region/professional-services', [RegionController::class, 'storeProfessional'])->name('versions.region.professional.store');
+        Route::get('mpdraas', [MPDRaaSController::class, 'create'])->name('versions.mpdraas.create');
+        Route::post('mpdraas', [MPDRaaSController::class, 'store'])->name('versions.mpdraas.store');
 
-    //Route::post('region/professional-services', [RegionController::class, 'storeProfessional'])->name('versions.region.professional.store');
+        Route::post('mpdraas/autosave', [\App\Http\Controllers\MPDRaaSController::class, 'autosave'])
+            ->name('versions.mpdraas.autosave');
 
-    // Network
-    Route::get('region/network/create', [RegionController::class, 'createNetwork'])->name('versions.region.network.create');
-    Route::post('region/network', [RegionController::class, 'storeNetwork'])->name('versions.region.network.store');
+        // Security, internal summary, quotation, dll.
+        Route::get('security-service', [SecurityServiceController::class, 'create'])->name('versions.security_service.create');
+        Route::post('security-service', [SecurityServiceController::class, 'store'])->name('versions.security_service.store');
 
-    // DR Settings
-    Route::get('region/dr-settings/create', [RegionController::class, 'createDr'])->name('versions.region.dr.create');
-    Route::post('region/dr-settings', [RegionController::class, 'storeDr'])->name('versions.region.dr.store');
-
-   
-    Route::get('mpdraas', [MPDRaaSController::class, 'create'])->name('versions.mpdraas.create');
-    Route::post('mpdraas', [MPDRaaSController::class, 'store'])->name('versions.mpdraas.store');
-
-
-        Route::get('mpdraas', [MPDRaaSController::class, 'create'])
-            ->name('versions.mpdraas.create');
-        Route::post('mpdraas', [MPDRaaSController::class, 'store'])
-            ->name('versions.mpdraas.store');
+        Route::get('security-service/time', [SecurityServiceController::class, 'createTime'])
+            ->name('versions.security_service.time.create');
 
 
 
-              Route::post('mpdraas/autosave', [\App\Http\Controllers\MPDRaaSController::class, 'autosave'])
-        ->name('versions.mpdraas.autosave');
+// === NEW: Any-file upload/list/delete for Time Security Services ===
+Route::post('security-service/time/files/upload', [SecurityServiceController::class, 'uploadTimeFile'])
+    ->name('versions.security_service.time.files.upload');
+
+Route::delete('security-service/time/files/{file}', [SecurityServiceController::class, 'deleteTimeFile'])
+    ->name('versions.security_service.time.files.delete');
+
+Route::get('security-service/time/files/{file}/download', [SecurityServiceController::class, 'downloadTimeFile'])
+    ->name('versions.security_service.time.files.download');
 
 
-    // Security, internal summary, quotation, etc.
-    Route::get('security-service', [SecurityServiceController::class, 'create'])->name('versions.security_service.create');
-    Route::post('security-service', [SecurityServiceController::class, 'store'])->name('versions.security_service.store');
+        // Files (rujuk halaman Non-Standard Items)
+        Route::post('non-standard-items/files', [NonStandardItemController::class, 'uploadAnyFile'])
+            ->name('versions.non_standard_items.files.upload');
+        Route::delete('non-standard-items/files/{file}', [NonStandardItemController::class, 'deleteAnyFile'])
+            ->name('versions.non_standard_items.files.delete');
+        Route::get('non-standard-items/files/{file}/download', [NonStandardItemController::class, 'downloadAnyFile'])
+            ->name('versions.non_standard_items.files.download');
+
+        Route::post('duplicate', [ProjectController::class, 'duplicateVersion'])
+            ->name('versions.duplicate');
+
+        Route::get('internal-summary', [\App\Http\Controllers\InternalSummaryController::class, 'index'])
+            ->name('versions.internal_summary.show');
+
+        Route::post('internal-summary/commit', [InternalSummaryController::class, 'commit'])
+            ->name('versions.internal_summary.commit');
+
+        Route::post('internal-summary/save', [\App\Http\Controllers\InternalSummaryController::class, 'saveOrUpdate'])
+            ->name('versions.internal_summary.save');
+
+        // Customization (entire subscription period)
+        Route::get('customization', [CustomizationController::class, 'show'])
+            ->name('versions.customization.show');
+        Route::post('customization', [CustomizationController::class, 'save'])
+            ->name('versions.customization.save');
+
+        Route::get('ratecard', [\App\Http\Controllers\RateCardController::class, 'showRateCard'])
+            ->name('versions.quotation.ratecard');
+
+        Route::get('ratecard-pdf', [\App\Http\Controllers\RateCardController::class, 'downloadRateCardPdf'])
+            ->name('versions.ratecard.pdf');
+
+        Route::get('quotation', [\App\Http\Controllers\QuotationController::class, 'generateQuotation'])
+            ->name('versions.quotation.preview');
+
+        /*Route::get('quotation-annual', [QuotationController::class, 'generateQuotation'])
+            ->name('versions.quotation.annual');*/
+
+        Route::get('quotation-annual', [QuotationController::class, 'annual'])
+            ->name('versions.quotation.annual');
+
+        Route::get('generate-pdf', [QuotationController::class, 'generatePDF'])
+            ->name('versions.quotation.generate_pdf');
+
+        Route::get('download-table-pdf', [\App\Http\Controllers\QuotationPdfController::class, 'downloadTablePdf'])
+            ->name('versions.quotation.download_table_pdf');
+
+        Route::get('generate-csv', [\App\Http\Controllers\QuotationCsvController::class, 'generateCsv'])
+            ->name('versions.quotation.generate_csv');
+
+        Route::get('quotation.xlsx', [QuotationCsvController::class, 'generateXlsx'])
+            ->name('versions.quotation.generate_xlsx');
 
 
 
             
-
-        Route::get('security-service', [SecurityServiceController::class, 'create'])
-            ->name('versions.security_service.create');
-        Route::post('security-service', [SecurityServiceController::class, 'store'])
-            ->name('versions.security_service.store');
-
-            // Any-file (PDF/CSV/TXT/IMG/Office) upload/preview untuk Other Services
-Route::post('non-standard-items/files', [NonStandardItemController::class, 'uploadAnyFile'])
-    ->name('versions.non_standard_items.files.upload');
-
-Route::delete('non-standard-items/files/{file}', [NonStandardItemController::class, 'deleteAnyFile'])
-    ->name('versions.non_standard_items.files.delete');
-
-Route::get('non-standard-items/files/{file}/download', [NonStandardItemController::class, 'downloadAnyFile'])
-    ->name('versions.non_standard_items.files.download');
-
-         
-Route::post('duplicate', [ProjectController::class, 'duplicateVersion'])
-    ->name('versions.duplicate');
-
-
-   Route::get('internal-summary', [\App\Http\Controllers\InternalSummaryController::class, 'index'])
-        ->name('versions.internal_summary.show');
-
-    
-
-Route::post('internal-summary/commit', [InternalSummaryController::class, 'commit'])
-    ->name('versions.internal_summary.commit');
-
-
-    Route::post('internal-summary/save', [\App\Http\Controllers\InternalSummaryController::class, 'saveOrUpdate'])
-        ->name('versions.internal_summary.save');
-
-    Route::get('ratecard', [\App\Http\Controllers\RateCardController::class, 'showRateCard'])
-    ->name('versions.quotation.ratecard');
-
-
-    Route::get('ratecard-pdf', [\App\Http\Controllers\RateCardController::class, 'downloadRateCardPdf'])
-    ->name('versions.ratecard.pdf');
-
-
-Route::get('quotation', [\App\Http\Controllers\QuotationController::class, 'generateQuotation'])
-    ->name('versions.quotation.preview');
-
- 
-
-
-    /*Route::get('quotation-annual', [QuotationController::class, 'generateQuotation'])
-    ->name('versions.quotation.annual');*/
-
-
-
-
-
-    Route::get('quotation-annual', [QuotationController::class, 'annual'])
-    ->name('versions.quotation.annual');
-
-
-
-
-
-
-    Route::get('generate-pdf', [QuotationController::class, 'generatePDF'])
-        ->name('versions.quotation.generate_pdf');
-
-    Route::get('download-table-pdf', [\App\Http\Controllers\QuotationPdfController::class, 'downloadTablePdf'])
-        ->name('versions.quotation.download_table_pdf');
-
-    Route::get('generate-csv', [\App\Http\Controllers\QuotationCsvController::class, 'generateCsv'])
-        ->name('versions.quotation.generate_csv');
-
-    
-    Route::get('quotation.xlsx', [QuotationCsvController::class, 'generateXlsx'])
-        ->name('versions.quotation.generate_xlsx');
-
 
         Route::get('generate-mpdraas-pdf', [QuotationController::class, 'generateMPDRaaSPdf'])
-    ->name('versions.quotation.generate_mpdraas_pdf');
+            ->name('versions.quotation.generate_mpdraas_pdf');
 
-        
-        
-
-        
-        
         Route::get('quotation-pdf', function (Version $version) {
             $pdfContent = $version->quotation_pdf; 
-            
             return response($pdfContent)
                 ->header('Content-Type', 'application/pdf')
                 ->header('Content-Disposition', 'inline; filename="quotation.pdf"');
         })->name('versions.quotation.pdf');
 
-
-        
+        // =================== Non-Standard Items (Page + CRUD + Import) ===================
         Route::get('non-standard-items/create', [NonStandardItemController::class, 'create'])->name('versions.non_standard_items.create');
         Route::post('non-standard-items', [NonStandardItemController::class, 'store'])->name('versions.non_standard_items.store');
-        
         Route::get('non-standard-items', [NonStandardItemController::class, 'index'])->name('versions.non_standard_items.index');
         Route::post('non-standard-items/import', [NonStandardItemController::class, 'import'])->name('versions.non_standard_items.import');
-        
+        Route::delete('non-standard-items/{item}', [NonStandardItemController::class, 'destroy'])->name('non_standard_items.destroy');
 
-Route::delete('non-standard-items/{item}', [NonStandardItemController::class, 'destroy'])->name('non_standard_items.destroy');
+        // >>> Dipindahkan ke dalam group versi (supaya route terima $version):
+        Route::get('non-standard-items/{item}/edit', [NonStandardItemController::class, 'edit'])->name('non_standard_items.edit');
+        Route::put('non-standard-items/{item}', [NonStandardItemController::class, 'update'])->name('non_standard_items.update');
 
-        
+        // =================== Non-Standard Offerings (Standard Services) ===================
+        // >>> Baru: letak dalam versions/{version} supaya controller dapat $versionId
+        Route::prefix('non-standard-offerings')->group(function () {
+            Route::post('/', [NonStandardOfferingController::class, 'store'])
+                ->name('versions.non_standard_offerings.store');
+
+            Route::get('{offering}/edit', [NonStandardOfferingController::class, 'edit'])
+                ->name('versions.non_standard_offerings.edit');
+
+            Route::put('{offering}', [NonStandardOfferingController::class, 'update'])
+                ->name('versions.non_standard_offerings.update');
+
+            Route::delete('{offering}', [NonStandardOfferingController::class, 'destroy'])
+                ->name('versions.non_standard_offerings.destroy');
+        });
+
         // Inside Route::prefix('versions/{version}')
         Route::get('quotation-pdf', [QuotationController::class, 'generateQuotationPdf'])
             ->name('versions.quotation.generate_pdf_alt');
 
+        Route::get('download-zip', [\App\Http\Controllers\QuotationController::class, 'downloadZip'])
+            ->name('versions.download_zip');
 
-      Route::get('download-zip', [\App\Http\Controllers\QuotationController::class, 'downloadZip'])
-    ->name('versions.download_zip');
+        Route::get('export-link', [\App\Http\Controllers\QuotationController::class, 'exportLink'])
+            ->name('versions.export_link'); 
 
-Route::get('internal-summary/pdf', [QuotationController::class, 'internalSummaryPdf'])
-    ->name('versions.internal_summary.pdf');
-
-
-
-
-
+        Route::get('internal-summary/pdf', [QuotationController::class, 'internalSummaryPdf'])
+            ->name('versions.internal_summary.pdf');
     });
 
-    Route::post('/autosave/region/{version}', [RegionController::class, 'autoSave']);
+    Route::post('versions/{version}/region/autosave', [RegionController::class, 'autoSave'])
+        ->name('versions.region.autosave');
+
     Route::post('/autosave/quotation/{version}', [QuotationController::class, 'autoSave']);
-    
 
-       Route::get('non-standard-items/{version}/{item}/edit', [NonStandardItemController::class, 'edit'])->name('non_standard_items.edit');
-    Route::put('non-standard-items/{version}/{item}', [NonStandardItemController::class, 'update'])->name('non_standard_items.update');
-    // Route::delete('non-standard-items/{version}/{item}', [NonStandardItemController::class, 'destroy'])->name('non_standard_items.destroy');
-    
-
-        
-
-
-     
-
-      
 
     Route::get('/projects/{project}/service_description', [RegionController::class, 'serviceDescription'])
         ->name('projects.service_description');
-        Route::get('/services/from-pdf', [ServiceDescriptionController::class, 'showFromPdf'])->name('services.from_pdf');
+    Route::get('/services/from-pdf', [ServiceDescriptionController::class, 'showFromPdf'])->name('services.from_pdf');
 
-   
     // Projects & Versions
     Route::resource('projects', ProjectController::class);
     Route::resource('projects.versions', VersionController::class)->only(['create', 'store']);
@@ -300,10 +263,7 @@ Route::get('internal-summary/pdf', [QuotationController::class, 'internalSummary
     Route::post('/ecs-configurations/import', [ECSConfigurationController::class, 'import'])->name('ecs_configurations.import');
     Route::post('/versions/{version}/backup/import/save', [ECSConfigurationController::class, 'storePreview'])->name('ecs_configurations.store_preview');
 
-
-
-
-     Route::get('versions/{version}/backup', [ECSConfigurationController::class, 'create'])
+    Route::get('versions/{version}/backup', [ECSConfigurationController::class, 'create'])
         ->name('versions.backup.create');
     Route::post('versions/{version}/backup', [ECSConfigurationController::class, 'store'])
         ->name('versions.backup.store');
@@ -311,8 +271,8 @@ Route::get('internal-summary/pdf', [QuotationController::class, 'internalSummary
 
     Route::delete('/ecs-configurations/{id}', [ECSConfigurationController::class, 'destroy'])->name('ecs_configurations.destroy');
 
-   
-
+    Route::post('/ecs-configurations/bulk-destroy', [ECSConfigurationController::class, 'bulkDestroy'])
+    ->name('ecs_configurations.bulk_destroy');
 
 
     // Solutions
@@ -321,64 +281,71 @@ Route::get('internal-summary/pdf', [QuotationController::class, 'internalSummary
     Route::resource('products', ProductController::class);
     Route::post('/products/import', [ProductController::class, 'import'])->name('products.import');
 
-      Route::get('/vm-mapping', [VMMappingsController::class, 'index'])->name('vm-mapping.index');
-      Route::get('/flavour-map', [PFlavourMapController::class, 'index'])->name('flavour.index');
-
-
+    Route::get('/vm-mapping', [VMMappingsController::class, 'index'])->name('vm-mapping.index');
+    Route::get('/flavour-map', [PFlavourMapController::class, 'index'])->name('flavour.index');
 
     Route::get('/categories/export', [CategoryController::class, 'export'])->name('categories.export');
 
-    
     Route::resource('categories', CategoryController::class);
-     Route::post('/categories/import', [CategoryController::class, 'import'])->name('categories.import');
+    Route::post('/categories/import', [CategoryController::class, 'import'])->name('categories.import');
 
-     Route::post('/price-catalogs', [PriceCatalogController::class, 'store'])
+    
+// ===== Price Catalogs =====
+Route::post('/price-catalogs', [PriceCatalogController::class, 'store'])
     ->name('price-catalogs.store');
 
-// Jadikan satu versi sebagai "current"
 Route::post('/price-catalogs/{catalog}/make-current', [PriceCatalogController::class, 'makeCurrent'])
     ->name('price-catalogs.makeCurrent');
 
-
-    Route::post('/price-catalogs/{catalog}/commit', [\App\Http\Controllers\PriceCatalogController::class, 'commit'])
+Route::post('/price-catalogs/{catalog}/commit', [PriceCatalogController::class, 'commit'])
     ->name('price-catalogs.commit');
 
-// Per-service price history across versions
-Route::get('/services/{service}/history', [\App\Http\Controllers\ServiceController::class, 'priceHistory'])
+// ===== Services: static/custom first =====
+Route::get('/services/export', [ServiceController::class, 'export'])
+    ->name('services.export');
+
+Route::post('/services/import', [ServiceController::class, 'import'])
+    ->name('services.import');
+
+Route::get('/services/{service}/history', [ServiceController::class, 'priceHistory'])
     ->name('services.priceHistory');
 
-    // routes/web.php
-Route::post('/services/bulk-log', [\App\Http\Controllers\ServiceController::class, 'bulkLog'])
+Route::get('/services/{service}/audit-logs', [ServiceController::class, 'auditLogs'])
+    ->name('services.audit-logs');
+
+Route::post('/services/bulk-log', [ServiceController::class, 'bulkLog'])
     ->name('services.bulkLog');
-Route::post('/services/bulk-adjust', [\App\Http\Controllers\ServiceController::class, 'bulkAdjust'])
+
+Route::post('/services/bulk-adjust', [ServiceController::class, 'bulkAdjust'])
     ->name('services.bulkAdjust');
 
-    
+// >>> Tambah route PREVIEW (baru)
+Route::post('/services/bulk-preview', [ServiceController::class, 'bulkPreview'])
+    ->name('services.bulkPreview');
 
-     Route::get('/services/export', [ServiceController::class, 'export'])->name('services.export');
-     
-    Route::resource('services', ServiceController::class);
-    Route::get('/services/{service}/audit-logs', [ServiceController::class, 'auditLogs'])->name('services.audit-logs');
+// ===== Resource (elak duplikasi destroy) =====
+// Pilih salah satu:
+// A) Guna destroy daripada resource → buang route manual DELETE
+Route::resource('services', ServiceController::class);
 
-    Route::post('/services/import', [ServiceController::class, 'import'])->name('services.import');
+// B) ATAU kekalkan route manual DELETE, exclude destroy dari resource:
+// Route::resource('services', ServiceController::class)->except(['destroy']);
+// Route::delete('/services/{id}', [ServiceController::class, 'destroy'])->name('services.destroy');
 
-      // DELETE service
-    Route::delete('/services/{id}', [ServiceController::class, 'destroy'])->name('services.destroy');
 
-     // ECS Flavours
+    // ECS Flavours
     Route::get('/ecs-flavours/{id}/edit', [ECSFlavourController::class, 'edit'])->name('ecs-flavours.edit');
     Route::put('/ecs-flavours/{id}', [ECSFlavourController::class, 'update'])->name('ecs-flavours.update');
 
-
-     Route::get('/ecs-flavours/export', [ECSFlavourController::class, 'export'])->name('ecs-flavours.export');
+    Route::get('/ecs-flavours/export', [ECSFlavourController::class, 'export'])->name('ecs-flavours.export');
 
     Route::resource('ecs-flavours', ECSFlavourController::class);
     Route::post('/ecs-flavours/import', [ECSFlavourController::class, 'import'])->name('ecs-flavours.import');
 
-      Route::get('/network-mappings/export', [NetworkMappingController::class, 'export'])->name('network-mappings.export');
+    Route::get('/network-mappings/export', [NetworkMappingController::class, 'export'])->name('network-mappings.export');
 
     Route::resource('network-mappings', NetworkMappingController::class);   
-     Route::post('/network-mappings/import', [NetworkMappingController::class, 'import'])->name('network-mappings.import');        
+
     // Customers (resourceful)
     Route::resource('customers', CustomerController::class);
 });
@@ -386,6 +353,4 @@ Route::post('/services/bulk-adjust', [\App\Http\Controllers\ServiceController::c
 // Routes for admin (manage users)
 Route::middleware(['auth', 'admin'])->group(function () {
     Route::resource('users', UserController::class);
-
-    
 });

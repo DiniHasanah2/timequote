@@ -8,7 +8,6 @@ use App\Models\ECSConfiguration;
 use App\Models\SecurityService;
 use Barryvdh\DomPDF\Facade\Pdf;
 
-
 class RateCardController extends Controller
 {
     public function showRateCard($versionId)
@@ -17,7 +16,7 @@ class RateCardController extends Controller
             'internal_summary',
             'region',
             'project.customer',
-            'security_service',    
+            'security_service',
         ])->findOrFail($versionId);
 
         $internalSummary = $version->internal_summary;
@@ -28,16 +27,15 @@ class RateCardController extends Controller
             \Log::warning("InternalSummary is null for version: $versionId");
             $internalSummary = new \App\Models\InternalSummary();
         }
+
         $pricing = config('pricing');
 
-        // Calculate rate card items based on quantity × price_per_unit
+        // Base items
         $rateCardItems = $this->calculateRateCardItems($internalSummary, $pricing);
 
-        //add Managed Services rows
-        /*$rateCardItems = array_merge(
-            $rateCardItems,
-            $this->calculateManagedItems($version->security_service, $pricing)
-        );*/
+        // Managed Services (letak bawah "Professional Services")
+        $managedItems = $this->calculateManagedItems($version->security_service, $pricing);
+        $rateCardItems = array_merge($rateCardItems, $managedItems);
 
         return view('projects.security_service.ratecard', compact(
             'version',
@@ -49,20 +47,14 @@ class RateCardController extends Controller
     {
         $items = [];
 
-
         // Professional Services
         $items = array_merge($items, $this->calculateProfessionalServices($internalSummary, $pricing));
 
-
-         // Managed Services
-        $items = array_merge($items, $this->calculateManagedItems($internalSummary, $pricing));
-
-
+        // NOTE: Jangan panggil calculateManagedItems() kat sini (sebab perlukan $version->security_service).
+        // Kita merge dalam showRateCard() lepas dapat $version.
 
         // Network Services
         $items = array_merge($items, $this->calculateNetworkItems($internalSummary, $pricing));
-
-
 
         // Compute Services
         $items = array_merge($items, $this->calculateComputeItems($internalSummary, $pricing));
@@ -70,35 +62,82 @@ class RateCardController extends Controller
         // License Services
         $items = array_merge($items, $this->calculateLicenseItems($internalSummary, $pricing));
 
-        
         // Storage Services
         $items = array_merge($items, $this->calculateStorageItems($internalSummary, $pricing));
-        
-        
+
         // Security Services
         $items = array_merge($items, $this->calculateSecurityItems($internalSummary, $pricing));
 
-         
         // Backup Services
         $items = array_merge($items, $this->calculateBackupDrItems($internalSummary, $pricing));
 
-        // Monitoring Services  
+        // Monitoring Services
         $items = array_merge($items, $this->calculateMonitoringItems($internalSummary, $pricing));
-
-        
-
-
-
-
-        
 
         return $items;
     }
 
+    // ======================= MANAGED =======================
+    private function calculateManagedItems($securityService, $pricing)
+    {
+        $items = [];
+        if (!$securityService) {
+            return $items;
+        }
+
+        // Map display names -> pricing keys
+        $map = [
+            'Managed Operating System'   => 'CMNS-MOS-NOD-STD',
+            'Managed Backup and Restore' => 'CMNS-MBR-NOD-STD',
+            'Managed Patching'           => 'CMNS-MPT-NOD-STD',
+            'Managed DR'                 => 'CMNS-MDR-NOD-STD',
+        ];
+
+        foreach ($map as $label => $priceKey) {
+            $price = $pricing[$priceKey]['price_per_unit'] ?? 0;
+
+            $kl = 0; $cj = 0;
+            for ($i = 1; $i <= 4; $i++) {
+                $klField = "kl_managed_services_$i";
+                $cjField = "cyber_managed_services_$i";
+
+                if (($securityService->$klField ?? 'None') === $label) $kl++;
+                if (($securityService->$cjField ?? 'None') === $label) $cj++;
+            }
+
+            if ($kl > 0) {
+                $items[] = [
+                    'category'       => 'Professional', // ← GROUP bawah “Professional Services”
+                    'name'           => $label,
+                    'unit'           => 'VM',
+                    'region'         => 'Kuala Lumpur',
+                    'quantity'       => $kl,
+                    'price_per_unit' => $price,
+                    'total_price'    => $kl * $price,
+                ];
+            }
+
+            if ($cj > 0) {
+                $items[] = [
+                    'category'       => 'Professional', // ← GROUP bawah “Professional Services”
+                    'name'           => $label,
+                    'unit'           => 'VM',
+                    'region'         => 'Cyberjaya',
+                    'quantity'       => $cj,
+                    'price_per_unit' => $price,
+                    'total_price'    => $cj * $price,
+                ];
+            }
+        }
+
+        return $items;
+    }
+
+    // ======================= NETWORK =======================
     private function calculateNetworkItems($summary, $pricing)
     {
         $items = [];
-        
+
         // Bandwidth KL
         if ($summary->kl_bandwidth > 0) {
             $priceKey = $this->getBandwidthPriceKey($summary->kl_bandwidth);
@@ -155,14 +194,12 @@ class RateCardController extends Controller
             ];
         }
 
-
-
-         // Elastic IP
+        // Elastic IP
         $elasticIPs = [
-            'kl_included_elastic_ip' => ['KL Included Elastic IP (FOC)', 'CNET-EIP-SHR-FOC'],
+            'kl_included_elastic_ip'    => ['KL Included Elastic IP (FOC)', 'CNET-EIP-SHR-FOC'],
             'cyber_included_elastic_ip' => ['Cyberjaya Included Elastic IP (FOC)', 'CNET-EIP-SHR-FOC'],
-            'kl_elastic_ip' => ['KL Elastic IP', 'CNET-EIP-SHR-STD'],
-            'cyber_elastic_ip' => ['Cyberjaya Elastic IP', 'CNET-EIP-SHR-STD'],
+            'kl_elastic_ip'             => ['KL Elastic IP', 'CNET-EIP-SHR-STD'],
+            'cyber_elastic_ip'          => ['Cyberjaya Elastic IP', 'CNET-EIP-SHR-STD'],
         ];
 
         foreach ($elasticIPs as $field => [$name, $priceKey]) {
@@ -180,12 +217,9 @@ class RateCardController extends Controller
             }
         }
 
-        
-       
-
         // Elastic Load Balancer
         $loadBalancers = [
-            'kl_elastic_load_balancer' => ['KL Elastic Load Balancer', 'CNET-ELB-SHR-STD'],
+            'kl_elastic_load_balancer'    => ['KL Elastic Load Balancer', 'CNET-ELB-SHR-STD'],
             'cyber_elastic_load_balancer' => ['Cyberjaya Elastic Load Balancer', 'CNET-ELB-SHR-STD'],
         ];
 
@@ -206,7 +240,7 @@ class RateCardController extends Controller
 
         // Direct Connect Virtual Gateway
         $directConnects = [
-            'kl_direct_connect_virtual' => ['KL Direct Connect Virtual Gateway', 'CNET-DGW-SHR-EXT'],
+            'kl_direct_connect_virtual'    => ['KL Direct Connect Virtual Gateway', 'CNET-DGW-SHR-EXT'],
             'cyber_direct_connect_virtual' => ['Cyberjaya Direct Connect Virtual Gateway', 'CNET-DGW-SHR-EXT'],
         ];
 
@@ -227,7 +261,7 @@ class RateCardController extends Controller
 
         // L2BR Instance
         $l2brInstances = [
-            'kl_l2br_instance' => ['KL L2BR Instance', 'CNET-L2BR-SHR-EXT'],
+            'kl_l2br_instance'    => ['KL L2BR Instance', 'CNET-L2BR-SHR-EXT'],
             'cyber_l2br_instance' => ['Cyberjaya L2BR Instance', 'CNET-L2BR-SHR-EXT'],
         ];
 
@@ -245,10 +279,6 @@ class RateCardController extends Controller
                 ];
             }
         }
-
-
-
-
 
         // vPLL KL
         if ($summary->kl_virtual_private_leased_line > 0) {
@@ -278,10 +308,6 @@ class RateCardController extends Controller
             ];
         }
 
-
-
-
-
         // vPLL L2BR KL
         if ($summary->kl_vpll_l2br > 0) {
             $price = $pricing['CNET-L2BR-SHR-INT']['price_per_unit'] ?? 0;
@@ -295,20 +321,15 @@ class RateCardController extends Controller
             ];
         }
 
-
-
-
-
-
         // NAT Gateways
         $natGateways = [
-            'kl_nat_gateway_small' => ['KL NAT Gateway (Small)', 'CNET-NAT-SHR-S'],
-            'kl_nat_gateway_medium' => ['KL NAT Gateway (Medium)', 'CNET-NAT-SHR-M'],
-            'kl_nat_gateway_large' => ['KL NAT Gateway (Large)', 'CNET-NAT-SHR-L'],
-            'kl_nat_gateway_xlarge' => ['KL NAT Gateway (XLarge)', 'CNET-NAT-SHR-XL'],
-            'cyber_nat_gateway_small' => ['Cyberjaya NAT Gateway (Small)', 'CNET-NAT-SHR-S'],
+            'kl_nat_gateway_small'     => ['KL NAT Gateway (Small)', 'CNET-NAT-SHR-S'],
+            'kl_nat_gateway_medium'    => ['KL NAT Gateway (Medium)', 'CNET-NAT-SHR-M'],
+            'kl_nat_gateway_large'     => ['KL NAT Gateway (Large)', 'CNET-NAT-SHR-L'],
+            'kl_nat_gateway_xlarge'    => ['KL NAT Gateway (XLarge)', 'CNET-NAT-SHR-XL'],
+            'cyber_nat_gateway_small'  => ['Cyberjaya NAT Gateway (Small)', 'CNET-NAT-SHR-S'],
             'cyber_nat_gateway_medium' => ['Cyberjaya NAT Gateway (Medium)', 'CNET-NAT-SHR-M'],
-            'cyber_nat_gateway_large' => ['Cyberjaya NAT Gateway (Large)', 'CNET-NAT-SHR-L'],
+            'cyber_nat_gateway_large'  => ['Cyberjaya NAT Gateway (Large)', 'CNET-NAT-SHR-L'],
             'cyber_nat_gateway_xlarge' => ['Cyberjaya NAT Gateway (XLarge)', 'CNET-NAT-SHR-XL'],
         ];
 
@@ -327,10 +348,9 @@ class RateCardController extends Controller
             }
         }
 
-
         // Global Server Load Balancer
         $gslbs = [
-            'kl_gslb' => ['KL Global Server Load Balancer (GSLB)', 'CNET-GLB-SHR-DOMAIN'],
+            'kl_gslb'    => ['KL Global Server Load Balancer (GSLB)', 'CNET-GLB-SHR-DOMAIN'],
             'cyber_gslb' => ['Cyberjaya Global Server Load Balancer (GSLB)', 'CNET-GLB-SHR-DOMAIN'],
         ];
 
@@ -352,6 +372,7 @@ class RateCardController extends Controller
         return $items;
     }
 
+    // ======================= STORAGE =======================
     private function calculateStorageItems($summary, $pricing)
     {
         $items = [];
@@ -489,29 +510,30 @@ class RateCardController extends Controller
         return $items;
     }
 
+    // ======================= SECURITY =======================
     private function calculateSecurityItems($summary, $pricing)
     {
         $items = [];
 
-        // Security Services
         $securityServices = [
-            'kl_firewall_fortigate' => ['KL Cloud Firewall (Fortigate)', 'CSEC-VFW-DDT-FG'],
-            'cyber_firewall_fortigate' => ['Cyberjaya Cloud Firewall (Fortigate)', 'CSEC-VFW-DDT-FG'],
-            'kl_firewall_opnsense' => ['KL Cloud Firewall (OPNSense)', 'CSEC-VFW-DDT-OS'],
-            'cyber_firewall_opnsense' => ['Cyberjaya Cloud Firewall (OPNSense)', 'CSEC-VFW-DDT-OS'],
-            'kl_shared_waf' => ['KL Shared WAF', 'CSEC-WAF-SHR-HA'],
-            'cyber_shared_waf' => ['Cyberjaya Shared WAF', 'CSEC-WAF-SHR-HA'],
-            'kl_antivirus' => ['KL Anti-Virus', 'CSEC-EDR-NOD-STD'],
-            'cyber_antivirus' => ['Cyberjaya Anti-Virus', 'CSEC-EDR-NOD-STD'],
-            'kl_cloud_vulnerability' => ['KL Cloud Vulnerability Assessment', 'SECT-VAS-EIP-STD'],
-            'cyber_cloud_vulnerability' => ['Cyberjaya Cloud Vulnerability Assessment', 'SECT-VAS-EIP-STD'],
+            'kl_firewall_fortigate'       => ['KL Cloud Firewall (Fortigate)', 'CSEC-VFW-DDT-FG'],
+            'cyber_firewall_fortigate'    => ['Cyberjaya Cloud Firewall (Fortigate)', 'CSEC-VFW-DDT-FG'],
+            'kl_firewall_opnsense'        => ['KL Cloud Firewall (OPNSense)', 'CSEC-VFW-DDT-OS'],
+            'cyber_firewall_opnsense'     => ['Cyberjaya Cloud Firewall (OPNSense)', 'CSEC-VFW-DDT-OS'],
+            'kl_shared_waf'               => ['KL Shared WAF', 'CSEC-WAF-SHR-HA'],
+            'cyber_shared_waf'            => ['Cyberjaya Shared WAF', 'CSEC-WAF-SHR-HA'],
+            'kl_antivirus'                => ['KL Anti-Virus', 'CSEC-EDR-NOD-STD'],
+            'cyber_antivirus'             => ['Cyberjaya Anti-Virus', 'CSEC-EDR-NOD-STD'],
+            'kl_cloud_vulnerability'      => ['KL Cloud Vulnerability Assessment', 'SECT-VAS-EIP-STD'],
+            'cyber_cloud_vulnerability'   => ['Cyberjaya Cloud Vulnerability Assessment', 'SECT-VAS-EIP-STD'],
         ];
 
         foreach ($securityServices as $field => [$name, $priceKey]) {
             if ($summary->$field > 0) {
                 $price = $pricing[$priceKey]['price_per_unit'] ?? 0;
-                $unit = strpos($priceKey, 'WAF') !== false ? 'Mbps' : 'Unit';
+                $unit  = strpos($priceKey, 'WAF') !== false ? 'Mbps' : 'Unit';
                 $region = strpos($field, 'kl_') === 0 ? 'Kuala Lumpur' : 'Cyberjaya';
+
                 $items[] = [
                     'name' => $name,
                     'quantity' => $summary->$field,
@@ -523,290 +545,218 @@ class RateCardController extends Controller
             }
         }
 
-        
-        return $items;
-        
-    }
-
-
-
-    private function calculateManagedItems($securityService, $pricing)
-{
-    $items = [];
-    if (!$securityService) {
         return $items;
     }
 
-    // Map the display names to your pricing keys in config/pricing.php
-    $map = [
-        'Managed Operating System'   => 'CMNS-MOS-NOD-STD',
-        'Managed Backup and Restore' => 'CMNS-MBR-NOD-STD',
-        'Managed Patching'           => 'CMNS-MPT-NOD-STD',
-        'Managed DR'                 => 'CMNS-MDR-NOD-STD',
-    ];
+    // ======================= MONITORING =======================
+    private function calculateMonitoringItems($summary, $pricing)
+    {
+        $items = [];
+        if (!$summary) return $items;
 
-    // Count selections for each region (you’re using 4 slots per region)
-    foreach ($map as $label => $priceKey) {
-        $price = $pricing[$priceKey]['price_per_unit'] ?? 0;
+        $price = $pricing['CMON-TIS-NOD-STD']['price_per_unit'] ?? 0;
 
-        $kl = 0; $cj = 0;
-        for ($i = 1; $i <= 4; $i++) {
-            $klField = "kl_managed_services_$i";
-            $cjField = "cyber_managed_services_$i";
-
-            if (($securityService->$klField ?? 'None') === $label) $kl++;
-            if (($securityService->$cjField ?? 'None') === $label) $cj++;
-        }
-
-        if ($kl > 0) {
+        // KL
+        if ((int)($summary->kl_insight_vmonitoring ?? 0) > 0) {
             $items[] = [
-                'name' => $label,              // "Managed ..." → groups as "Managed Services" in your blade
-                'unit' => 'VM',
-                'region' => 'Kuala Lumpur',
-                'quantity' => $kl,
-                'price_per_unit' => $price,
-                'total_price' => $kl * $price,
-            ];
-        }
-
-        if ($cj > 0) {
-            $items[] = [
-                'name' => $label,
-                'unit' => 'VM',
-                'region' => 'Cyberjaya',
-                'quantity' => $cj,
-                'price_per_unit' => $price,
-                'total_price' => $cj * $price,
-            ];
-        }
-    }
-
-    return $items;
-}
-
-private function calculateMonitoringItems($summary, $pricing)
-{
-    $items = [];
-    if (!$summary) return $items;
-
-    // Your config key for TCS inSight vMonitoring
-    $price = $pricing['CMON-TIS-NOD-STD']['price_per_unit'] ?? 0;
-
-    // KL
-    if ((int)($summary->kl_insight_vmonitoring ?? 0) > 0) {
-        $items[] = [
-            // start name with "Monitoring" so your blade groups under "Monitoring Services"
-            'name' => 'Monitoring TCS inSight vMonitoring',
-            'unit' => 'Unit',
-            'region' => 'Kuala Lumpur',
-            'quantity' => (int)$summary->kl_insight_vmonitoring,
-            'price_per_unit' => $price,
-            'total_price' => (int)$summary->kl_insight_vmonitoring * $price,
-        ];
-    }
-
-    // CJ
-    if ((int)($summary->cyber_insight_vmonitoring ?? 0) > 0) {
-        $items[] = [
-            'name' => 'Monitoring TCS inSight vMonitoring',
-            'unit' => 'Unit',
-            'region' => 'Cyberjaya',
-            'quantity' => (int)$summary->cyber_insight_vmonitoring,
-            'price_per_unit' => $price,
-            'total_price' => (int)$summary->cyber_insight_vmonitoring * $price,
-        ];
-    }
-
-    return $items;
-}
-
-private function calculateBackupDrItems($summary, $pricing)
-{
-    $items = [];
-    if (!$summary) return $items;
-
-    // label => [KL field, CJ field, pricing key]
-    $map = [
-        'Backup Cloud Server Backup Service - Full Backup Capacity' => [
-            'kl' => 'kl_full_backup_capacity',
-            'cj' => 'cyber_full_backup_capacity',
-            'priceKey' => 'CSBS-STRG-BCK-CSBSF',
-        ],
-        'Backup Cloud Server Backup Service - Incremental Backup Capacity' => [
-            'kl' => 'kl_incremental_backup_capacity',
-            'cj' => 'cyber_incremental_backup_capacity',
-            'priceKey' => 'CSBS-STRG-BCK-CSBSI',
-        ],
-        'Backup Cloud Server Replication Service - Retention Capacity' => [
-            'kl' => 'kl_replication_retention_capacity',
-            'cj' => 'cyber_replication_retention_capacity',
-            'priceKey' => 'CSBS-STRG-BCK-REPS',
-        ],
-    ];
-
-    foreach ($map as $label => $def) {
-        $price = $pricing[$def['priceKey']]['price_per_unit'] ?? 0;
-
-        $klQty = (int)($summary->{$def['kl']} ?? 0);
-        $cjQty = (int)($summary->{$def['cj']} ?? 0);
-
-        if ($klQty > 0) {
-            $items[] = [
-                'name' => $label,          // starts with "Backup" → your blade groups under "Backup Services"
-                'unit' => 'GB',
-                'region' => 'Kuala Lumpur',
-                'quantity' => $klQty,
-                'price_per_unit' => $price,
-                'total_price' => $klQty * $price,
-            ];
-        }
-
-        if ($cjQty > 0) {
-            $items[] = [
-                'name' => $label,
-                'unit' => 'GB',
-                'region' => 'Cyberjaya',
-                'quantity' => $cjQty,
-                'price_per_unit' => $price,
-                'total_price' => $cjQty * $price,
-            ];
-        }
-    }
-
-    return $items;
-}
-
-
-private function calculateLicenseItems($summary, $pricing)
-{
-    $items = [];
-    if (!$summary) return $items;
-
-    // Map summary fields → pricing keys (price_per_unit taken from pricing.php)
-    $map = [
-        // Microsoft
-        'Microsoft Windows Server (Core Pack) - Standard'   => ['kl' => 'kl_windows_std',  'cj' => 'cyber_windows_std',  'key' => 'CLIC-WIN-COR-SRVSTD'],
-        'Microsoft Windows Server (Core Pack) - Data Center'=> ['kl' => 'kl_windows_dc',   'cj' => 'cyber_windows_dc',   'key' => 'CLIC-WIN-COR-SRVDC'],
-        'Microsoft Remote Desktop Services (SAL)'           => ['kl' => 'kl_rds',          'cj' => 'cyber_rds',          'key' => 'CLIC-WIN-USR-RDSSAL'],
-        'Microsoft SQL (Web) (Core Pack)'                   => ['kl' => 'kl_sql_web',      'cj' => 'cyber_sql_web',      'key' => 'CLIC-WIN-COR-SQLWEB'],
-        'Microsoft SQL (Standard) (Core Pack)'              => ['kl' => 'kl_sql_std',      'cj' => 'cyber_sql_std',      'key' => 'CLIC-WIN-COR-SQLSTD'],
-        'Microsoft SQL (Enterprise) (Core Pack)'            => ['kl' => 'kl_sql_ent',      'cj' => 'cyber_sql_ent',      'key' => 'CLIC-WIN-COR-SQLENT'],
-
-        // RHEL
-        'RHEL (1-8vCPU)'                                    => ['kl' => 'kl_rhel_1_8',     'cj' => 'cyber_rhel_1_8',     'key' => 'CLIC-RHL-COR-8'],
-        'RHEL (9-127vCPU)'                                  => ['kl' => 'kl_rhel_9_127',   'cj' => 'cyber_rhel_9_127',   'key' => 'CLIC-RHL-COR-127'],
-    ];
-
-    foreach ($map as $label => $def) {
-        $price = $pricing[$def['key']]['price_per_unit'] ?? 0;
-
-        $klQty = (int) ($summary->{$def['kl']} ?? 0);
-        $cjQty = (int) ($summary->{$def['cj']} ?? 0);
-
-        if ($klQty > 0) {
-            $items[] = [
-                'name' => $label,            // starts with "Microsoft" or "RHEL" → your blade groups nicely
+                'name' => 'Monitoring TCS inSight vMonitoring',
                 'unit' => 'Unit',
                 'region' => 'Kuala Lumpur',
-                'quantity' => $klQty,
+                'quantity' => (int)$summary->kl_insight_vmonitoring,
                 'price_per_unit' => $price,
-                'total_price' => $klQty * $price,
+                'total_price' => (int)$summary->kl_insight_vmonitoring * $price,
             ];
         }
-        if ($cjQty > 0) {
+
+        // CJ
+        if ((int)($summary->cyber_insight_vmonitoring ?? 0) > 0) {
             $items[] = [
-                'name' => $label,
+                'name' => 'Monitoring TCS inSight vMonitoring',
                 'unit' => 'Unit',
                 'region' => 'Cyberjaya',
-                'quantity' => $cjQty,
+                'quantity' => (int)$summary->cyber_insight_vmonitoring,
                 'price_per_unit' => $price,
-                'total_price' => $cjQty * $price,
+                'total_price' => (int)$summary->cyber_insight_vmonitoring * $price,
             ];
         }
+
+        return $items;
     }
 
-    return $items;
-}
+    // ======================= BACKUP =======================
+    private function calculateBackupDrItems($summary, $pricing)
+    {
+        $items = [];
+        if (!$summary) return $items;
 
-//method calculator for ECS
-    private function calculateComputeItems($summary, $pricing)
-{
-    $items = [];
+        $map = [
+            'Backup Cloud Server Backup Service - Full Backup Capacity' => [
+                'kl' => 'kl_full_backup_capacity',
+                'cj' => 'cyber_full_backup_capacity',
+                'priceKey' => 'CSBS-STRG-BCK-CSBSF',
+            ],
+            'Backup Cloud Server Backup Service - Incremental Backup Capacity' => [
+                'kl' => 'kl_incremental_backup_capacity',
+                'cj' => 'cyber_incremental_backup_capacity',
+                'priceKey' => 'CSBS-STRG-BCK-CSBSI',
+            ],
+            'Backup Cloud Server Replication Service - Retention Capacity' => [
+                'kl' => 'kl_replication_retention_capacity',
+                'cj' => 'cyber_replication_retention_capacity',
+                'priceKey' => 'CSBS-STRG-BCK-REPS',
+            ],
+        ];
 
-    // Divide flavour mapping
-    $flavours = explode(',', $summary->ecs_flavour_mapping);
+        foreach ($map as $label => $def) {
+            $price = $pricing[$def['priceKey']]['price_per_unit'] ?? 0;
 
-    foreach ($flavours as $flavour) {
-        $flavour = trim($flavour);
-
-        if (!$flavour) continue;
-
-        // find price based on naming
-        $matched = collect($pricing)->first(function ($value) use ($flavour) {
-            return strtolower($value['name'] ?? '') === strtolower($flavour);
-        });
-
-        if ($matched) {
-            // Calculate total unit for KL and CJ
-            $klQty = $this->getFlavourCountFromECS('Kuala Lumpur', $flavour, $summary->version_id);
-            $cyberQty = $this->getFlavourCountFromECS('Cyberjaya', $flavour, $summary->version_id);
-
-            $price = $matched['price_per_unit'] ?? 0;
+            $klQty = (int)($summary->{$def['kl']} ?? 0);
+            $cjQty = (int)($summary->{$def['cj']} ?? 0);
 
             if ($klQty > 0) {
                 $items[] = [
-                    'name' => $matched['name'],
+                    'name' => $label,
+                    'unit' => 'GB',
+                    'region' => 'Kuala Lumpur',
                     'quantity' => $klQty,
-                    'unit' => 'Unit',
                     'price_per_unit' => $price,
                     'total_price' => $klQty * $price,
-                    'region' => 'Kuala Lumpur'
                 ];
             }
 
-            if ($cyberQty > 0) {
+            if ($cjQty > 0) {
                 $items[] = [
-                    'name' => $matched['name'],
-                    'quantity' => $cyberQty,
-                    'unit' => 'Unit',
+                    'name' => $label,
+                    'unit' => 'GB',
+                    'region' => 'Cyberjaya',
+                    'quantity' => $cjQty,
                     'price_per_unit' => $price,
-                    'total_price' => $cyberQty * $price,
-                    'region' => 'Cyberjaya'
+                    'total_price' => $cjQty * $price,
                 ];
             }
         }
+
+        return $items;
     }
 
-    return $items;
-}
+    // ======================= LICENSE =======================
+    private function calculateLicenseItems($summary, $pricing)
+    {
+        $items = [];
+        if (!$summary) return $items;
 
+        $map = [
+            'Microsoft Windows Server (Core Pack) - Standard'     => ['kl' => 'kl_windows_std',  'cj' => 'cyber_windows_std',  'key' => 'CLIC-WIN-COR-SRVSTD'],
+            'Microsoft Windows Server (Core Pack) - Data Center'  => ['kl' => 'kl_windows_dc',   'cj' => 'cyber_windows_dc',   'key' => 'CLIC-WIN-COR-SRVDC'],
+            'Microsoft Remote Desktop Services (SAL)'             => ['kl' => 'kl_rds',          'cj' => 'cyber_rds',          'key' => 'CLIC-WIN-USR-RDSSAL'],
+            'Microsoft SQL (Web) (Core Pack)'                     => ['kl' => 'kl_sql_web',      'cj' => 'cyber_sql_web',      'key' => 'CLIC-WIN-COR-SQLWEB'],
+            'Microsoft SQL (Standard) (Core Pack)'                => ['kl' => 'kl_sql_std',      'cj' => 'cyber_sql_std',      'key' => 'CLIC-WIN-COR-SQLSTD'],
+            'Microsoft SQL (Enterprise) (Core Pack)'              => ['kl' => 'kl_sql_ent',      'cj' => 'cyber_sql_ent',      'key' => 'CLIC-WIN-COR-SQLENT'],
+            'RHEL (1-8vCPU)'                                      => ['kl' => 'kl_rhel_1_8',     'cj' => 'cyber_rhel_1_8',     'key' => 'CLIC-RHL-COR-8'],
+            'RHEL (9-127vCPU)'                                    => ['kl' => 'kl_rhel_9_127',   'cj' => 'cyber_rhel_9_127',   'key' => 'CLIC-RHL-COR-127'],
+        ];
 
+        foreach ($map as $label => $def) {
+            $price = $pricing[$def['key']]['price_per_unit'] ?? 0;
 
+            $klQty = (int) ($summary->{$def['kl']} ?? 0);
+            $cjQty = (int) ($summary->{$def['cj']} ?? 0);
 
+            if ($klQty > 0) {
+                $items[] = [
+                    'name' => $label,
+                    'unit' => 'Unit',
+                    'region' => 'Kuala Lumpur',
+                    'quantity' => $klQty,
+                    'price_per_unit' => $price,
+                    'total_price' => $klQty * $price,
+                ];
+            }
+            if ($cjQty > 0) {
+                $items[] = [
+                    'name' => $label,
+                    'unit' => 'Unit',
+                    'region' => 'Cyberjaya',
+                    'quantity' => $cjQty,
+                    'price_per_unit' => $price,
+                    'total_price' => $cjQty * $price,
+                ];
+            }
+        }
 
+        return $items;
+    }
 
+    // ======================= COMPUTE =======================
+    private function calculateComputeItems($summary, $pricing)
+    {
+        $items = [];
 
+        $flavours = explode(',', $summary->ecs_flavour_mapping);
+
+        foreach ($flavours as $flavour) {
+            $flavour = trim($flavour);
+            if (!$flavour) continue;
+
+            $matched = collect($pricing)->first(function ($value) use ($flavour) {
+                return strtolower($value['name'] ?? '') === strtolower($flavour);
+            });
+
+            if ($matched) {
+                $klQty   = $this->getFlavourCountFromECS('Kuala Lumpur', $flavour, $summary->version_id);
+                $cyberQty= $this->getFlavourCountFromECS('Cyberjaya', $flavour, $summary->version_id);
+                $price   = $matched['price_per_unit'] ?? 0;
+
+                if ($klQty > 0) {
+                    $items[] = [
+                        'name' => $matched['name'],
+                        'quantity' => $klQty,
+                        'unit' => 'Unit',
+                        'price_per_unit' => $price,
+                        'total_price' => $klQty * $price,
+                        'region' => 'Kuala Lumpur'
+                    ];
+                }
+
+                if ($cyberQty > 0) {
+                    $items[] = [
+                        'name' => $matched['name'],
+                        'quantity' => $cyberQty,
+                        'unit' => 'Unit',
+                        'price_per_unit' => $price,
+                        'total_price' => $cyberQty * $price,
+                        'region' => 'Cyberjaya'
+                    ];
+                }
+            }
+        }
+
+        return $items;
+    }
+
+    // ======================= PROFESSIONAL =======================
     private function calculateProfessionalServices($summary, $pricing)
     {
         $items = [];
 
-        // Professional Services
         if ($summary->mandays > 0) {
             $priceKey = $this->getMandayPriceKey($summary->mandays);
             $price = $pricing[$priceKey]['price_per_unit'] ?? 0;
             $items[] = [
-                'name' => 'Professional Services',
-                'quantity' => $summary->mandays,
-                'unit' => 'Day',
+                'category'       => 'Professional', // ← group heading
+                'name'           => 'Professional Services',
+                'quantity'       => $summary->mandays,
+                'unit'           => 'Day',
                 'price_per_unit' => $price,
-                'total_price' => $summary->mandays * $price,
-                'region' => 'Both'
+                'total_price'    => $summary->mandays * $price,
+                'region'         => 'Both'
             ];
         }
 
         return $items;
     }
 
+    // ======================= HELPERS =======================
     private function getBandwidthPriceKey($bandwidth)
     {
         if ($bandwidth <= 10) return 'CNET-BWS-CIA-10';
@@ -829,39 +779,24 @@ private function calculateLicenseItems($summary, $pricing)
     private function getMandayPriceKey($mandays)
     {
         if ($mandays <= 0.5) return 'CPFS-PFS-MDY-0.5OTC';
-        if ($mandays <= 1) return 'CPFS-PFS-MDY-1OTC';
-        if ($mandays <= 3) return 'CPFS-PFS-MDY-3OTC';
+        if ($mandays <= 1)   return 'CPFS-PFS-MDY-1OTC';
+        if ($mandays <= 3)   return 'CPFS-PFS-MDY-3OTC';
         return 'CPFS-PFS-MDY-5OTC';
     }
 
+    private function getFlavourCountFromECS($regionName, $flavour, $versionId)
+    {
+        return \App\Models\ECSConfiguration::where('version_id', $versionId)
+            ->where('region', $regionName)
+            ->where('ecs_flavour_mapping', $flavour)
+            ->count();
+    }
 
-
-private function getFlavourCountFromECS($regionName, $flavour, $versionId)
-{
-    return \App\Models\ECSConfiguration::where('version_id', $versionId)
-        ->where('region', $regionName)
-        ->where('ecs_flavour_mapping', $flavour)
-        ->count();
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
- public function downloadRateCardPdf($versionId)
+    public function downloadRateCardPdf($versionId)
     {
         $version  = Version::with(['project.customer'])->findOrFail($versionId);
-        $pricing  = config('pricing'); // seluruh pricing, termasuk rate_card_price_per_unit
+        $pricing  = config('pricing');
 
-        // Render PDF guna design sedia ada
         $pdf = Pdf::loadView('projects.ratecard_pdf', [
             'version' => $version,
             'pricing' => $pricing,
@@ -869,5 +804,4 @@ private function getFlavourCountFromECS($regionName, $flavour, $versionId)
 
         return $pdf->download('ratecard.pdf');
     }
-
 }

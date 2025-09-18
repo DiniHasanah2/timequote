@@ -9,6 +9,8 @@ use App\Models\Version;
 use App\Models\User;
 
 
+
+
 class SecurityService extends Model
 {
     protected $fillable = [

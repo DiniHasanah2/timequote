@@ -43,6 +43,107 @@ class ServiceController extends Controller
 
 public function index(Request $request)
 {
+    
+    if ($request->boolean('reset')) {
+        session()->forget('services.filters');
+    }
+
+    $keys = ['category','code','sort','catalog'];
+
+    // Jika user masuk tanpa sebarang query, guna filter yang tersimpan
+    if (!$request->hasAny($keys) && session()->has('services.filters')) {
+        foreach (session('services.filters') as $k => $v) {
+            if ($v !== null && $v !== '') {
+                $request->merge([$k => $v]);
+            }
+        }
+    }
+
+    // Simpan nilai terkini ke session
+    session(['services.filters' => $request->only($keys)]);
+    // ===== TAMAT BLOK TAMBAHAN =====
+
+    // ========== Which catalog are we "viewing" ==========
+    $viewCatalog = $this->getActiveCatalog($request); // you already have this helper
+
+    // ========== Current / Next / Last ==========
+    $currentCatalog = PriceCatalog::where('is_current', true)->first();
+
+    $nextCatalog = PriceCatalog::where('is_current', false)
+        ->whereNull('effective_to')
+        ->orderByDesc('effective_from')
+        ->orderByDesc('created_at')
+        ->first();
+
+    $lastCatalog = PriceCatalog::where('is_current', false)
+        ->whereNotNull('effective_to')
+        ->where('id', '!=', optional($currentCatalog)->id)
+        ->where('id', '!=', optional($nextCatalog)->id)
+        ->orderByDesc('effective_to')
+        ->first();
+
+    // ===== dropdowns =====
+    $categories = Category::all();
+    $allCategories = Service::select('category_name')->distinct()->pluck('category_name');
+    $allServiceCode = Service::select('code')->distinct()->pluck('code');
+
+    // ===== base query join to service_prices using the VIEWING catalog =====
+    $query = Service::query()
+        ->select([
+            'services.*',
+            'sp.price_per_unit as v_price_per_unit',
+            'sp.rate_card_price_per_unit as v_rate_card_price_per_unit',
+            'sp.transfer_price_per_unit as v_transfer_price_per_unit',
+        ])
+        ->leftJoin('service_prices as sp', function ($join) use ($viewCatalog) {
+            $join->on('sp.service_id', '=', 'services.id')
+                 ->where('sp.price_catalog_id', '=', $viewCatalog->id);
+        });
+
+    // ===== filters =====
+    if ($request->filled('category')) {
+        $query->where('services.category_name', $request->category);
+    }
+    if ($request->filled('code')) {
+        $query->where('services.code', $request->code);
+    }
+
+    // ===== sort =====
+    switch ($request->sort) {
+        case 'name_asc':
+            $query->orderBy('services.name', 'asc'); break;
+        case 'name_desc':
+            $query->orderBy('services.name', 'desc'); break;
+        case 'price_low_high':
+            $query->orderByRaw('COALESCE(sp.price_per_unit, services.price_per_unit) ASC'); break;
+        case 'price_high_low':
+            $query->orderByRaw('COALESCE(sp.price_per_unit, services.price_per_unit) DESC'); break;
+        default:
+            $query->orderBy('services.category_name', 'asc');
+    }
+
+    $services = $query->get();
+
+    // for dropdown list
+    $catalogs = PriceCatalog::orderByDesc('effective_from')->orderByDesc('created_at')->get();
+
+    // send to view
+    return view('products.service.index', [
+        'services'       => $services,
+        'allCategories'  => $allCategories,
+        'allServiceCode' => $allServiceCode,
+        'categories'     => $categories,
+        'catalogs'       => $catalogs,
+        'catalog'        => $viewCatalog,
+        'currentCatalog' => $currentCatalog,
+        'nextCatalog'    => $nextCatalog,
+        'lastCatalog'    => $lastCatalog,
+    ]);
+}
+
+
+/*public function index(Request $request)
+{
     // ========== Which catalog are we "viewing" ==========
     $viewCatalog = $this->getActiveCatalog($request); // you already have this helper
 
@@ -91,15 +192,7 @@ $lastCatalog = PriceCatalog::where('is_current', false)
         $query->where('services.code', $request->code);
     }
 
-   
-    /*switch ($request->sort) {
-        case 'name_asc':       $query->orderBy('services.name', 'asc'); break;
-        case 'name_desc':      $query->orderBy('services.name', 'desc'); break;
-        case 'price_low_high': $query->orderBy('sp.price_per_unit', 'asc'); break;
-        case 'price_high_low': $query->orderBy('sp.price_per_unit', 'desc'); break;
-        default:               $query->orderBy('services.category_name', 'asc');
-    }*/
-    // ===== sort =====
+  
 switch ($request->sort) {
     case 'name_asc':
         $query->orderBy('services.name', 'asc'); break;
@@ -134,7 +227,7 @@ switch ($request->sort) {
         'lastCatalog'    => $lastCatalog,    // previously current (optional)
         
     ]);
-}
+}*/
 
     
 
@@ -437,75 +530,72 @@ private function updatePricingConfig(?string $catalogId = null)
 
 
 
-
-// regenerate pricing.php based on active catalog
-/*private function updatePricingConfig(?string $catalogId = null)
+public function bulkPreview(Request $request)
 {
-    $catalog = $catalogId
-        ? PriceCatalog::find($catalogId)
-        : PriceCatalog::where('is_current', true)->first();
+    $data = $request->validate([
+        'catalog_id'   => 'required|uuid',
+        'selected'     => 'required|array|min:1',
+        'selected.*'   => 'uuid',
+        'pct_price'    => 'nullable|numeric',
+        'pct_rate'     => 'nullable|numeric',
+        'pct_transfer' => 'nullable|numeric',
+    ]);
 
-    if (!$catalog) {
-        // fallback: kalau tiada catalog, guna table lama (behavior asal)
-        $services = Service::all();
-        $pricingData = [];
-        foreach ($services as $service) {
-            $pricingData[$service->code] = [
-                'category_name' => $service->category_name,
-                'category_code' => $service->category_code,
-                'name' => $service->name,
-                'measurement_unit' => $service->measurement_unit,
-                'description' => $service->description,
-                'price_per_unit' => (float) $service->price_per_unit,
-                'rate_card_price_per_unit' => (float) $service->rate_card_price_per_unit,
-                'transfer_price_per_unit' => (float) $service->transfer_price_per_unit,
-            ];
-        }
-    } else {
-        // join ikut catalog
-        $services = Service::query()
-            ->select([
-                'services.*',
-                'sp.price_per_unit',
-                'sp.rate_card_price_per_unit',
-                'sp.transfer_price_per_unit'
-            ])
-            ->leftJoin('service_prices as sp', function ($join) use ($catalog) {
-                $join->on('sp.service_id', '=', 'services.id')
-                     ->where('sp.price_catalog_id', '=', $catalog->id);
-            })
-            ->get();
+    $catalog     = \App\Models\PriceCatalog::findOrFail($data['catalog_id']);
+    $services    = \App\Models\Service::whereIn('id', $data['selected'])->get();
+    $pctPrice    = isset($data['pct_price']) ? (float)$data['pct_price'] : null;
+    $pctRate     = isset($data['pct_rate']) ? (float)$data['pct_rate'] : null;
+    $pctTransfer = isset($data['pct_transfer']) ? (float)$data['pct_transfer'] : null;
 
-        $pricingData = [];
-        foreach ($services as $service) {
-            $pricingData[$service->code] = [
-                'category_name' => $service->category_name,
-                'category_code' => $service->category_code,
-                'name' => $service->name,
-                'measurement_unit' => $service->measurement_unit,
-                'description' => $service->description,
-                'price_per_unit' => (float) ($service->price_per_unit ?? 0),
-                'rate_card_price_per_unit' => (float) ($service->rate_card_price_per_unit ?? 0),
-                'transfer_price_per_unit' => (float) ($service->transfer_price_per_unit ?? 0),
-            ];
-        }
+    $applyAdjust = function($value, $pct) {
+        $value = (float)$value;
+        if ($pct === null) return round($value, 4);
+        $mult = 1.0 + ($pct / 100.0);
+        return round($value * $mult, 4);
+    };
+
+    $rows = [];
+
+    foreach ($services as $service) {
+        $sp = \App\Models\ServicePrice::where([
+            'price_catalog_id' => $catalog->id,
+            'service_id'       => $service->id,
+        ])->first();
+
+        // kalau belum ada row dalam version ni, seed guna master
+        $old_ppu  = (float)($sp->price_per_unit           ?? $service->price_per_unit           ?? 0);
+        $old_rcpu = (float)($sp->rate_card_price_per_unit ?? $service->rate_card_price_per_unit ?? 0);
+        $old_tpu  = (float)($sp->transfer_price_per_unit  ?? $service->transfer_price_per_unit  ?? 0);
+
+        $new_ppu  = $applyAdjust($old_ppu,  $pctPrice);
+        $new_rcpu = $applyAdjust($old_rcpu, $pctRate);
+        $new_tpu  = $applyAdjust($old_tpu,  $pctTransfer);
+
+        $rows[] = [
+            'id'    => $service->id,
+            'code'  => $service->code,
+            'name'  => $service->name,
+            'old'   => ['ppu'=>$old_ppu, 'rcpu'=>$old_rcpu, 'tpu'=>$old_tpu],
+            'new'   => ['ppu'=>$new_ppu, 'rcpu'=>$new_rcpu, 'tpu'=>$new_tpu],
+            'delta' => [
+                'ppu'  => round($new_ppu  - $old_ppu,  4),
+                'rcpu' => round($new_rcpu - $old_rcpu, 4),
+                'tpu'  => round($new_tpu  - $old_tpu,  4),
+            ],
+        ];
     }
 
-    // ===== add new META version so blade can read "Logged Version" =====
-    $pricingData['_catalog'] = [
-        'id'             => optional($catalog)->id,
-        'version_code'   => optional($catalog)->version_code ?? 'legacy',
-        'version_name'   => optional($catalog)->version_name ?? 'legacy',
-        'effective_from' => optional($catalog)->effective_from,
-        'effective_to'   => optional($catalog)->effective_to,
-        'is_current'     => (bool) (optional($catalog)->is_current ?? true),
-        'generated_at'   => now()->toDateTimeString(),
-    ];
+    return response()->json([
+        'catalog'   => ['id'=>$catalog->id, 'version_name'=>$catalog->version_name],
+        'count'     => count($rows),
+        'items'     => $rows,
+        'pct'       => ['price'=>$pctPrice, 'rate'=>$pctRate, 'transfer'=>$pctTransfer],
+    ]);
+}
 
-    $configPath = config_path('pricing.php');
-    $content = "<?php\n\nreturn " . var_export($pricingData, true) . ";\n";
-    file_put_contents($configPath, $content);
-}*/
+
+
+
 
 
 

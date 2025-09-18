@@ -69,5 +69,11 @@ public function clientManager()
     {
         return $this->belongsTo(User::class, 'presale_id');
     }
+
+    public function scopeOfDivision($query, ?string $division)
+{
+    return $division ? $query->where('division', $division) : $query;
+}
+
    
 }

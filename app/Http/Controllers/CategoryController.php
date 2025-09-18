@@ -10,7 +10,7 @@ class CategoryController extends Controller
 {
     public function index()
 {
-    //$categories = Category::all();
+   
     $categories = Category::orderBy('created_at', 'asc')->get();
     return view('products/category/index', compact('categories'));
 }
@@ -76,11 +76,6 @@ public function destroy(Category $category)
 }
 
 
-/*public function show($id)
-{
-    return redirect()->route('categories.index')->with('success', 'Export successfully!'); 
-}*/
-
 
 
 public function import(Request $request)
@@ -90,7 +85,7 @@ public function import(Request $request)
     ]);
 
     $file = fopen($request->file('csv_file'), 'r');
-    $header = fgetcsv($file); // skip header
+    $header = fgetcsv($file); 
 
     while (($row = fgetcsv($file)) !== false) {
         Category::create([
@@ -118,16 +113,16 @@ public function export()
     $callback = function () use ($categories) {
         $handle = fopen('php://output', 'w');
 
-        // Header baris pertama
+       
         fputcsv($handle, ['ID', 'Name', 'Code']);
 
-        // Data baris seterusnya
+       
         foreach ($categories as $category) {
             fputcsv($handle, [
                 $category->id,
                 $category->name,
                 $category->category_code,
-                //$category->created_at,
+               
             ]);
         }
 

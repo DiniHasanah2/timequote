@@ -18,33 +18,6 @@ class AuthController extends Controller
     return view('auth.register'); 
 }
 
-    /*pblic function register(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
-            'username' => 'required|string|max:255|unique:users',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8|confirmed',
-        ]);
-
-        if ($validator->fails()) {
-            return back()->withErrors($validator)->withInput();
-        }
-
-        $user = User::create([
-            'name' => $request->name,
-            'username' => $request->username,
-            'email' => $request->email,
-            'password' => $request->password, // Auto-hashed by model
-            //'role' => 'presale',
-            'role' => $request->role ?? 'presale', // default masih 'presale'
-        ]);
-
-        Auth::login($user);
-
-        return redirect()->route('presale.dashboard');
-    }*/
-
 
     public function register(Request $request)
 {
@@ -75,7 +48,7 @@ class AuthController extends Controller
 
     Auth::login($user);
 
-    // Redirect ikut role
+    
     if ($user->role === 'admin') {
         return redirect()->intended(route('admin.dashboard'));
     }
@@ -109,18 +82,7 @@ class AuthController extends Controller
             'session_id' => session()->getId()
         ]);
 
-        /*if ($user->role === 'admin') {
-            return redirect()->intended(route('admin.dashboard'));
-        } else {
-            return redirect()->intended(route('presale.dashboard'));
-        } */
-       /*if ($user->role === 'admin') {
-        return redirect()->intended(route('admin.dashboard'));
-    } elseif ($user->role === 'presale') {
-        return redirect()->intended(route('presale.dashboard')); 
-    } else {
-        return redirect()->intended(route('presale.dashboard'));
-    }*/
+     
 
     if ($user->role === 'admin') {
     return redirect()->intended(route('admin.dashboard'));
@@ -130,7 +92,7 @@ if (in_array($user->role, ['presale', 'product'])) {
     return redirect()->intended(route('presale.dashboard'));
 }
 
-return redirect()->route('login'); // fallback
+return redirect()->route('login'); 
 
 
     }

@@ -13,7 +13,7 @@
 
 
 {{-- Version Control Section --}}
-<div class="card shadow-sm mb-4" style="max-width: 680px;">
+<div class="card shadow-sm mb-4" style="max-width: 650px;">
   <div class="card-header py-2">
     <h6 class="mb-0">Version Control</h6>
   </div>
@@ -118,13 +118,31 @@
 
       <br>
 
-      <div class="col-12 col-md-4">
-       <div class="d-flex align-items-center gap-2 flex-wrap">
-    <a href="{{ route('services.export', ['catalog' => $catalog->id ?? request('catalog')]) }}"
-       class="btn btn-pink btn-sm text-nowrap">
-      <i class="bi bi-download me-1"></i>Export This Version
-    </a>
+     <div class="col-12 col-md-4">
+  <div class="d-flex align-items-center gap-2 flex-wrap">
 
+   <div class="d-flex align-items-center gap-2 flex-wrap">
+  
+ {{-- ===== Log Selected (copy master price → current version) ===== --}}
+    <form id="bulk-log-form" method="POST" action="{{ route('services.bulkLog') }}" class="m-0">
+      @csrf
+      <input type="hidden" name="catalog_id" value="{{ $catalog->id }}">
+      <div class="selected-container"></div>
+      <button type="button" class="btn btn-outline-pink text-nowrap"
+              onclick="submitSelected('bulk-log-form')">
+        <i class="bi bi-journal-arrow-up me-1"></i> Log Selected to {{ $catalog->version_name ?? 'Current' }}
+      </button>
+    </form>
+
+    
+    <a href="{{ route('services.export', ['catalog' => $catalog->id ?? request('catalog')]) }}"
+       class="btn btn-outline-pink text-nowrap">
+      <i class="bi bi-download me-1"></i> Export This Version
+    </a>
+  
+</div>
+
+    {{-- Commit --}}
     <button type="button"
             class="btn btn-outline-danger btn-sm"
             data-bs-toggle="modal"
@@ -132,12 +150,9 @@
       Commit This Version
     </button>
 
-    <!--<small class="text-muted ms-2">
-      Publishes prices → master &amp; makes this version current.
-    </small>--->
+  </div>
+</div>
 
-        </div>
-      </div>
     </form>
 
   </div>
@@ -232,64 +247,6 @@
 </div>
 
 
-<!-- Bulk Actions -->
-
-
-
-  <div class="card shadow-sm mb-3" style="max-width:990px;">
-
-  <div class="card-body py-2">
-    <div class="d-flex flex-wrap align-items-end gap-3">
-
-      <!-- Log selected to VIEWING version -->
-      <form id="bulk-log-form" method="POST" action="{{ route('services.bulkLog') }}">
-        @csrf
-        <!---<input type="hidden" name="catalog_id" value="{{ $catalog->id ?? request('catalog') }}">--->
-        <input type="hidden" name="catalog_id" value="{{ $catalog->id }}">
-
-        <div class="selected-container"></div>
-        <button type="button" class="btn btn-outline-pink" onclick="submitSelected('bulk-log-form')">
-          Log Selected to {{ $catalog->version_name ?? 'Current' }}
-        </button>
-
-        
-      </form>
-
-      <!-- Adjust selected in VIEWING version -->
-      <form id="bulk-adjust-form" method="POST" action="{{ route('services.bulkAdjust') }}" class="d-flex align-items-end gap-2">
-        @csrf
-        <!---<input type="hidden" name="catalog_id" value="{{ $catalog->id ?? request('catalog') }}">--->
-        <input type="hidden" name="catalog_id" value="{{ $catalog->id }}">
-
-        <div class="selected-container"></div>
-
-        
-
-        <div>
-          <label class="form-label mb-0 small">Price %</label>
-          <input type="number" step="any" name="pct_price" class="form-control form-control-sm" placeholder="e.g. 5 or -3">
-        </div>
-        <div>
-          <label class="form-label mb-0 small">Rate Card %</label>
-          <input type="number" step="any" name="pct_rate" class="form-control form-control-sm" placeholder="e.g. 5 or -3">
-        </div>
-        <div>
-          <label class="form-label mb-0 small">Transfer %</label>
-          <input type="number" step="any" name="pct_transfer" class="form-control form-control-sm" placeholder="e.g. 5 or -3">
-        </div>
-
-        <button type="button" class="btn btn-outline-pink" onclick="submitSelected('bulk-adjust-form')">
-          Adjust Selected ({{ $catalog->version_name ?? 'Current' }})
-        </button>
-      </form>
-
-      <div class="ms-auto text-muted small">
-        Selected: <span id="sel-count">0</span> / {{ $services->count() }}
-      </div>
-    </div>
-  </div>
-</div>
-
 
 
 
@@ -298,6 +255,7 @@
 
 <form method="GET" action="{{ route('services.index') }}" class="row g-3 mb-3">
     <div class="col-md-2">
+      
         <label class="form-label">Filter by Category</label>
         <select name="category" class="form-select" onchange="this.form.submit()">
             <option value="">-- All Categories --</option>
@@ -307,7 +265,7 @@
         </select>
     </div>
 
-   <div class="col-md-2">
+   <!---<div class="col-md-2">
     <label class="form-label">Filter by Service Code</label>
     <select name="code" class="form-select" onchange="this.form.submit()">
         <option value="">-- All Service Code --</option>
@@ -315,7 +273,7 @@
             <option value="{{ $servicecode }}" {{ request('code') == $servicecode ? 'selected' : '' }}>{{ $servicecode }}</option>
         @endforeach
     </select>
-</div>
+</div>--->
 
 
   
@@ -336,7 +294,7 @@
 
 
 {{-- Add Service Button and Action Buttons --}}
-    <div class="col-md-6 d-flex justify-content-end align-items-center">
+    <div class="col-md-8 d-flex justify-content-end align-items-center">
 
      <a href="#" class="btn btn-pink me-2" onclick="document.getElementById('addForm').style.display='block'; return false;">
         <i class=""></i> Add New
@@ -383,6 +341,7 @@
                     <th>Product Name</th>
                     <th>Service Code</th>
                     <th>Measurement Unit</th>
+                     <th>Charge Duration</th>
                  
                     <th  style="min-width: 180px;">Price Per Unit (RM)</th>
                     <th  style="min-width: 180px;">Rate Card Price Per Unit (RM)</th>
@@ -429,12 +388,19 @@
     <td>{{ $service->name }}</td>
     <td>{{ $service->code }}</td>
     <td>{{ $service->measurement_unit }}</td>
+     <td>{{ $service->charge_duration }}</td>
    
     <td>{{ number_format((float)($service->v_price_per_unit ?? $service->price_per_unit), 4) }}</td>
 <td>{{ number_format((float)($service->v_rate_card_price_per_unit ?? $service->rate_card_price_per_unit), 4) }}</td>
 <td>{{ number_format((float)($service->v_transfer_price_per_unit ?? $service->transfer_price_per_unit), 4) }}</td>
 
- <td>{{ $service->description }}</td>
+
+ 
+<td style="max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+  {{ $service->description }}
+</td>
+
+
  
    <td> <form action="{{ route('services.destroy', $service->id) }}" method="POST" style="display:inline-block;">
     @csrf
@@ -454,6 +420,101 @@
             </tbody>
         </table>
     </div>
+</div>
+
+{{-- ===== Bottom-right bulk toolbar (tambahan, tak usik block lain) ===== --}}
+<div class="d-flex justify-content-end align-items-center gap-2 mt-2">
+  <!-- hidden catalog id untuk JS -->
+  <input type="hidden" id="activeCatalogId" value="{{ $catalog->id }}">
+
+  <div class="text-muted small me-3">
+    Selected: <span id="sel-count-bottom">0</span> / {{ $services->count() }}
+  </div>
+
+  <div class="d-flex align-items-end gap-2">
+    <div>
+      <label class="form-label mb-0 small">Price %</label>
+      <input type="number" step="any" id="bp-pct-price" class="form-control form-control-sm" placeholder="e.g. 5 or -3">
+    </div>
+    <div>
+      <label class="form-label mb-0 small">Rate Card %</label>
+      <input type="number" step="any" id="bp-pct-rate" class="form-control form-control-sm" placeholder="e.g. 5 or -3">
+    </div>
+    <div>
+      <label class="form-label mb-0 small">Transfer %</label>
+      <input type="number" step="any" id="bp-pct-transfer" class="form-control form-control-sm" placeholder="e.g. 5 or -3">
+    </div>
+
+    <button type="button" id="btn-preview-bulk" class="btn btn-outline-pink">
+      Preview Adjustments
+    </button>
+
+    <!-- butang terus apply (tanpa preview) jika nak cepat -->
+    <form id="quick-apply-form" method="POST" action="{{ route('services.bulkAdjust') }}">
+      @csrf
+      <input type="hidden" name="catalog_id" value="{{ $catalog->id }}">
+      <input type="hidden" name="pct_price" id="qa-pct-price">
+      <input type="hidden" name="pct_rate" id="qa-pct-rate">
+      <input type="hidden" name="pct_transfer" id="qa-pct-transfer">
+      <div id="qa-selected"></div>
+      <button type="button" id="btn-quick-apply" class="btn btn-pink">Apply Now</button>
+    </form>
+  </div>
+</div>
+
+{{-- ===== Modal Preview Bulk Adjustment (tambahan) ===== --}}
+<div class="modal fade" id="bulkPreviewModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          Bulk Price Adjustment Preview — <span id="bpv-version"></span>
+        </h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="mb-2 small text-muted">
+          Percentages: Price <span id="bpv-pct-price">0</span>%, 
+          Rate Card <span id="bpv-pct-rate">0</span>%, 
+          Transfer <span id="bpv-pct-transfer">0</span>%
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead class="table-light">
+              <tr>
+                <th style="min-width:140px">Service Code</th>
+                <th>Product Name</th>
+                <th class="text-end">Old Price Per Unit</th>
+                <th class="text-end">New Price Per Unit</th>
+                <th class="text-end">Adjustment (Price Per Unit)</th>
+                <th class="text-end">Old Rate Card Price Per Unit</th>
+                <th class="text-end">New Rate Card Price Per Unit</th>
+                <th class="text-end">Adjustment (Rate Card Price Per Unit)</th>
+                <th class="text-end">Old Transfer Price Per Unit</th>
+                <th class="text-end">New Transfer Price Per Unit</th>
+                <th class="text-end">Adjustment (Transfer Price Per Unit)</th>
+              </tr>
+            </thead>
+            <tbody id="bpv-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <form id="confirm-apply-form" method="POST" action="{{ route('services.bulkAdjust') }}">
+          @csrf
+          <input type="hidden" name="catalog_id" value="{{ $catalog->id }}">
+          <input type="hidden" name="pct_price" id="cf-pct-price">
+          <input type="hidden" name="pct_rate" id="cf-pct-rate">
+          <input type="hidden" name="pct_transfer" id="cf-pct-transfer">
+          <div id="cf-selected"></div>
+          <button type="submit" class="btn btn-pink">Confirm & Apply</button>
+        </form>
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 {{-- Add Service Form --}}
@@ -512,6 +573,11 @@
 </div>
 
 
+  <div class="mb-3">
+                <label for="charge_duration" class="form-label">Charge Duration</label>
+                <input type="text" name="charge_duration" id="charge_duration" class="form-control bg-light" value="{{ $service->charge_duration }}" readonly required>
+            </div>
+            
 <div class="mb-3">
     <label for="description" class="form-label">Product Description</label>
     <input type="text" name="description" id="description" class="form-control" required>
@@ -675,6 +741,130 @@ document.addEventListener('DOMContentLoaded', function(){
     });
 </script>
 @endverbatim
+
+{{-- ===== JS tambahan untuk toolbar bawah + preview (tak usik script lama) ===== --}}
+<script>
+(function(){
+  const checkAll   = document.getElementById('check-all');
+  const rowChecks  = () => Array.from(document.querySelectorAll('.row-check'));
+  const topCount   = document.getElementById('sel-count');
+  const botCount   = document.getElementById('sel-count-bottom');
+
+  function updateCounts(){
+    const n = rowChecks().filter(cb => cb.checked).length;
+    if (topCount) topCount.textContent = n;
+    if (botCount) botCount.textContent = n;
+  }
+
+  if (checkAll) {
+    checkAll.addEventListener('change', () => {
+      rowChecks().forEach(cb => cb.checked = checkAll.checked);
+      updateCounts();
+    });
+  }
+  rowChecks().forEach(cb => cb.addEventListener('change', updateCounts));
+  updateCounts();
+
+  function getSelectedIds(){
+    return rowChecks().filter(cb => cb.checked).map(cb => cb.value);
+  }
+  function fillHiddenSelected(container){
+    container.innerHTML = '';
+    getSelectedIds().forEach(id => {
+      const input = document.createElement('input');
+      input.type = 'hidden'; input.name = 'selected[]'; input.value = id;
+      container.appendChild(input);
+    });
+  }
+
+  // QUICK APPLY (tanpa preview)
+  const btnQuick = document.getElementById('btn-quick-apply');
+  if (btnQuick){
+    btnQuick.addEventListener('click', function(){
+      const ids = getSelectedIds();
+      if (!ids.length) return alert('Select at least one row.');
+      const p = document.getElementById('bp-pct-price').value;
+      const r = document.getElementById('bp-pct-rate').value;
+      const t = document.getElementById('bp-pct-transfer').value;
+      if (p==='' && r==='' && t==='') return alert('Enter at least one % field.');
+
+      document.getElementById('qa-pct-price').value    = p;
+      document.getElementById('qa-pct-rate').value     = r;
+      document.getElementById('qa-pct-transfer').value = t;
+      fillHiddenSelected(document.getElementById('qa-selected'));
+      document.getElementById('quick-apply-form').submit();
+    });
+  }
+
+  // PREVIEW
+  const btnPreview = document.getElementById('btn-preview-bulk');
+  if (btnPreview){
+    btnPreview.addEventListener('click', async function(){
+      const ids = getSelectedIds();
+      if (!ids.length) return alert('Select at least one row.');
+
+      const payload = {
+        catalog_id: document.getElementById('activeCatalogId').value,
+        selected: ids,
+        pct_price:    document.getElementById('bp-pct-price').value || null,
+        pct_rate:     document.getElementById('bp-pct-rate').value || null,
+        pct_transfer: document.getElementById('bp-pct-transfer').value || null,
+      };
+      if (payload.pct_price===null && payload.pct_rate===null && payload.pct_transfer===null){
+        return alert('Enter at least one % field.');
+      }
+
+      const res = await fetch("{{ route('services.bulkPreview') }}", {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json', 'X-CSRF-TOKEN':'{{ csrf_token() }}' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok){
+        const t = await res.text(); 
+        console.error(t);
+        return alert('Preview failed.');
+      }
+      const data = await res.json();
+
+      // isi modal
+      document.getElementById('bpv-version').textContent = data.catalog.version_name;
+      document.getElementById('bpv-pct-price').textContent = data.pct.price ?? 0;
+      document.getElementById('bpv-pct-rate').textContent = data.pct.rate ?? 0;
+      document.getElementById('bpv-pct-transfer').textContent = data.pct.transfer ?? 0;
+
+      const tbody = document.getElementById('bpv-tbody');
+      tbody.innerHTML = '';
+      const fmt = (v)=> (Number(v)).toFixed(4);
+
+      data.items.forEach(it => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><code>${it.code}</code></td>
+          <td>${it.name}</td>
+          <td class="text-end">${fmt(it.old.ppu)}</td>
+          <td class="text-end">${fmt(it.new.ppu)}</td>
+          <td class="text-end">${fmt(it.delta.ppu)}</td>
+          <td class="text-end">${fmt(it.old.rcpu)}</td>
+          <td class="text-end">${fmt(it.new.rcpu)}</td>
+          <td class="text-end">${fmt(it.delta.rcpu)}</td>
+          <td class="text-end">${fmt(it.old.tpu)}</td>
+          <td class="text-end">${fmt(it.new.tpu)}</td>
+          <td class="text-end">${fmt(it.delta.tpu)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // isi hidden confirm form
+      document.getElementById('cf-pct-price').value    = payload.pct_price ?? '';
+      document.getElementById('cf-pct-rate').value     = payload.pct_rate ?? '';
+      document.getElementById('cf-pct-transfer').value = payload.pct_transfer ?? '';
+      fillHiddenSelected(document.getElementById('cf-selected'));
+
+      new bootstrap.Modal(document.getElementById('bulkPreviewModal')).show();
+    });
+  }
+})();
+</script>
 
 </div>
 @endsection

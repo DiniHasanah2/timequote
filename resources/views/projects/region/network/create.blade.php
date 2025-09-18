@@ -1,5 +1,5 @@
 @extends('layouts.app')
-
+@section('content')
 @if($errors->any())
     <div class="alert alert-danger">
         <ul>
@@ -14,8 +14,19 @@
     $solution_type = $solution_type ?? $version->solution_type ?? null;
 @endphp
 
-@section('content')
 
+
+
+@if($isLocked)
+  <div class="alert alert-warning d-flex align-items-center" role="alert">
+    <span class="me-2">🔒</span>
+    <div>
+      This version was locked at
+      <strong>{{ optional($lockedAt)->format('d M Y, H:i') }}</strong>.
+      All fields are read-only.
+    </div>
+  </div>
+@endif
  
 <div class="card shadow-sm">
     <div class="card-header d-flex justify-between align-items-center">
@@ -44,9 +55,14 @@
             <a href="{{ route('versions.mpdraas.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.mpdraas.create' ? 'active-link' : '' }}">MP-DRaaS</a>
             <span class="breadcrumb-separator">»</span>
             @endif
-            <a href="{{ route('versions.security_service.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.create' ? 'active-link' : '' }}">Security Services</a>
+            <a href="{{ route('versions.security_service.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.create' ? 'active-link' : '' }}">Cloud Security</a>
             <span class="breadcrumb-separator">»</span>
-            <a href="{{ route('versions.non_standard_items.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.non_standard_items.create' ? 'active-link' : '' }}">Other Services</a>
+               <a href="{{ route('versions.security_service.time.create', $version->id) }}"
+   class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.time.create' ? 'active-link' : '' }}">
+  Time Security Services
+</a>
+<span class="breadcrumb-separator">»</span>
+            <a href="{{ route('versions.non_standard_items.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.non_standard_items.create' ? 'active-link' : '' }}">Non-Standard Services</a>
             <span class="breadcrumb-separator">»</span>
             <a href="{{ route('versions.internal_summary.show', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.internal_summary.show' ? 'active-link' : '' }}">Internal Summary</a>
               <span class="breadcrumb-separator">»</span>
@@ -120,7 +136,7 @@
     </table>
 
 
-                       
+                   <fieldset @disabled($isLocked)>    
 
             <!-- Network Table -->
             <div class="table-responsive mb-4">
@@ -505,7 +521,7 @@
                     </tbody>
                 </table>
             </div>
-
+</fieldset>
           
             <div class="d-flex justify-content-between gap-3"> 
     
@@ -548,7 +564,17 @@
     </div>
 </div>
 
-
+@if($isLocked)
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  
+  document.querySelectorAll('.auto-save').forEach(el => {
+    el.addEventListener('change', e => e.preventDefault(), true);
+    el.addEventListener('input',  e => e.preventDefault(), true);
+  });
+});
+</script>
+@endif
 
 <script>
     document.getElementById('calculate').addEventListener('click', function() {
@@ -556,143 +582,102 @@
     });
 </script>
 
-
-
 <script>
-    // Function to calculate included Elastic IP based on bandwidth
-  /*function calculateIncludedEIP(val1, val2) {
-    if (val1 >= 81 || val2 >= 81) return 8;
-    if (val1 >= 51 || val2 >= 51) return 6;
-    if (val1 >= 30 || val2 >= 30) return 4;
-    if (val1 >= 2 || val2 >= 2) return 2;
-    return 0;
-}*/
+// ===== Included Elastic IP (FOC) calculator =====
+document.addEventListener('DOMContentLoaded', function() {
+  const IS_LOCKED = @json($isLocked);
 
-function calculateIncludedEIP(total) {
-  if (total >= 81) return 8;   // 81+
-  if (total >= 31) return 6;   // 31–80
-  if (total >= 30) return 4;   // exactly 30 (atau 30–30)
-  if (total >= 2)  return 2;   // 2–29
-  return 0;                    // 0–1
-}
+  // Rule: total >= 50 → 8, 31–49 → 6, =30 → 4, 2–29 → 2, else 0
+  function calculateIncludedEIP(total) {
+    if (total >= 50) return 8;   // 50+
+    if (total >= 31) return 6;   // 31–49
+    if (total >= 30) return 4;   // exactly 30
+    if (total >= 2)  return 2;   // 2–29
+    return 0;                    // 0–1
+  }
 
+  const klBandwidth     = document.querySelector('[name="kl_bandwidth"]');
+  const klAntiDDoS      = document.querySelector('[name="kl_bandwidth_with_antiddos"]');
+  const cyberBandwidth  = document.querySelector('[name="cyber_bandwidth"]');
+  const cyberAntiDDoS   = document.querySelector('[name="cyber_bandwidth_with_antiddos"]');
 
+  const klHidden   = document.querySelector('[name="kl_included_elastic_ip"]');
+  const klDisplay  = document.querySelector('[name="kl_included_elastic_ip_display"]');
+  const cyHidden   = document.querySelector('[name="cyber_included_elastic_ip"]');
+  const cyDisplay  = document.querySelector('[name="cyber_included_elastic_ip_display"]');
 
+  function updateIncludedEIP() {
+    // Guna MAX (ikut layout/flow sedia ada). Contoh 10 & 50 → 50 → 8 ✅
+    const klTotal    = Math.max(parseInt(klBandwidth?.value)||0, parseInt(klAntiDDoS?.value)||0);
+    const cyberTotal = Math.max(parseInt(cyberBandwidth?.value)||0, parseInt(cyberAntiDDoS?.value)||0);
 
+    const klEIP    = calculateIncludedEIP(klTotal);
+    const cyberEIP = calculateIncludedEIP(cyberTotal);
 
-    // Calculate when bandwidth fields change
-    document.addEventListener('DOMContentLoaded', function() {
-        // Get all input fields
-        const klBandwidth = document.querySelector('[name="kl_bandwidth"]');
-        const klAntiDDoS = document.querySelector('[name="kl_bandwidth_with_antiddos"]');
-        const cyberBandwidth = document.querySelector('[name="cyber_bandwidth"]');
-        const cyberAntiDDoS = document.querySelector('[name="cyber_bandwidth_with_antiddos"]');
-        
-        // Initialize values to 0
-        document.querySelector('[name="kl_included_elastic_ip_display"]').value = 0;
-        document.querySelector('[name="kl_included_elastic_ip"]').value = 0;
-        document.querySelector('[name="cyber_included_elastic_ip_display"]').value = 0;
-        document.querySelector('[name="cyber_included_elastic_ip"]').value = 0;
+    if (klHidden)  klHidden.value = klEIP;
+    if (klDisplay) klDisplay.value = klEIP;
+    if (!IS_LOCKED && klHidden) klHidden.dispatchEvent(new Event('change')); // trigger autosave bila tak locked
 
-        function updateIncludedEIP() {
-            // Calculate KL included EIP
-            const klBandwidthVal = parseInt(klBandwidth.value) || 0;
-            const klAntiDDoSVal = parseInt(klAntiDDoS.value) || 0;
-            //const klTotal = klBandwidthVal + klAntiDDoSVal;
-            const klTotal = Math.max(klBandwidthVal, klAntiDDoSVal);
-            const klEIP = calculateIncludedEIP(klTotal);
+    if (cyHidden)  cyHidden.value = cyberEIP;
+    if (cyDisplay) cyDisplay.value = cyberEIP;
+    if (!IS_LOCKED && cyHidden) cyHidden.dispatchEvent(new Event('change'));
+  }
 
+  [klBandwidth, klAntiDDoS, cyberBandwidth, cyberAntiDDoS].forEach(el => {
+    if (!el) return;
+    el.addEventListener('input', updateIncludedEIP);
+    el.addEventListener('change', updateIncludedEIP);
+  });
 
-    const klHidden = document.querySelector('[name="kl_included_elastic_ip"]');
-    const klDisplay = document.querySelector('[name="kl_included_elastic_ip_display"]');
+  // Initial calc
+  updateIncludedEIP();
 
-
-
-    klHidden.value = klEIP;
-    klDisplay.value = klEIP;
-
-    // ⬅️ Trigger auto-save
-    klHidden.dispatchEvent(new Event('change'));
-            
-            
-            //document.querySelector('[name="kl_included_elastic_ip"]').value = klEIP;
-            //document.querySelector('[name="kl_included_elastic_ip_display"]').value = klEIP;
-            
-            // Calculate Cyber included EIP
-            const cyberBandwidthVal = parseInt(cyberBandwidth.value) || 0;
-            const cyberAntiDDoSVal = parseInt(cyberAntiDDoS.value) || 0;
-            //const cyberTotal = cyberBandwidthVal + cyberAntiDDoSVal;
-            const cyberTotal = Math.max(cyberBandwidthVal, cyberAntiDDoSVal);
-            const cyberEIP = calculateIncludedEIP(cyberTotal);
-
-              const cyberHidden = document.querySelector('[name="cyber_included_elastic_ip"]');
-    const cyberDisplay = document.querySelector('[name="cyber_included_elastic_ip_display"]');
-
-    cyberHidden.value = cyberEIP;
-    cyberDisplay.value = cyberEIP;
-
-    // ⬅️ Trigger auto-save
-    cyberHidden.dispatchEvent(new Event('change'));
-            
-            //document.querySelector('[name="cyber_included_elastic_ip"]').value = cyberEIP;
-            //document.querySelector('[name="cyber_included_elastic_ip_display"]').value = cyberEIP;
-        }
-
-        // Add event listeners
-        [klBandwidth, klAntiDDoS, cyberBandwidth, cyberAntiDDoS].forEach(field => {
-            field.addEventListener('input', updateIncludedEIP);
-        });
-
-        // Initial calculation (will set to 0 if no values exist)
-        updateIncludedEIP();
-        
+  // Extra guard bila locked
+  if (IS_LOCKED) {
+    document.querySelectorAll('.auto-save').forEach(el => {
+      el.addEventListener('input',  e => e.preventDefault(), true);
+      el.addEventListener('change', e => e.preventDefault(), true);
     });
+  }
+});
 </script>
 
-
-
 @endsection
-
 
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+  const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+  const IS_LOCKED = @json($isLocked);
+  // ✅ URL ikut named route kau
+  const AUTOSAVE_URL = @json(route('versions.region.autosave', $version->id));
 
-    document.querySelectorAll('.auto-save').forEach(function (element) {
-        element.addEventListener('change', function () {
-            const field = this.dataset.field;
-            const value = this.value;
-            const versionId = this.dataset.versionId;
+  document.querySelectorAll('.auto-save').forEach(function (element) {
+    element.addEventListener('change', function () {
+      if (IS_LOCKED || this.disabled) return;
 
+      const field = this.dataset.field;
+      const value = this.value;
+      if (!field) return;
 
-
-            //fetch(`/autosave/region/professional-services/${versionId}`,
-            fetch(`/autosave/region/${versionId}`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': token,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    [field]: value
-                })
-            })
-            .then(response => {
-                console.log('Status:', response.status);
-                if (!response.ok) throw new Error('Save failed');
-                console.log(`Saved: ${field} = ${value}`);
-            })
-            .catch(err => {
-                console.error(err);
-                alert("Auto-save failed!");
-            });
-        });
+      fetch(AUTOSAVE_URL, {
+        method: 'POST',
+        headers: {
+          'X-CSRF-TOKEN': token,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ [field]: value })
+      }).then(r => {
+        if (!r.ok) console.error('autosave error', r.status);
+      }).catch(err => console.error('autosave failed', err));
     });
+  });
 });
-
 </script>
 @endpush
+
+
 
 @push('styles')
 <style>

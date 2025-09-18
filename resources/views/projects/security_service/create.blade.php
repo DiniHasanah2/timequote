@@ -1,5 +1,5 @@
 @extends('layouts.app')
-
+@section('content')
 @if($errors->any())
     <div class="alert alert-danger">
         <ul>
@@ -15,7 +15,19 @@
 @endphp
 
 
-@section('content')
+@if($isLocked)
+  <div class="alert alert-warning d-flex align-items-center" role="alert">
+    <span class="me-2">🔒</span>
+    <div>
+      This version was locked at
+      <strong>{{ optional($lockedAt)->format('d M Y, H:i') }}</strong>.
+      All fields are read-only.
+    </div>
+  </div>
+@endif
+
+
+
 
 
 <div class="card shadow-sm">
@@ -45,9 +57,14 @@
             <a href="{{ route('versions.mpdraas.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.mpdraas.create' ? 'active-link' : '' }}">MP-DRaaS</a>
             <span class="breadcrumb-separator">»</span>
             @endif
-            <a href="{{ route('versions.security_service.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.create' ? 'active-link' : '' }}">Security Services</a>
+            <a href="{{ route('versions.security_service.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.create' ? 'active-link' : '' }}">Cloud Security</a>
             <span class="breadcrumb-separator">»</span>
-            <a href="{{ route('versions.non_standard_items.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.non_standard_items.create' ? 'active-link' : '' }}">Other Services</a>
+               <a href="{{ route('versions.security_service.time.create', $version->id) }}"
+   class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.time.create' ? 'active-link' : '' }}">
+  Time Security Services
+</a>
+<span class="breadcrumb-separator">»</span>
+            <a href="{{ route('versions.non_standard_items.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.non_standard_items.create' ? 'active-link' : '' }}">Non-Standard Services</a>
             <span class="breadcrumb-separator">»</span>
             <a href="{{ route('versions.internal_summary.show', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.internal_summary.show' ? 'active-link' : '' }}">Internal Summary</a>
               <span class="breadcrumb-separator">»</span>
@@ -71,6 +88,7 @@
     
        <form method="POST" action="{{ route('versions.security_service.store', $version->id) }}">
             @csrf
+                <input type="hidden" name="section" value="cloud">
             @if(isset($region) && $region)
                 @method('PUT')
             @endif
@@ -84,7 +102,7 @@
                     <input type="hidden" name="project_id" value="{{ $project->id }}">
                     <input type="hidden" name="version_id" value="{{ $version->id }}">
 <input type="hidden" name="customer_id" value="{{ $project->customer_id }}">
- <input type="hidden" name="presale_id" value="{{ auth()->id() }}">
+
 
 
                    
@@ -126,7 +144,7 @@
 
                    
             
-        
+        <fieldset @disabled($isLocked)>
 
             <!-- Security Service Table -->
             <div class="table-responsive mb-4">
@@ -265,7 +283,7 @@
 
                                 <div class="input-group">
                                        <select name="cyber_managed_services_4" class="form-select">
-    <option value="None" @selected(old('cyber_managed_services_4', $security_service->cyber_managed_services_1 ?? '') == 'None')>None</option>
+<option value="None" @selected(old('cyber_managed_services_4', $security_service->cyber_managed_services_4 ?? '') == 'None')>None</option>
     <option value="Managed Operating System" @selected(old('cyber_managed_services_4', $security_service->cyber_managed_services_4 ?? '') == 'Managed Operating System')>Managed Operating System</option>
     <option value="Managed Backup and Restore" @selected(old('cyber_managed_services_4', $security_service->cyber_managed_services_4 ?? '') == 'Managed Backup and Restore')>Managed Backup and Restore</option>
     <option value="Managed Patching" @selected(old('cyber_managed_services_4', $security_service->cyber_managed_services_4 ?? '') == 'Managed Patching')>Managed Patching</option>
@@ -280,110 +298,12 @@
                        
 
 
-                          <thead class="table-dark">
-                        <tr>
-                            <th colspan="4">Monitoring</th>
-                        </tr>
-                    </thead>
-                    <thead class="table-light">
-                        <tr>
-                            <th colspan="2"></th>
-                           
-                            <th>KL</th>
-                            <th>Cyber</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>TIME Security Advanced Monitoring (TSAM)</td>
-                            <td>EPS</td>
-                            <td>
-                                <div class="input-group">
-                                    <input name="" 
-                                           class="form-control bg-light text-muted" 
-                                           value=""
-                                           disabled
-                                           style="cursor: not-allowed;">
-                                </div>
-                            </td>
-                            <td>
-                                <div class="input-group">
-                                    <input name="" 
-                                           class="form-control bg-light text-muted" 
-                                           value=""
-                                           disabled
-                                           style="cursor: not-allowed;">
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                           <td>{{ $pricing['CMON-TIS-NOD-STD']['name'] }}
-                                <br>
-                                 <small class="text-muted">This service is undergoing costing evaluation by TDC, not to be offered as standard</small>
-                            </td>
-                           
-
-
-                            
-    <td>{{ $pricing['CMON-TIS-NOD-STD']['measurement_unit'] }}</td>
-                           
-                          <td>
-                                    <div class="input-group">
-                                       <select name="kl_insight_vmonitoring" class="form-select">
-    <option value="No" @selected(old('kl_insight_vmonitoring', $security_service->kl_insight_vmonitoring ?? '') == 'No')>No</option>
-    <option value="Yes" @selected(old('kl_insight_vmonitoring', $security_service->kl_insight_vmonitoring ?? '') == 'Yes')>Yes</option>
-</select>
-                                    </div>
-                                </td>
-
-                                <td>
-                                    <div class="input-group">
-                                       <select name="cyber_insight_vmonitoring" class="form-select">
-    <option value="No" @selected(old('cyber_insight_vmonitoring', $security_service->cyber_insight_vmonitoring ?? '') == 'No')>No</option>
-    <option value="Yes" @selected(old('cyber_insight_vmonitoring', $security_service->cyber_insight_vmonitoring ?? '') == 'Yes')>Yes</option>
-</select>
-                                    </div>
-                                </td>
-
-
-                        </tr>
+                    
                     
                           
-                        <thead class="table-dark">
-                            <tr>
-                                <th colspan="4">Security Service</th>
-                                
-                            </tr>
-                        </thead>
-                        <thead class="table-light">
-                            <tr>
-                                <th colspan="2"></th>
-                                <th>KL</th>
-                                <th>Cyber</th>
-                            </tr>
-                        </thead>
+                       
 
-                        <tr>
-                            <!---<td>Cloud Vulnerability Assessment (Per IP)</td>
-                            <td>GB</td>--->
-
-                             <td>{{ $pricing['SECT-VAS-EIP-STD']['name'] }}</td>
-    <td>{{ $pricing['SECT-VAS-EIP-STD']['measurement_unit'] }}</td>
-    
-                            <td>
-                                <div class="input-group">
-                                    <input type="number" name="kl_cloud_vulnerability" class="form-control"
-                                     value="{{ old('kl_cloud_vulnerability', $security_service->kl_cloud_vulnerability ?? '') }}" min="0">
-                                </div>
-                            </td>
-                            <td>
-                                <div class="input-group">
-                                    <input type="number" name="cyber_cloud_vulnerability" class="form-control"
-                                     value="{{ old('cyber_cloud_vulnerability', $security_service->cyber_cloud_vulnerability ?? '') }}" min="0">
-                                </div>
-                            </td>
-                        </tr>
-
+                        
                          <thead class="table-dark">
                         <tr>
                             <th colspan="4">Cloud Security</th>
@@ -503,6 +423,7 @@
                     </tbody>
                 </table>
             </div>
+  </fieldset>
 
             <div class="d-flex justify-content-between gap-3"> 
 
@@ -519,9 +440,9 @@
     
 
             <div class="d-flex justify-content-end gap-3"> <!-- Added gap-3 for spacing -->
-                <button type="submit" class="btn btn-pink">Save Security Service</button>
+                <button type="submit" class="btn btn-pink" @disabled($isLocked)>Save Security Service</button>
 
-                  <a href="{{ route('versions.non_standard_items.create', $version->id) }}" class="btn btn-secondary me-2" role="button">Next: Other Services<i class="bi bi-arrow-right"></i></a>
+                  <a href="{{ route('versions.non_standard_items.create', $version->id) }}" class="btn btn-secondary me-2" role="button">Next: Non-Standard Services<i class="bi bi-arrow-right"></i></a>
 
                
               
@@ -538,6 +459,17 @@
 
 
 
+@if($isLocked)
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  
+  document.querySelectorAll('.auto-save').forEach(el => {
+    el.addEventListener('change', e => e.preventDefault(), true);
+    el.addEventListener('input',  e => e.preventDefault(), true);
+  });
+});
+</script>
+@endif
 
 
 @endsection

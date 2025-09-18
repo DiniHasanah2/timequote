@@ -21,17 +21,7 @@ class SyncVMMappings extends Command
         foreach ($ecsList as $ecs) {
             $flavour = ECSFlavour::where('flavour_name', $ecs->ecs_flavour_mapping)->first();
 $ecs_code = $flavour ? $flavour->ecs_code : null;
-          /*VMMappings::updateOrCreate(
-                     ['id' => Str::uuid()],
-    [
-        'vm_name' => $ecs->vm_name,
-        'quotation_id' => optional($ecs->version->quotations->first())->id,
-        'customer_name' => optional($ecs->version->project->customer)->name,
-        'project_id' => optional($ecs->version->project)->id,
-        'ecs_flavour_mapping' => $ecs->ecs_flavour_mapping,
-        'ecs_code' => $ecs_code,
-    ],
-);*/
+          
 VMMappings::updateOrCreate(
     [
         'vm_name' => $ecs->vm_name,

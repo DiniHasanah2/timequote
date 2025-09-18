@@ -4,6 +4,7 @@
     $solution_type = $solution_type ?? $version->solution_type ?? null;
 @endphp
 
+@section('content')
 @if($errors->any())
     <div class="alert alert-danger">
         <ul>
@@ -14,7 +15,20 @@
     </div>
 @endif
 
-@section('content')
+
+
+@if($isLocked)
+  <div class="alert alert-warning d-flex align-items-center" role="alert">
+    <span class="me-2">🔒</span>
+    <div>
+      This version was locked at
+      <strong>{{ optional($lockedAt)->format('d M Y, H:i') }}</strong>.
+      All fields are read-only.
+    </div>
+  </div>
+@endif
+
+
 
 
 <div class="card shadow-sm">
@@ -44,9 +58,14 @@
             <a href="{{ route('versions.mpdraas.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.mpdraas.create' ? 'active-link' : '' }}">MP-DRaaS</a>
             <span class="breadcrumb-separator">»</span>
             @endif
-            <a href="{{ route('versions.security_service.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.create' ? 'active-link' : '' }}">Security Services</a>
+             <a href="{{ route('versions.security_service.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.create' ? 'active-link' : '' }}">Cloud Security</a>
             <span class="breadcrumb-separator">»</span>
-            <a href="{{ route('versions.non_standard_items.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.non_standard_items.create' ? 'active-link' : '' }}">Other Services</a>
+               <a href="{{ route('versions.security_service.time.create', $version->id) }}"
+   class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.time.create' ? 'active-link' : '' }}">
+  Time Security Services
+</a>
+<span class="breadcrumb-separator">»</span>
+            <a href="{{ route('versions.non_standard_items.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.non_standard_items.create' ? 'active-link' : '' }}">Non-Standard Services</a>
             <span class="breadcrumb-separator">»</span>
             <a href="{{ route('versions.internal_summary.show', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.internal_summary.show' ? 'active-link' : '' }}">Internal Summary</a>
               <span class="breadcrumb-separator">»</span>
@@ -84,6 +103,7 @@
 
                    
             </div>
+            <fieldset @disabled($isLocked)>
             <div class="table-responsive mb-4">
                 <table class="table table-bordered">
                       
@@ -251,7 +271,7 @@ min="0"></td>
                     </tbody>
                 </table>
             </div>
-            
+          </fieldset>
 
             <div class="d-flex justify-content-between gap-3"> 
                 
@@ -267,7 +287,7 @@ min="0"></td>
                          <div class="d-flex flex-column align-items-centre gap-2">
 
             <div class="d-flex justify-content-end gap-3"> <!-- Added gap-3 for spacing -->
-                <button type="submit" class="btn btn-pink">Save DR Settings</button>
+                <button type="submit" class="btn btn-pink" @disabled($isLocked)>Save DR Settings</button>
 
 
                 @if(($solution_type->solution_type ?? '') === 'TCS Only')
@@ -381,6 +401,17 @@ min="0"></td>
 </script>
 
 
+@if($isLocked)
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  
+  document.querySelectorAll('.auto-save').forEach(el => {
+    el.addEventListener('change', e => e.preventDefault(), true);
+    el.addEventListener('input',  e => e.preventDefault(), true);
+  });
+});
+</script>
+@endif
 
 
 
@@ -390,45 +421,6 @@ min="0"></td>
 
 
 
-@push('scripts')
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-
-    document.querySelectorAll('.auto-save').forEach(function (element) {
-        element.addEventListener('change', function () {
-            const field = this.dataset.field;
-            const value = this.value;
-            const versionId = this.dataset.versionId;
-
-
-
-            //fetch(`/autosave/region/professional-services/${versionId}`,
-            fetch(`/autosave/region/${versionId}`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': token,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    [field]: value
-                })
-            })
-            .then(response => {
-                console.log('Status:', response.status);
-                if (!response.ok) throw new Error('Save failed');
-                console.log(`Saved: ${field} = ${value}`);
-            })
-            .catch(err => {
-                console.error(err);
-                alert("Auto-save failed!");
-            });
-        });
-    });
-});
-
-</script>
-@endpush
 
 @push('styles')
 <style>

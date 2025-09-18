@@ -104,6 +104,7 @@ public function assigned_presales()
 }
 
 
+
 public function quotations()
 {
     return $this->hasManyThrough(

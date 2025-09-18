@@ -10,21 +10,23 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Schema;
 
 
 class ProjectController extends Controller
 {
-    public function index(Request $request)
+  public function index(Request $request)
 {
     $user = Auth::user();
     if (!$user) {
         abort(403, 'Unauthorized');
     }
 
-    // read filters from query
+    // Filters dari query
     $selectedCustomerId = $request->query('customer_id');
     $projectKeyword     = trim($request->query('project', ''));
 
+    // Base query untuk senarai projek + relations
     $projectsQuery = Project::with([
         'customer',
         'versions.quotations.products',
@@ -32,7 +34,7 @@ class ProjectController extends Controller
         'assigned_presales'
     ]);
 
-    // role-based scoping
+    // Scope projek ikut role (presale/product hanya nampak projek di bawah dia/assigned)
     if (in_array($user->role, ['presale', 'product'])) {
         $projectsQuery->where(function ($q) use ($user) {
             $q->where('presale_id', $user->id)
@@ -42,19 +44,46 @@ class ProjectController extends Controller
         });
     }
 
-    // filter by customer (optional)
+    // Filter by customer (optional)
     if (!empty($selectedCustomerId)) {
         $projectsQuery->where('customer_id', $selectedCustomerId);
     }
 
-    // filter by project name (optional)
+    // Filter by project name (optional)
     if ($projectKeyword !== '') {
-        $projectsQuery->where('name', 'LIKE', '%' . $projectKeyword . '%');
+        $projectsQuery->where('name', 'LIKE', '%'.$projectKeyword.'%');
     }
 
-    $projects  = $projectsQuery->orderBy('created_at', 'asc')->get();
-    $customers = Customer::orderBy('name')->get();
-    $presales  = User::where('role', 'presale')->get();
+    $projects = $projectsQuery->orderBy('created_at', 'asc')->get();
+
+    // ===============================
+    // Scoped customers untuk dropdown
+    // ===============================
+    // Admin: semua customer
+    // Presale/Product: HANYA customer yang dia create (kalau wujud kolum customers.created_by)
+    // Fallback kalau tiada kolum created_by: customer yang ada projek di bawah akses user
+    if ($user->role === 'admin') {
+        $customers = Customer::orderBy('name')->get();
+    } else {
+        if (Schema::hasColumn('customers', 'created_by')) {
+            // STRICT: hanya customer yang user ni create
+            $customers = Customer::where('created_by', $user->id)
+                ->orderBy('name')
+                ->get();
+        } else {
+            // Fallback: derive dari projek yang user ada akses
+            $customers = Customer::whereHas('projects', function ($p) use ($user) {
+                    $p->where('presale_id', $user->id)
+                      ->orWhereHas('assigned_presales', function ($sub) use ($user) {
+                          $sub->where('users.id', $user->id);
+                      });
+                })
+                ->orderBy('name')
+                ->get();
+        }
+    }
+
+    $presales = User::where('role', 'presale')->get();
 
     return view('projects.index', compact(
         'projects', 'customers', 'presales', 'selectedCustomerId', 'projectKeyword'

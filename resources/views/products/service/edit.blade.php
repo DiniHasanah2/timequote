@@ -57,6 +57,11 @@
                 </select>
             </div>
 
+              <div class="mb-3">
+                <label for="charge_duration" class="form-label">Charge Duration</label>
+                <input type="text" name="charge_duration" id="charge_duration" class="form-control bg-light" value="{{ $service->charge_duration }}" readonly required>
+            </div>
+
             <div class="mb-3">
                 <label for="description" class="form-label">Product Description</label>
                 <input type="text" name="description" class="form-control" value="{{ $service->description }}">

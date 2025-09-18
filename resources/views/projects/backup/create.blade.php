@@ -18,6 +18,19 @@
     </div>
 @endif
 
+
+
+@if($isLocked)
+  <div class="alert alert-warning d-flex align-items-center" role="alert">
+    <span class="me-2">🔒</span>
+    <div>
+      This version was locked at
+      <strong>{{ optional($lockedAt)->format('d M Y, H:i') }}</strong>.
+      All fields are read-only.
+    </div>
+  </div>
+@endif
+
 <head>
     <style>
         /* Enable column resizing */
@@ -96,9 +109,14 @@
             <a href="{{ route('versions.mpdraas.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.mpdraas.create' ? 'active-link' : '' }}">MP-DRaaS</a>
             <span class="breadcrumb-separator">»</span>
             @endif
-            <a href="{{ route('versions.security_service.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.create' ? 'active-link' : '' }}">Security Services</a>
+           <a href="{{ route('versions.security_service.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.create' ? 'active-link' : '' }}">Cloud Security</a>
             <span class="breadcrumb-separator">»</span>
-            <a href="{{ route('versions.non_standard_items.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.non_standard_items.create' ? 'active-link' : '' }}">Other Services</a>
+               <a href="{{ route('versions.security_service.time.create', $version->id) }}"
+   class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.time.create' ? 'active-link' : '' }}">
+  Time Security Services
+</a>
+<span class="breadcrumb-separator">»</span>
+            <a href="{{ route('versions.non_standard_items.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.non_standard_items.create' ? 'active-link' : '' }}">Non-Standard Services</a>
             <span class="breadcrumb-separator">»</span>
             <a href="{{ route('versions.internal_summary.show', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.internal_summary.show' ? 'active-link' : '' }}">Internal Summary</a>
               <span class="breadcrumb-separator">»</span>
@@ -210,7 +228,7 @@
       <form action="{{ route('ecs_configurations.import') }}" method="POST" enctype="multipart/form-data">
     @csrf
     <input type="hidden" name="version_id" value="{{ $version->id }}">
-    <input type="hidden" name="source" value="backup"> {{-- ini penting! --}}
+    <input type="hidden" name="source" value="backup">
     
    
 
@@ -287,6 +305,7 @@
 
   <div class="alert alert-info">Preview from imported Excel:</div>
 
+  <fieldset @disabled($isLocked)>
   <div class="table-responsive">
     <table class="table table-bordered table-sm small">
       <thead class="table-light">
@@ -337,123 +356,15 @@
             @if(isset($ecs_configuration))
                 @method('PUT')
             @endif
-
+  <fieldset @disabled($isLocked)>
 
 
 <div class="table-responsive" style="overflow-x:auto">
-                <!---<table class="table table-bordered table-sm-small" style="min-width: 2000px;" >--->
+            
 
                 <table id="ecsBackupTable" class="table table-bordered table-sm-small" style="min-width: 2000px;">
 
-                    <!---<thead class="table-dark">
-                        <tr>
-
-                        <td colspan="3"><strong>Production VM</strong></td>
-                             <td colspan="6"><strong>ECS</strong></td>
-                             <td colspan="2"><strong>Storage</strong></td>
-                            <td colspan="3"><strong>License</strong></td>
-                           <td colspan="3"><strong>Image and Snapshots</strong></td>
-                             
-                            <td colspan="27"><strong>Backup</strong></td>
-                          
-                            <td><strong>DR Requirement</strong></td>
-                             <td><strong>Cold DR</strong></td>
-                            <td colspan="2"><strong>Warm DR<strong></td>
-                            <td><strong>DR Flavour Mapping<strong></td>
-                            <td><strong>Action<strong></td>
-                            
-                        
-                           
-                        </tr>
-                        <tr>
-
-                        <td colspan="3" style="font-weight: normal;"></td>
-                             <td colspan="6" style="font-weight: normal;">ECS</td>
-                             <td colspan="2" style="font-weight: normal;">Storage</td>
-                            <td colspan="3" style="font-weight: normal;">License</td>
-                           <td colspan="3" style="font-weight: normal;">Image and Snapshots</td>
-                         
-                            
-                            <th colspan="6" style="font-weight: normal;">Cloud Server Backup Service (CSBS)</th>
-                            <th colspan="7" style="font-weight: normal;">Full Backup</th>
-                            <th colspan="7" style="font-weight: normal;">Incremental Backup</th>
-                            <th colspan="7" style="font-weight: normal;">CSBS Replication</th>
-                            
-                            <th colspan="2" style="font-weight: normal;">DR Requirement</th>
-                            <th colspan="2" style="font-weight: normal;">Replication using CSDR</th>
-                            <th colspan="2" style="font-weight: normal;"></th>
-                        </tr>
-
-
-                         <thead class="table-light">
-                        <tr>
-
-
-                            <td>No</td>
-                                <td style="font-weight: bold;">Region<span style="color: red">*</span></td>
-                              <td style="font-weight: bold;">VM Name<span style="color: red">*</span></td>
-                    <td style="font-weight: bold;">Pin<span style="color: red">*</span></td>
-                    <td style="font-weight: bold;">GPU<span style="color: red">*</span></td>
-                    <td style="font-weight: bold;">DDH<span style="color: red">*</span></td>
-                    <td style="font-weight: bold;">vCPU<span style="color: red">*</span></td>
-                    <td style="font-weight: bold;">vRAM<span style="color: red">*</span></td>
-                    <td style="font-weight: bold;">Flavour Mapping<span style="color: red">*</span></td>
-                    <td style="font-weight: bold;">System Disk (GB)<span style="color: red">*</span></td>
-                     <td>Data Disk (GB)</td>
-                    <td>Operating System</td>
-                     <td>RDS License</td>
-                      <td>Microsoft SQL</td>
-                       <td>Snapshot Copies</td>
-                        <td>Additional Capacity (GB)</td>
-                         <td>Image Copies</td>
-    
-                        <td>Standard Policy</td>
-                            <td>Local Retention Copies</td>
-                              <td>Total Storage</td>
-                                <td>Initial Data Size (GB)</td>
-                                  <td>Incremental Change (%)</td>
-                                  <td>Estimated Incremental Data Change (GB)</td>
-                                  <td>Daily</td>
-                                  <td>Weekly</td>
-                                  <td>Monthly</td>
-                                  <td>Yearly</td>
-                                  <td>Total Retention Full Copies</td>
-                                   <td>Estimated Storage for Full Backup<br><strong>(Suggestion)</strong></td>
-                                   <td>Estimated Storage for Full Backup</td>
-                                   <td>Daily2</td>
-                                  <td>Weekly2</td>
-                                  <td>Monthly2</td>
-                                  <td>Yearly2</td>
-                                  <td>Total Retention Increment Copies</td>
-                                   <td>Estimated Storage for Incremental Backup<br><strong>(Suggestion)</strong></td>
-                                   <td>Estimated Storage for Incremental Backup</td>
-                                <td>CSBS Required?</td>
-                                 <td>Total Replication Copy Retained Second Site</td>
-                                  <td>Additional Storage (GB)</td>
-                                   <td>RTO</td>
-                                    <td>RPO</td>
-                                     <td>Estimated Storage for CSBS Replication<br><strong>(Suggestion)</strong></td>
-                                     <td>Estimated Storage for CSBS Replication</td>
-                                    
-                                     <td>DR Activation Required?</td>
-                                      <td>Seed VM Required?</td>
-                                       <td>CSDR Needed?</td>
-                                        <td>CSDR Storage</td>
-                                         <td>DR Flavour Mapping</td>
-                                         <td>Action</td>
-                        <tr>
-
-
-
-
-
-
-
-
-
-
-
-                    </thead>--->
+                
 
 
 
@@ -832,10 +743,27 @@
 
 
 
-<td>
+<!---<td>
     <button type="button" class="btn btn-sm btn-outline-danger delete-row d-flex align-items-center gap-1" title="Delete">
         <i class="bi bi-trash"></i> Delete
     </button>
+</td>--->
+
+<td class="text-nowrap">
+  <div class="d-flex align-items-center gap-2">
+    <!-- Checkbox untuk pilih row ini (tak ubah kolum lain) -->
+    <input type="checkbox"
+           class="form-check-input row-check"
+           value="{{ $row->id ?? '' }}"
+           @disabled($isLocked)>
+
+    <!-- Butang delete sedia ada (kekal) -->
+    <button type="button"
+            class="btn btn-sm btn-outline-danger delete-row d-flex align-items-center gap-1"
+            title="Delete">
+      <i class="bi bi-trash"></i> Delete
+    </button>
+  </div>
 </td>
 
 
@@ -872,16 +800,31 @@
 
                     
                 </table>
+</fieldset>
 
 
 
 
 
 
-                <button type="button" class="btn btn-pink" id="addRowBtn">
-    <i></i> Add Row
-    
-</button>
+
+
+<!---<div class="d-flex justify-content-end align-items-center gap-2 mt-2">--->
+
+
+  <button type="button" class="btn btn-pink" id="addRowBtn" @disabled($isLocked)><i></i> Add Row </button>
+
+ 
+
+
+  <button type="button"
+          class="btn btn-outline-danger"
+          id="bulkDeleteBtn"
+          @disabled($isLocked)>
+    <i class="bi bi-trash"></i> Bulk Delete
+  </button>
+
+
 
 
             
@@ -939,7 +882,30 @@
     <a href="{{ route('versions.region.network.create', $version->id) }}" class="btn btn-secondary" role="button">
         <i class="bi bi-arrow-left"></i> Previous<br>Step
     </a>
-    <button type="submit" class="btn btn-pink">Save ECS & Backup</button>
+    <!---<button type="submit" class="btn btn-pink" @disabled($isLocked)>Save ECS & Backup</button>--->
+<button type="submit"
+        class="btn fw-normal shadow-sm"
+        style="
+          font-weight:400;
+          --bs-btn-color:#fff;
+          --bs-btn-bg:#FF82E6;
+          --bs-btn-border-color:#FF82E6;
+          --bs-btn-hover-color:#fff;
+          --bs-btn-hover-bg:#e66fd5;
+          --bs-btn-hover-border-color:#e66fd5;
+          --bs-btn-focus-shadow-rgb:255,130,230;
+          --bs-btn-active-color:#fff;
+          --bs-btn-active-bg:#d95fc3;
+          --bs-btn-active-border-color:#d95fc3;
+          --bs-btn-disabled-color:#fff;
+          --bs-btn-disabled-bg:#f2b7eb;
+          --bs-btn-disabled-border-color:#f2b7eb;
+        "
+        @disabled($isLocked)>
+  Save ECS & Backup
+</button>
+
+
        <!---<div class="alert alert-danger py-1 px-2 small mb-0" role="alert" style="font-size: 0.8rem;">
             ⚠️ Ensure you click <strong>Save</strong> before continuing to the next step!
     </div>--->
@@ -1025,19 +991,7 @@ function calculateFlavourMapping(vcpuInput, vramInput, pinInput, gpuInput, ddhIn
     { name: 'r3p.46xlarge.ddh', vcpu: 342, vram: 1480, pin: 'No', gpu: 'No', ddh: 'Yes' }
   ];
 
-  // cuba match exact (Pin/GPU/DDH sama)
-  /*let suitable = flavours
-    .filter(f => f.vcpu >= vcpuInput && f.vram >= vramInput && f.pin === pinInput && f.gpu === gpuInput && f.ddh === ddhInput)
-    .sort((a, b) => (a.vcpu - b.vcpu) || (a.vram - b.vram));
-
-  // fallback: kalau combo exact tak ada, longgarkan kepada vCPU/vRAM sahaja
-  if (!suitable.length) {
-    suitable = flavours
-      .filter(f => f.vcpu >= vcpuInput && f.vram >= vramInput)
-      .sort((a, b) => (a.vcpu - b.vcpu) || (a.vram - b.vram));
-  }
-  return suitable.length ? suitable[0].name : null;
-}*/  // Base mapping MUST NOT use any DDH flavour
+ 
   const pool = flavours.filter(f => f.ddh === 'No');
 
   // Try exact match on PIN/GPU + capacity
@@ -1120,10 +1074,6 @@ function attachDynamicListeners(row, index) {
     if (fullTotal) fullTotal.value = fullT;
     if (incTotal)  incTotal.value  = incT;
 
-    /*const init = toInt(initialSize?.value);
-    //const estChange = Math.round(init * (toInt(changePct?.value)/100));
-    const pct = parseFloat(changePct?.value || 0);
-const estChange = Math.ceil(init * (pct/100));*/
 
 const init = toInt(initialSize?.value);
 
@@ -1141,11 +1091,6 @@ if (estChangeOut) estChangeOut.value = estChangeRaw.toFixed(1);
     if (policy === 'Custom') local = fullT + incT + 1;
     if (localRet) localRet.value = local;
 
-    //const totalStore = Math.ceil(init + (init * fullT) + (estChange * incT)); // sama formula asal
-
-    /*const totalStore = init + (init * fullT) + (estChange * incT);
-
-    if (totalStorage) totalStorage.value = (policy === 'No Backup') ? 0 : totalStore;*/
 
 
    
@@ -1213,14 +1158,10 @@ if (suggRepl)
   recalcRow();
 }
 
-// ===========================
-// 3) Add Row + attach handlers
-// ===========================
 document.addEventListener('DOMContentLoaded', function () {
   const tbody = document.querySelector('#ecsBackupTable tbody');
   if (!tbody) return;
 
-  // attach untuk sedia ada
   Array.from(tbody.querySelectorAll('tr')).forEach((row, i) => attachDynamicListeners(row, i));
 
   function nextIndex(){
@@ -1348,386 +1289,99 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
 
-
-
-<!---<script>
-
-
-
-
-
-
-
-
-    function calculateFlavourMapping(vcpuInput, vramInput, pinInput, gpuInput, ddhInput) {
-    if (!vcpuInput || !vramInput) {
-        return '';
-    }
-   
-    const flavours = [
-    { name: 'm3.micro', vcpu: 1, vram: 1, pin: 'No', gpu: 'No', ddh: 'No' },
-    { name: 'm3.small', vcpu: 1, vram: 2, pin: 'No', gpu: 'No', ddh: 'No' },
-    { name: 'c3.large', vcpu: 2, vram: 4, pin: 'No', gpu: 'No', ddh: 'No' },
-    { name: 'm3.large', vcpu: 2, vram: 8, pin: 'No', gpu: 'No', ddh: 'No' },
-    { name: 'r3.large', vcpu: 2, vram: 16, pin: 'No', gpu: 'No', ddh: 'No' },
-    { name: 'c3.xlarge', vcpu: 4, vram: 8, pin: 'No', gpu: 'No', ddh: 'No' },
-    { name: 'm3.xlarge', vcpu: 4, vram: 16, pin: 'No', gpu: 'No', ddh: 'No' },
-    { name: 'r3.xlarge', vcpu: 4, vram: 32, pin: 'No', gpu: 'No', ddh: 'No' },
-    { name: 'c3.2xlarge', vcpu: 8, vram: 16, pin: 'No', gpu: 'No', ddh: 'No' },
-    { name: 'm3.2xlarge', vcpu: 8, vram: 32, pin: 'No', gpu: 'No', ddh: 'No' },
-    { name: 'r3.2xlarge', vcpu: 8, vram: 64, pin: 'No', gpu: 'No', ddh: 'No' },
-    { name: 'm3.3xlarge', vcpu: 12, vram: 48, pin: 'No', gpu: 'No', ddh: 'No' },
-    { name: 'c3.4xlarge', vcpu: 16, vram: 32, pin: 'No', gpu: 'No', ddh: 'No' },
-    { name: 'm3.4xlarge', vcpu: 16, vram: 64, pin: 'No', gpu: 'No', ddh: 'No' },
-    { name: 'r3.4xlarge', vcpu: 16, vram: 128, pin: 'No', gpu: 'No', ddh: 'No' },
-    { name: 'm3.6xlarge', vcpu: 24, vram: 96, pin: 'No', gpu: 'No', ddh: 'No' },
-    { name: 'c3.8xlarge', vcpu: 32, vram: 64, pin: 'No', gpu: 'No', ddh: 'No' },
-    { name: 'm3.8xlarge', vcpu: 32, vram: 128, pin: 'No', gpu: 'No', ddh: 'No' },
-    { name: 'r3.8xlarge', vcpu: 32, vram: 256, pin: 'No', gpu: 'No', ddh: 'No' },
-    { name: 'r3.12xlarge', vcpu: 48, vram: 384, pin: 'No', gpu: 'No', ddh: 'No' },
-    { name: 'c3.16xlarge', vcpu: 64, vram: 128, pin: 'No', gpu: 'No', ddh: 'No' },
-    { name: 'm3.16xlarge', vcpu: 64, vram: 256, pin: 'No', gpu: 'No', ddh: 'No' },
-    { name: 'r3.16xlarge', vcpu: 64, vram: 512, pin: 'No', gpu: 'No', ddh: 'No' },
-    { name: 'c3p.xlarge', vcpu: 4, vram: 8, pin: 'Yes', gpu: 'No', ddh: 'No' },
-    { name: 'm3p.xlarge', vcpu: 4, vram: 16, pin: 'Yes', gpu: 'No', ddh: 'No' },
-    { name: 'r3p.xlarge', vcpu: 4, vram: 32, pin: 'Yes', gpu: 'No', ddh: 'No' },
-    { name: 'c3p.2xlarge', vcpu: 8, vram: 16, pin: 'Yes', gpu: 'No', ddh: 'No' },
-    { name: 'm3p.2xlarge', vcpu: 8, vram: 32, pin: 'Yes', gpu: 'No', ddh: 'No' },
-    { name: 'r3p.2xlarge', vcpu: 8, vram: 64, pin: 'Yes', gpu: 'No', ddh: 'No' },
-    { name: 'm3p.3xlarge', vcpu: 12, vram: 48, pin: 'Yes', gpu: 'No', ddh: 'No' },
-    { name: 'c3p.4xlarge', vcpu: 16, vram: 32, pin: 'Yes', gpu: 'No', ddh: 'No' },
-    { name: 'm3p.4xlarge', vcpu: 16, vram: 64, pin: 'Yes', gpu: 'No', ddh: 'No' },
-    { name: 'r3p.4xlarge', vcpu: 16, vram: 64, pin: 'Yes', gpu: 'No', ddh: 'No' },
-    { name: 'm3p.6xlarge', vcpu: 24, vram: 96, pin: 'Yes', gpu: 'No', ddh: 'No' },
-    { name: 'c3p.8xlarge', vcpu: 32, vram: 64, pin: 'Yes', gpu: 'No', ddh: 'No' },
-    { name: 'm3p.8xlarge', vcpu: 32, vram: 128, pin: 'Yes', gpu: 'No', ddh: 'No' },
-    { name: 'r3p.8xlarge', vcpu: 32, vram: 128, pin: 'Yes', gpu: 'No', ddh: 'No' },
-    { name: 'm3p.12xlarge', vcpu: 48, vram: 192, pin: 'Yes', gpu: 'No', ddh: 'No' },
-    { name: 'r3p.12xlarge', vcpu: 48, vram: 384, pin: 'Yes', gpu: 'No', ddh: 'No' },
-    { name: 'm3p.16xlarge', vcpu: 64, vram: 256, pin: 'Yes', gpu: 'No', ddh: 'No' },
-    { name: 'r3p.16xlarge', vcpu: 64, vram: 512, pin: 'Yes', gpu: 'No', ddh: 'No' },
-    { name: 'r3p.46xlarge.metal', vcpu: 64, vram: 1408, pin: 'Yes', gpu: 'No', ddh: 'No' },
-    { name: 'm3gnt4.xlarge', vcpu: 4, vram: 16, pin: 'No', gpu: 'Yes', ddh: 'No' },
-    { name: 'm3gnt4.2xlarge', vcpu: 8, vram: 32, pin: 'No', gpu: 'Yes', ddh: 'No' },
-    { name: 'm3gnt4.4xlarge', vcpu: 16, vram: 64, pin: 'No', gpu: 'Yes', ddh: 'No' },
-    { name: 'm3gnt4.8xlarge', vcpu: 32, vram: 128, pin: 'No', gpu: 'Yes', ddh: 'No' },
-    { name: 'm3gnt4.16xlarge', vcpu: 64, vram: 256, pin: 'No', gpu: 'Yes', ddh: 'No' },
-    { name: 'r3p.46xlarge.ddh', vcpu: 342, vram: 1480, pin: 'No', gpu: 'No', ddh: 'Yes' }
-];
-
-
-    /*const suitable = flavours
-        .filter(f => f.vcpu >= (vcpuInput || 0) && f.vram >= (vramInput || 0))
-        .sort((a, b) => (a.vcpu - b.vcpu) || (a.vram - b.vram));
-
-    return suitable.length ? suitable[0].name : null;
-}*/
-
-
-
-const suitable = flavours
-        .filter(f =>
-            f.vcpu >= vcpuInput &&
-            f.vram >= vramInput &&
-            f.pin === pinInput &&
-            f.gpu === gpuInput &&
-            f.ddh === ddhInput
-        )
-        .sort((a, b) => (a.vcpu - b.vcpu) || (a.vram - b.vram));
-
-    return suitable.length ? suitable[0].name : null;
-}
-
-
-function toInt(v) { 
-    const n = parseInt(v, 10);
-    return isNaN(n) ? 0 : n;
-}
-
-
-
-
-
-
-function attachDynamicListeners(row, index) {
-    const q = (sel) => row.querySelector(sel);
-
-    // === ECS / Flavour ===
-    const vcpu    = q(`input[name="rows[${index}][ecs_vcpu]"]`);
-    const vram    = q(`input[name="rows[${index}][ecs_vram]"]`);
-    const flavour = q(`input[name="rows[${index}][ecs_flavour_mapping]"]`);
-    const pinSelect = q(`select[name="rows[${index}][ecs_pin]"]`);
-    const gpuSelect = q(`select[name="rows[${index}][ecs_gpu]"]`);
-    const ddhSelect = q(`select[name="rows[${index}][ecs_ddh]"]`);
-
-    // === Storage ===
-    const sysDisk = q(`input[name="rows[${index}][storage_system_disk]"]`);
-    const dataDisk= q(`input[name="rows[${index}][storage_data_disk]"]`);
-
-    // === CSBS fields ===
-    const csbsPolicy   = q(`select[name="rows[${index}][csbs_standard_policy]"]`);
-    const localRet     = q(`input[name="rows[${index}][csbs_local_retention_copies]"]`);
-    const totalStorage = q(`input[name="rows[${index}][csbs_total_storage]"]`);
-    const initialSize  = q(`input[name="rows[${index}][csbs_initial_data_size]"]`);
-    const changePct    = q(`input[name="rows[${index}][csbs_incremental_change]"]`);
-    const estChangeOut = q(`input[name="rows[${index}][csbs_estimated_incremental_data_change]"]`);
-
-    // === Full backup retention ===
-    const fullDaily   = q(`input[name="rows[${index}][full_backup_daily]"]`);
-    const fullWeekly  = q(`input[name="rows[${index}][full_backup_weekly]"]`);
-    const fullMonthly = q(`input[name="rows[${index}][full_backup_monthly]"]`);
-    const fullYearly  = q(`input[name="rows[${index}][full_backup_yearly]"]`);
-    const fullTotal   = q(`input[name="rows[${index}][full_backup_total_retention_full_copies]"]`);
-
-    // === Incremental backup retention ===
-    const incDaily   = q(`input[name="rows[${index}][incremental_backup_daily]"]`);
-    const incWeekly  = q(`input[name="rows[${index}][incremental_backup_weekly]"]`);
-    const incMonthly = q(`input[name="rows[${index}][incremental_backup_monthly]"]`);
-    const incYearly  = q(`input[name="rows[${index}][incremental_backup_yearly]"]`);
-    const incTotal   = q(`input[name="rows[${index}][incremental_backup_total_retention_incremental_copies]"]`);
-
-    // === Replication / DR ===
-    const requiredSel = q(`select[name="rows[${index}][required]"]`);
-    const replCopies  = q(`input[name="rows[${index}][total_replication_copy_retained_second_site]"]`);
-    const rto         = q(`input[name="rows[${index}][rto]"]`);
-    const rpo         = q(`input[name="rows[${index}][rpo]"]`);
-
-    // === CSDR ===
-    const csdrNeeded  = q(`select[name="rows[${index}][csdr_needed]"]`);
-    const csdrStorage = q(`input[name="rows[${index}][csdr_storage]"]`);
-
-    // === Kiraan baris ===
-    function recalcRow() {
-        const fullT = toInt(fullDaily?.value) + toInt(fullWeekly?.value) + toInt(fullMonthly?.value) + toInt(fullYearly?.value);
-        
-       
-
-
-        // Multiply full backup total retention by initial data size
-        const initialDataSize = toInt(initialSize?.value);
-        const multipliedFullT = initialDataSize > 0 ? fullT * initialDataSize : fullT;
-        
-        if (fullTotal) fullTotal.value = multipliedFullT;
-
-        const incT = toInt(incDaily?.value) + toInt(incWeekly?.value) + toInt(incMonthly?.value) + toInt(incYearly?.value);
-        if (incTotal) incTotal.value = incT;
-
-        const estChange = Math.round(toInt(initialSize?.value) * (toInt(changePct?.value) / 100));
-        if (estChangeOut) estChangeOut.value = estChange;
-
-        let local = 0;
-        const policy = csbsPolicy?.value || 'No Backup';
-        if (policy === 'Custom') {
-            local = fullT + incT + 1;
-        }
-        if (localRet) localRet.value = local;
-
-        const init = toInt(initialSize?.value);
-        const totalStore = Math.ceil(init + (init * fullT) + (estChange * incT));
-        if (totalStorage) totalStorage.value = (policy === 'No Backup') ? 0 : totalStore;
-
-        if (replCopies) replCopies.value = (requiredSel?.value === 'Yes') ? local : 0;
-
-        if (rpo) {
-            const rtoVal = rto?.value;
-            rpo.value = (rtoVal !== '' && !isNaN(rtoVal)) ? '24 hours' : 'N/A';
-        }
-
-        const sys = toInt(sysDisk?.value);
-        const dat = toInt(dataDisk?.value);
-        if (csdrStorage) csdrStorage.value = (csdrNeeded?.value === 'Yes') ? (sys + dat) : 0;
-    }
-
-
-
-
-
-    // === Flavour mapping ===
-    function updateFlavour() {
-        const v = toInt(vcpu?.value);
-        const r = toInt(vram?.value);
-        const pinVal = pinSelect?.value || 'No';
-        const gpuVal = gpuSelect?.value || 'No';
-        const ddhVal = ddhSelect?.value || 'No';
-
-        if (v <= 0 || r <= 0) {
-            if (flavour) flavour.value = '';
-            return;
-        }
-
-        const f = calculateFlavourMapping(v, r, pinVal, gpuVal, ddhVal);
-        flavour.value = f || 'No suitable flavour';
-    }
-
-    // === Event listeners ===
-    vcpu?.addEventListener('input', updateFlavour);
-    vram?.addEventListener('input', updateFlavour);
-    pinSelect?.addEventListener('change', updateFlavour);
-    gpuSelect?.addEventListener('change', updateFlavour);
-    ddhSelect?.addEventListener('change', updateFlavour);
-
-    [
-        fullDaily, fullWeekly, fullMonthly, fullYearly,
-        incDaily, incWeekly, incMonthly, incYearly,
-        initialSize, changePct,
-        sysDisk, dataDisk,
-        requiredSel, csbsPolicy, csdrNeeded, rto
-    ].forEach(el => el && el.addEventListener(
-        el.tagName === 'SELECT' ? 'change' : 'input',
-        recalcRow
-    ));
-
-    // === Initial calculation ===
-    updateFlavour();
-    recalcRow();
-}
-
-
-// =========================
-// 4) Add Row + attach handlers
-// =========================
-document.addEventListener('DOMContentLoaded', function () {
-    //const tbody = document.querySelector('.table tbody');
-    const tbody = document.querySelector('#ecsBackupTable tbody');
-
-    if (!tbody) return;
-
-    // Attach untuk semua row sedia ada ikut index dalam name (rows[0], rows[1], ...)
-    const rows = Array.from(tbody.querySelectorAll('tr'));
-    rows.forEach((row, i) => attachDynamicListeners(row, i));
-
-    // Row index seterusnya
-    let rowIndex = rows.length; // contoh: kalau ada 1 row (index 0), next = 1
-
-    const addBtn = document.getElementById('addRowBtn');
-    if (!addBtn) return;
-
-    addBtn.addEventListener('click', function () {
-        const originalRow = tbody.querySelector('tr');
-        if (!originalRow) return;
-
-        const newRow = originalRow.cloneNode(true);
-
-        // Update nombor "No"
-        const firstCell = newRow.querySelector('td');
-        if (firstCell) firstCell.innerText = rowIndex + 1;
-
-        // Tukar name rows[0] -> rows[rowIndex] dan kosongkan value
-        const fields = newRow.querySelectorAll('input, select, textarea');
-        fields.forEach(input => {
-            const oldName = input.getAttribute('name');
-            if (!oldName) return;
-
-            // Tukar indeks dalam name
-            const newName = oldName
-                .replace(/\[\d+\]/, `[${rowIndex}]`) // ganti index apa-apa kepada index baru
-                .replace(/\[0\]/, `[${rowIndex}]`); // fallback kalau asal memang 0 sahaja
-            input.setAttribute('name', newName);
-
-            // Clear nilai (including readonly targets)
-            if (input.tagName === 'SELECT') {
-                input.selectedIndex = 0;
-            } else {
-                input.value = '';
-            }
-        });
-
-        tbody.appendChild(newRow);
-
-        // Attach semua listener untuk row baru ni
-        attachDynamicListeners(newRow, rowIndex);
-
-        // Increment index untuk row seterusnya
-        rowIndex++;
-    });
-});
-</script>
-
-
-
-
-
-<script>
-document.addEventListener('click', function (e) {
-    if (e.target.closest('.delete-row')) {
-        if (confirm('Are you sure you want to delete this row?')) {
-            const row = e.target.closest('tr');
-            const hiddenInput = row.querySelector('input[name^="rows"][name$="[id]"]');
-            const id = hiddenInput?.value;
-
-            if (id) {
-                // DELETE to backend
-                fetch(`/ecs-configurations/${id}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json'
-                    }
-                }).then(res => res.json()).then(data => {
-                    if (data.success) row.remove();
-                    else alert('Failed to delete from database.');
-                }).catch(err => {
-                    alert('Error occurred while deleting.');
-                    console.error(err);
-                });
-            } else {
-                // frontend only (unsaved)
-                row.remove();
-            }
-        }
-    }
-});
-</script>
-
-
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  // Guna delegation supaya row yang baru ditambah pun ter-cover
-  //const container = document.querySelector('table') || document;
-  const container = document.querySelector('#ecsBackupTable') || document;
+  const table   = document.getElementById('ecsBackupTable');
+  const tbody   = table ? table.querySelector('tbody') : null;
+  const checkAll = document.getElementById('checkAll');
+  const bulkBtn = document.getElementById('bulkDeleteBtn');
 
+  if (!tbody) return;
 
-  function updateRow(tr) {
-    if (!tr) return;
-    const regionEl = tr.querySelector('select[name^="rows"][name$="[region]"], input[name^="rows"][name$="[region]"]');
-    const drElSel  = tr.querySelector('select[name^="rows"][name$="[dr_activation]"]');
-    const baseEl   = tr.querySelector('input[name^="rows"][name$="[ecs_flavour_mapping]"]');
-    const drOut    = tr.querySelector('input[name^="rows"][name$="[ecs_dr]"]');
-
-    if (!drOut) return;
-
-    const region = regionEl ? (regionEl.value || '').trim() : '';
-    const drAct  = drElSel ? (drElSel.value || 'No') : 'No';
-    const base   = baseEl ? (baseEl.value || '').trim() : '';
-
-    // Formula COUNTIFS kau: Cyberjaya + DR=Yes → base + ".dr"
-    if (region === 'Cyberjaya' && drAct === 'Yes' && base) {
-      drOut.value = base + '.dr';
-    } else {
-      drOut.value = '';
-    }
-  }
-
-  // Update bila user tukar dr_activation / region / flavour
-  container.addEventListener('change', function (e) {
-    if (
-      e.target.matches('select[name^="rows"][name$="[dr_activation]"]') ||
-      e.target.matches('select[name^="rows"][name$="[region]"], input[name^="rows"][name$="[region]"]') ||
-      e.target.matches('input[name^="rows"][name$="[ecs_flavour_mapping]"]')
-    ) {
-      const tr = e.target.closest('tr');
-      updateRow(tr);
-    }
+  
+  checkAll?.addEventListener('change', function () {
+    tbody.querySelectorAll('.row-check').forEach(cb => cb.checked = checkAll.checked);
   });
 
-  // Initial fill (untuk old() values masa page load)
-  document.querySelectorAll('tr').forEach(updateRow);
+  tbody.addEventListener('change', function (e) {
+    if (!e.target.classList.contains('row-check')) return;
+    const all = tbody.querySelectorAll('.row-check');
+    const on  = tbody.querySelectorAll('.row-check:checked');
+    if (checkAll) checkAll.checked = (all.length && on.length === all.length);
+  });
+
+  // Bulk Delete action
+  bulkBtn?.addEventListener('click', async function () {
+    const rowsChecked = Array.from(tbody.querySelectorAll('.row-check:checked'));
+    if (rowsChecked.length === 0) { alert('Choose at least 1 row.'); return; }
+    if (!confirm(`Delete ${rowsChecked.length}selected rows?`)) return;
+
+    const versionId = '{{ $version->id }}';
+
+    const ids = [];
+    const domOnly = [];
+
+    rowsChecked.forEach(cb => {
+      const tr = cb.closest('tr');
+      const hid = tr.querySelector('input[name^="rows"][name$="[id]"]');
+      const id = cb.value || (hid && hid.value) || '';
+      if (id) ids.push(id);
+      else domOnly.push(tr);
+    });
+
+    // 1) Buang terus baris yang belum ada id (baru)
+    domOnly.forEach(tr => tr.remove());
+
+    // 2) Kalau ada id, call bulk destroy
+    if (ids.length > 0) {
+      try {
+        const res = await fetch(`{{ route('ecs_configurations.bulk_destroy') }}`, {
+          method: 'POST',
+          headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            ids: ids,
+            version_id: versionId
+          })
+        });
+        const data = await res.json();
+        if (!data.success) {
+          alert(data.message || 'Bulk delete gagal.');
+          return;
+        }
+
+        // Buang baris yang berjaya dipadam dari DB
+        rowsChecked.forEach(cb => {
+          const tr = cb.closest('tr');
+          const hid = tr.querySelector('input[name^="rows"][name$="[id]"]');
+          const id = cb.value || (hid && hid.value) || '';
+          if (ids.includes(id)) tr.remove();
+        });
+      } catch (err) {
+        console.error(err);
+        alert('Ralat semasa bulk delete.');
+      }
+    }
+
+    // Reset master checkbox & renumber No
+    if (checkAll) checkAll.checked = false;
+    renumberNo();
+  });
+
+  // Helper: susun semula nombor "No" (kolum 2)
+  function renumberNo(){
+    Array.from(tbody.querySelectorAll('tr')).forEach((tr, idx) => {
+      const noCell = tr.querySelector('td:nth-child(2)');
+      if (noCell) noCell.textContent = idx + 1;
+      const cb = tr.querySelector('.row-check');
+      if (cb) cb.setAttribute('data-index', idx);
+    });
+  }
 });
-</script>--->
-
-
-
+</script>
 
 
 @endsection
