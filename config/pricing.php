@@ -1594,7 +1594,7 @@ return array (
     'description' => NULL,
     'price_per_unit' => 0.1048,
     'rate_card_price_per_unit' => 0.231,
-    'transfer_price_per_unit' => 0.0578,
+    'transfer_price_per_unit' => 0.0,
   ),
   'CDRV-CMPT-ECS-R3.4XLARGE.DR' => 
   array (
@@ -2308,6 +2308,6 @@ return array (
     'effective_from' => '2025-09-12',
     'effective_to' => NULL,
     'is_current' => true,
-    'generated_at' => '2025-09-17 16:36:49',
+    'generated_at' => '2025-09-18 10:40:15',
   ),
 );

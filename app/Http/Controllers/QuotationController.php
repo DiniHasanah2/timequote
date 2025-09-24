@@ -11,6 +11,11 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Storage;
+use App\Services\CommercialLinkService;
+use App\Support\JwtLink;
+
+
+
 
 class QuotationController extends Controller
 {
@@ -129,7 +134,7 @@ public function annual($versionId)
     
     $data = $this->scaleRecurringTotals($data, $duration);
 
-    // Kiraan kontrak (macam asal)
+   
     $monthlyTotal = (float) ($view->getData()['monthlyTotal'] ?? 0);
     $totalProfessionalCharges = (float) ($view->getData()['totalProfessionalCharges'] ?? 0);
 
@@ -226,7 +231,57 @@ $data['is_prescaled'] = true;
         return $pdf->download($fileName);
     }
 
-    public function downloadZip(Request $request, $versionId)
+  public function downloadZip(Request $request, $versionId)
+{
+    $zipPath = null;
+    try {
+        [$tmpDir, $zipPath, $base] = $this->createZipBundleForVersion($versionId);
+
+        // Validate ZIP bytes before sending
+        $this->assertZipOkOrThrow($zipPath);
+
+        // Matikan compression & buffer supaya header PK kekal di byte #0
+        if (function_exists('apache_setenv')) { @apache_setenv('no-gzip', '1'); }
+        @ini_set('zlib.output_compression', '0');
+        while (ob_get_level() > 0) { @ob_end_clean(); }
+
+        $filename = basename($zipPath);
+        $size     = filesize($zipPath);
+
+        return response()->stream(function () use ($zipPath) {
+            $fp = fopen($zipPath, 'rb');
+            while (!feof($fp)) {
+                echo fread($fp, 1024 * 1024); // 1 MB chunks
+                flush();
+            }
+            fclose($fp);
+        }, 200, [
+            'Content-Type'        => 'application/zip',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Content-Length'      => (string) $size,
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+
+    } catch (\Throwable $e) {
+        return response()->json([
+            'error'   => 'Failed to generate ZIP',
+            'message' => $e->getMessage(),
+            'file'    => $e->getFile(),
+            'line'    => $e->getLine(),
+        ], 500);
+    } finally {
+        if ($zipPath) {
+            // buang fail selepas request habis
+            register_shutdown_function(function () use ($zipPath) {
+                @unlink($zipPath);
+            });
+        }
+    }
+}
+
+
+
+    /*public function downloadZip(Request $request, $versionId)
     {
         $tmpDir = null;
         try {
@@ -236,9 +291,11 @@ $data['is_prescaled'] = true;
             $response = response()->download($zipPath, basename($zipPath))->deleteFileAfterSend(true);
 
         
-            app()->terminating(function () use ($tmpDir) {
-                try { File::deleteDirectory($tmpDir); } catch (\Throwable $e) {}
-            });
+
+if (!\is_file($zipPath)) {
+    \Log::error('ZIP missing before download', ['zipPath' => $zipPath]);
+    abort(500, 'ZIP file not found after generation.');
+}
 
             return $response;
 
@@ -253,9 +310,42 @@ $data['is_prescaled'] = true;
                 'line'    => $e->getLine(),
             ], 500);
         }
+    }*/
+
+
+
+    
+
+   private function assertZipOkOrThrow(string $path): void
+{
+    clearstatcache(true, $path);
+    if (!is_file($path) || filesize($path) === 0) {
+        throw new \RuntimeException("ZIP missing or empty: {$path}");
     }
 
-   
+    // Check signature (PK..)
+    $fh = fopen($path, 'rb');
+    $sig = fread($fh, 4);
+    fclose($fh);
+    $valid = in_array($sig, ["PK\x03\x04", "PK\x05\x06", "PK\x07\x08"], true);
+    if (!$valid) {
+        throw new \RuntimeException('Invalid ZIP signature: 0x' . bin2hex($sig));
+    }
+
+    // Try open with ZipArchive as extra sanity check
+    $zip = new \ZipArchive();
+    $rc = $zip->open($path);
+    if ($rc !== true) {
+        throw new \RuntimeException("ZipArchive cannot open zip (code {$rc})");
+    }
+    if ($zip->numFiles < 1) {
+        $zip->close();
+        throw new \RuntimeException('ZIP contains no files');
+    }
+    $zip->close();
+}
+
+
 
     public function exportLink(Request $request, $versionId)
     {
@@ -269,7 +359,31 @@ $data['is_prescaled'] = true;
             $fileName  = basename($zipPath);
             $publicRel = "exports/{$token}/{$fileName}";
 
-            Storage::disk('public')->put($publicRel, file_get_contents($zipPath));
+            //Storage::disk('public')->put($publicRel, file_get_contents($zipPath));
+
+            //Storage::disk('obs')->put($publicRel, file_get_contents($zipPath));
+
+
+$stream = fopen($zipPath, 'rb');
+Storage::disk('obs')->writeStream($publicRel, $stream, [
+    'visibility'   => 'private',
+    'mimetype'     => 'application/zip', // pastikan mime betul
+    'ContentType'  => 'application/zip', // sesetengah adapter guna key ni
+]);
+fclose($stream);
+
+
+
+
+
+
+
+
+
+            if (!Storage::disk('obs')->exists($publicRel)) {
+    throw new \RuntimeException("Upload to OBS failed or object not found: {$publicRel}");
+}
+
 
            
             $signedUrl = URL::temporarySignedRoute(
@@ -294,17 +408,51 @@ $data['is_prescaled'] = true;
         }
     }
 
-    public function shareDownload(Request $request, string $token, string $file)
-    {
-        if (! $request->hasValidSignature()) {
-            abort(403, 'Link expired or invalid.');
+ 
+    /*public function shareDownload(Request $request, string $token, string $file)
+{
+    if (! $request->hasValidSignature()) abort(403, 'Link expired or invalid.');
+
+    $path = "exports/{$token}/{$file}";                 // sekarang fail di OBS
+    if (! Storage::disk('obs')->exists($path)) abort(404);
+
+    $stream = Storage::disk('obs')->readStream($path);
+    return response()->streamDownload(function() use ($stream) {
+        fpassthru($stream);
+    }, $file);
+}*/
+
+
+public function shareDownload(Request $request, string $token, string $file)
+{
+    if (! $request->hasValidSignature()) abort(403, 'Link expired or invalid.');
+
+    $path = "exports/{$token}/{$file}";
+    try {
+        if (! Storage::disk('obs')->exists($path)) {
+            abort(404, "File not found in OBS: {$path}");
         }
-        $path = storage_path("app/public/exports/{$token}/{$file}");
-        if (!is_file($path)) {
-            abort(404);
-        }
-        return response()->download($path)->deleteFileAfterSend(false);
+        $stream = Storage::disk('obs')->readStream($path);
+    } catch (\Throwable $e) {
+        \Log::error('OBS download error', ['path'=>$path, 'err'=>$e->getMessage()]);
+        abort(502, 'Cannot reach OBS (DNS/endpoint).');
     }
+
+    /*return response()->streamDownload(function() use ($stream) {
+        fpassthru($stream);
+    }, $file);*/
+    return response()->streamDownload(function() use ($stream) {
+    fpassthru($stream);
+}, $file, [
+    'Content-Type' => 'application/zip',
+    'X-Content-Type-Options' => 'nosniff',
+]);
+
+}
+
+
+
+
 
 
     private function createZipBundleForVersion(int|string $versionId): array
@@ -432,7 +580,38 @@ $data['is_prescaled'] = true;
         }
         fclose($fp);
 
-        $zipPath = "$tmpDir/{$base}_bundle.zip";
+        //$zipPath = "$tmpDir/{$base}_bundle.zip";
+
+        $zipPath = storage_path('app/tmp/'.Str::uuid()."_{$base}_bundle.zip");
+
+        // make sure parent dir exists (important when using a new UUID filename)
+\File::ensureDirectoryExists(\dirname($zipPath));
+
+// if a stale file somehow exists, remove it
+if (\is_file($zipPath)) { @\unlink($zipPath); }
+
+// --- Tambah check sini ---
+$srcs = [
+    "$tmpDir/$monthlyName",
+    "$tmpDir/$annualName",
+    "$tmpDir/$internalName",
+    "$tmpDir/$skuCsvName",
+];
+
+foreach ($srcs as $p) {
+    clearstatcache(true, $p);
+    if (!is_file($p)) {
+        throw new \RuntimeException("Source file missing: $p");
+    }
+    if (filesize($p) === 0) {
+        throw new \RuntimeException("Source file is empty: $p");
+    }
+}
+
+
+        
+        
+
         $zip = new \ZipArchive();
         $openResult = $zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
         if ($openResult !== true) {
@@ -444,6 +623,26 @@ $data['is_prescaled'] = true;
         $zip->addFile("$tmpDir/$skuCsvName",   $skuCsvName);
         $zip->close();
 
+        clearstatcache(true, $zipPath);
+if (!is_file($zipPath) || filesize($zipPath) === 0) {
+    throw new \RuntimeException("ZIP not created or empty: {$zipPath}");
+}
+
+
+
+
+
+// verify creation & non-zero size
+\clearstatcache(true, $zipPath);
+if (!\is_file($zipPath) || \filesize($zipPath) === 0) {
+    throw new \RuntimeException("ZIP not created or empty: {$zipPath}");
+}
+
+        try { \Illuminate\Support\Facades\File::deleteDirectory($tmpDir); } catch (\Throwable $e) {}
+$tmpDir = null; 
+
+
+    
         return [$tmpDir, $zipPath, $base];
     }
 
@@ -632,13 +831,35 @@ private function scaleRecurringTotals(array $data, int $duration): array
 }
 
 
-    private function computeProfessionalTotals($s)
+    /*private function computeProfessionalTotals($s)
     {
         $unit = (float) data_get(config('pricing'), 'CPFS-PFS-MDY-5OTC.price_per_unit', 1200);
         $days = (int) ($s->mandays ?? 0);
         $total = $days * $unit;
         return [$days, $unit, $total];
-    }
+    }*/
+
+    private function computeProfessionalTotals($s)
+{
+    $days = (int) ($s->mandays ?? 0);
+
+    $pricing = config('pricing');
+
+    $sku1 = 'CPFS-PFS-MDY-1OTC'; // <=4 days
+    $sku5 = 'CPFS-PFS-MDY-5OTC'; // >=5 days (discounted)
+
+    $price1 = (float) data_get($pricing, "$sku1.price_per_unit", 0);
+    $price5 = (float) data_get($pricing, "$sku5.price_per_unit", $price1);
+
+    // Pilih harga ikut hari
+    $unitPrice = $days >= 5 ? $price5 : $price1;
+
+    $total = round($days * $unitPrice, 2);
+
+    // Return ikut signature sedia ada: [$psDays, $psUnit, $totalProfessionalCharges]
+    return [$days, 'Day', $total];
+}
+
 
     private function computeNetworkTotals($s, $pricing)
     {
@@ -1019,4 +1240,7 @@ private function scaleRecurringTotals(array $data, int $duration): array
         }
         return [$nameToPrice, $nameToUnit];
     }
+
+
+    
 }

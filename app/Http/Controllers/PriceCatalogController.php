@@ -85,6 +85,8 @@ class PriceCatalogController extends Controller
     public function makeCurrent(PriceCatalog $catalog)
     {
         $catalog->makeCurrent();
+      
+
         return back()->with('success', 'Set as current version.');
     }
 
@@ -107,7 +109,7 @@ class PriceCatalogController extends Controller
     ]);
 
     DB::transaction(function () use ($catalog) {
-        // 1) publish prices from this catalog → Service master
+        // 1) publish prices from this catalog → Service main
         \App\Models\ServicePrice::where('price_catalog_id', $catalog->id)
             ->orderBy('service_id')
             ->chunk(500, function ($chunk) {
@@ -142,6 +144,11 @@ class PriceCatalogController extends Controller
 
         // 2) set this catalog as current (ends old current)
         $catalog->makeCurrent();
+      
+$catalog->committed_at = now();
+$catalog->committed_by = optional(auth()->user())->id;
+$catalog->save();
+
 
         // 3) regenerate config/pricing.php using this catalog
         PricingConfigWriter::write($catalog->id);

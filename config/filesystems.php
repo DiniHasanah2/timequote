@@ -47,6 +47,20 @@ return [
             'report' => false,
         ],
 
+        'obs' => [
+    'driver' => 's3',
+    'key'    => env('AWS_ACCESS_KEY_ID'),
+    'secret' => env('AWS_SECRET_ACCESS_KEY'),
+    'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
+    'bucket' => env('AWS_BUCKET'),
+    'url'    => env('AWS_URL'),        // optional
+    'endpoint' => env('AWS_ENDPOINT'), // wajib untuk OBS
+    'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', true),
+    'throw'  => true, 
+],
+
+
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),
@@ -62,16 +76,7 @@ return [
 
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Symbolic Links
-    |--------------------------------------------------------------------------
-    |
-    | Here you may configure the symbolic links that will be created when the
-    | `storage:link` Artisan command is executed. The array keys should be
-    | the locations of the links and the values should be their targets.
-    |
-    */
+  
 
     'links' => [
         public_path('storage') => storage_path('app/public'),

@@ -35,14 +35,26 @@ class ProjectController extends Controller
     ]);
 
     // Scope projek ikut role (presale/product hanya nampak projek di bawah dia/assigned)
-    if (in_array($user->role, ['presale', 'product'])) {
+    /*if (in_array($user->role, ['presale', 'product'])) {
         $projectsQuery->where(function ($q) use ($user) {
             $q->where('presale_id', $user->id)
               ->orWhereHas('assigned_presales', function ($sub) use ($user) {
                   $sub->where('users.id', $user->id);
               });
         });
-    }
+    }*/
+    // Scope projek ikut role
+if ($user->role === 'presale') {
+    // presale: hanya projek di bawah dia / assigned
+    $projectsQuery->where(function ($q) use ($user) {
+        $q->where('presale_id', $user->id)
+          ->orWhereHas('assigned_presales', function ($sub) use ($user) {
+              $sub->where('users.id', $user->id);
+          });
+    });
+}
+// product & admin: can view all
+
 
     // Filter by customer (optional)
     if (!empty($selectedCustomerId)) {
@@ -60,9 +72,9 @@ class ProjectController extends Controller
     // Scoped customers untuk dropdown
     // ===============================
     // Admin: semua customer
-    // Presale/Product: HANYA customer yang dia create (kalau wujud kolum customers.created_by)
-    // Fallback kalau tiada kolum created_by: customer yang ada projek di bawah akses user
-    if ($user->role === 'admin') {
+    // Presale/Product: customer yang dia create (kalau wujud kolum customers.created_by)
+   
+    /*if ($user->role === 'admin') {
         $customers = Customer::orderBy('name')->get();
     } else {
         if (Schema::hasColumn('customers', 'created_by')) {
@@ -81,7 +93,28 @@ class ProjectController extends Controller
                 ->orderBy('name')
                 ->get();
         }
+    }*/
+    if (in_array($user->role, ['admin', 'product'])) {
+    // admin & product: semua customer
+    $customers = Customer::orderBy('name')->get();
+} else {
+    // presale: customer yang dia create (jika ada kolum), kalau tak, derive dari projek
+    if (Schema::hasColumn('customers', 'created_by')) {
+        $customers = Customer::where('created_by', $user->id)
+            ->orderBy('name')
+            ->get();
+    } else {
+        $customers = Customer::whereHas('projects', function ($p) use ($user) {
+                $p->where('presale_id', $user->id)
+                  ->orWhereHas('assigned_presales', function ($sub) use ($user) {
+                      $sub->where('users.id', $user->id);
+                  });
+            })
+            ->orderBy('name')
+            ->get();
     }
+}
+
 
     $presales = User::where('role', 'presale')->get();
 
@@ -96,7 +129,7 @@ class ProjectController extends Controller
     {
         $user = Auth::user();
         
-        $rules = [
+        /*$rules = [
             'customer_id' => 'required|exists:customers,id',
             'name' => 'required|string|max:255',
             'version_name' => 'required|string|max:255',
@@ -105,14 +138,29 @@ class ProjectController extends Controller
 
         if ($user->role === 'admin') {
             $rules['presale_id'] = 'required|exists:users,id';
-        }
+        }*/
+        $rules = [
+    'customer_id'   => 'required|exists:customers,id',
+    'name'          => 'required|string|max:255',
+    'version_name'  => 'required|string|max:255',
+];
+
+// admin & product: wajib pilih presale
+if (in_array($user->role, ['admin', 'product'])) {
+    $rules['presale_id'] = 'required|exists:users,id';
+}
+
 
         $validated = $request->validate($rules);
         $customer = Customer::findOrFail($validated['customer_id']);
 
-        $presaleId = $user->role === 'admin' 
+        /*$presaleId = $user->role === 'admin' 
             ? $validated['presale_id'] 
-            : $user->id;
+            : $user->id;*/
+        $presaleId = in_array($user->role, ['admin', 'product'])
+    ? $validated['presale_id']
+    : $user->id; 
+
 
             $customerId = $validated['customer_id'];
 //$projectName = strtolower(trim($validated['name']));

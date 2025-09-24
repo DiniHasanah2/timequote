@@ -28,7 +28,7 @@
             </div>
 
             <div class="mb-3">
-                <label for="flavour_name" class="form-label">Flavour Name</label>
+                <label for="flavour_name" class="form-label">Product Name</label>
                 <input type="text" name="flavour_name" id="flavour_name" class="form-control" 
                        value="{{ old('flavour_name', $ecs_flavour->flavour_name) }}" required>
             </div>

@@ -521,7 +521,7 @@
                 
                 <thead class="table-dark">
                       <tr>
-                        <th colspan="8">Non-Standard Items (New)</th>
+                        <th colspan="8">3rd Party (Non-Standard Items)</th>
                        
                     </tr>
                     <tr>

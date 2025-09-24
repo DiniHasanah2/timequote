@@ -50,7 +50,7 @@ public function index(Request $request)
 
     $keys = ['category','code','sort','catalog'];
 
-    // Jika user masuk tanpa sebarang query, guna filter yang tersimpan
+    
     if (!$request->hasAny($keys) && session()->has('services.filters')) {
         foreach (session('services.filters') as $k => $v) {
             if ($v !== null && $v !== '') {
@@ -59,7 +59,7 @@ public function index(Request $request)
         }
     }
 
-    // Simpan nilai terkini ke session
+   
     session(['services.filters' => $request->only($keys)]);
     // ===== TAMAT BLOK TAMBAHAN =====
 
@@ -142,93 +142,6 @@ public function index(Request $request)
 }
 
 
-/*public function index(Request $request)
-{
-    // ========== Which catalog are we "viewing" ==========
-    $viewCatalog = $this->getActiveCatalog($request); // you already have this helper
-
-    // ========== Current / Next / Last ==========
-    $currentCatalog = PriceCatalog::where('is_current', true)->first();
-
-    // Next = draf paling baru (bukan current & belum ended)
-$nextCatalog = PriceCatalog::where('is_current', false)
-    ->whereNull('effective_to')               // ⟵ penting: belum ended
-    ->orderByDesc('effective_from')
-    ->orderByDesc('created_at')
-    ->first();
-
-// Last = bekas current yang sudah ended
-$lastCatalog = PriceCatalog::where('is_current', false)
-    ->whereNotNull('effective_to')            // ⟵ penting: sudah ended
-    ->where('id', '!=', optional($currentCatalog)->id)
-    ->where('id', '!=', optional($nextCatalog)->id) // elak overlap dgn Next
-    ->orderByDesc('effective_to')
-    ->first();
-
-
-    // ===== dropdowns =====
-    $categories = Category::all();
-    $allCategories = Service::select('category_name')->distinct()->pluck('category_name');
-    $allServiceCode = Service::select('code')->distinct()->pluck('code');
-
-    // ===== base query join to service_prices using the VIEWING catalog =====
-    $query = Service::query()
-        ->select([
-            'services.*',
-            'sp.price_per_unit as v_price_per_unit',
-            'sp.rate_card_price_per_unit as v_rate_card_price_per_unit',
-            'sp.transfer_price_per_unit as v_transfer_price_per_unit',
-        ])
-        ->leftJoin('service_prices as sp', function ($join) use ($viewCatalog) {
-            $join->on('sp.service_id', '=', 'services.id')
-                 ->where('sp.price_catalog_id', '=', $viewCatalog->id);
-        });
-
-    // ===== filters =====
-    if ($request->filled('category')) {
-        $query->where('services.category_name', $request->category);
-    }
-    if ($request->filled('code')) {
-        $query->where('services.code', $request->code);
-    }
-
-  
-switch ($request->sort) {
-    case 'name_asc':
-        $query->orderBy('services.name', 'asc'); break;
-    case 'name_desc':
-        $query->orderBy('services.name', 'desc'); break;
-    case 'price_low_high':
-        $query->orderByRaw('COALESCE(sp.price_per_unit, services.price_per_unit) ASC'); break;
-    case 'price_high_low':
-        $query->orderByRaw('COALESCE(sp.price_per_unit, services.price_per_unit) DESC'); break;
-    default:
-        $query->orderBy('services.category_name', 'asc');
-}
-
-
-    $services = $query->get();
-
-    // for dropdown list
-    $catalogs = PriceCatalog::orderByDesc('effective_from')->orderByDesc('created_at')->get();
-
-    // send to view
-    return view('products.service.index', [
-        'services'       => $services,
-        'allCategories'  => $allCategories,
-        'allServiceCode' => $allServiceCode,
-        'categories'     => $categories,
-
-        // version control pieces
-        'catalogs'       => $catalogs,       // list for dropdown
-        'catalog'        => $viewCatalog,    // the one we are "viewing"
-        'currentCatalog' => $currentCatalog, // current
-        'nextCatalog'    => $nextCatalog,    // draft to be next (if any)
-        'lastCatalog'    => $lastCatalog,    // previously current (optional)
-        
-    ]);
-}*/
-
     
 
     public function store(Request $request)
@@ -286,76 +199,103 @@ switch ($request->sort) {
         return redirect()->route('services.index', ['catalog' => $catalog->id])->with('success', 'Service added successfully.');
     }
 
-    public function edit($id)
+    /*public function edit($id)
     {
         $service = Service::findOrFail($id);
         $categories = Category::all();
 
         return view('products.service.edit', compact('service', 'categories'));
-    }
+    }*/
+    public function edit(Request $request, $id)
+{
+    $catalog = $this->getActiveCatalog($request);
 
-    public function update(Request $request, $id)
-    {
-        \Log::info('UPDATE REQUEST:', $request->all());
+    $service = Service::query()
+        ->select([
+            'services.*',
+            'sp.price_per_unit as v_price_per_unit',
+            'sp.rate_card_price_per_unit as v_rate_card_price_per_unit',
+            'sp.transfer_price_per_unit as v_transfer_price_per_unit',
+        ])
+        ->leftJoin('service_prices as sp', function ($join) use ($catalog) {
+            $join->on('sp.service_id', '=', 'services.id')
+                 ->where('sp.price_catalog_id', '=', $catalog->id);
+        })
+        ->where('services.id', $id)
+        ->firstOrFail();
 
-        $request->validate([
-            'category_id' => 'required|uuid',
-            'category_name' => 'required|string',
-            'category_code' => 'required|string',
-            'code' => 'required|string',
-            'name' => 'required|string',
-            'measurement_unit' => 'required|string',
-            'description' => 'nullable|string',
-            'price_per_unit' => 'required|numeric',
-            'rate_card_price_per_unit' => 'required|numeric',
-            'transfer_price_per_unit' => 'required|numeric',
-        ]);
+    $categories = Category::all();
 
-        $catalog = $this->getActiveCatalog($request);
+    return view('products.service.edit', compact('service', 'categories', 'catalog'));
+}
 
-        DB::transaction(function () use ($request, $id, $catalog) {
-            $service = Service::findOrFail($id);
+public function update(Request $request, $id)
+{
+    \Log::info('UPDATE REQUEST:', $request->all());
 
-            // track perubahan (gabung service + harga versi)
-            $originalValues = $service->toArray();
-            $changes = [];
+    $request->validate([
+        'category_id' => 'required|uuid',
+        'category_name' => 'required|string',
+        'category_code' => 'required|string',
+        'code' => 'required|string',
+        'name' => 'required|string',
+        'measurement_unit' => 'required|string',
+        'description' => 'nullable|string',
+        'price_per_unit' => 'required|numeric',
+        'rate_card_price_per_unit' => 'required|numeric',
+        'transfer_price_per_unit' => 'required|numeric',
+    ]);
 
-            $fieldsToTrack = [
-                'measurement_unit',
-            ];
+    $catalog = $this->getActiveCatalog($request);
+    $locked  = $this->isCatalogLocked($catalog);
 
-            foreach ($fieldsToTrack as $field) {
-                if ($request->has($field) && ($originalValues[$field] ?? null) != $request->$field) {
-                    $changes[$field] = [
-                        'old' => $originalValues[$field] ?? null,
-                        'new' => $request->$field
-                    ];
-                }
+    DB::transaction(function () use ($request, $id, $catalog, $locked) {
+        $service = Service::findOrFail($id);
+
+        // track perubahan non-price
+        $originalValues = $service->toArray();
+        $changes = [];
+
+        $fieldsToTrack = ['measurement_unit'];
+        foreach ($fieldsToTrack as $field) {
+            if ($request->has($field) && ($originalValues[$field] ?? null) != $request->$field) {
+                $changes[$field] = [
+                    'old' => $originalValues[$field] ?? null,
+                    'new' => $request->$field
+                ];
             }
+        }
 
-            // update service master (termasuk harga lama utk compat)
-            $service->update([
-                'category_id' => $request->category_id,
-                'category_name' => $request->category_name,
-                'category_code' => $request->category_code,
-                'code' => $request->code,
-                'name' => $request->name,
-                'measurement_unit' => $request->measurement_unit,
-                'description' => $request->description,
-                'price_per_unit' => $request->price_per_unit,
-                'rate_card_price_per_unit' => $request->rate_card_price_per_unit,
-                'transfer_price_per_unit' => $request->transfer_price_per_unit,
-            ]);
+        // Sentiasa benarkan update field bukan harga
+        $payload = [
+            'category_id'      => $request->category_id,
+            'category_name'    => $request->category_name,
+            'category_code'    => $request->category_code,
+            'code'             => $request->code,
+            'name'             => $request->name,
+            'measurement_unit' => $request->measurement_unit,
+            'description'      => $request->description,
+        ];
 
-            // update/insert harga dalam catalog aktif
+        // Kalau TAK locked, barulah boleh update harga master (jika memang nak kekalkan behavior ni)
+        if (!$locked) {
+            $payload += [
+                'price_per_unit'             => $request->price_per_unit,
+                'rate_card_price_per_unit'   => $request->rate_card_price_per_unit,
+                'transfer_price_per_unit'    => $request->transfer_price_per_unit,
+            ];
+        }
+
+        $service->update($payload);
+
+        // Kalau TAK locked, update harga dalam jadual version (service_prices)
+        if (!$locked) {
             $sp = ServicePrice::firstOrNew([
                 'price_catalog_id' => $catalog->id,
-                'service_id' => $service->id,
+                'service_id'       => $service->id,
             ]);
 
-            // log perubahan harga versi
-            $priceFields = ['price_per_unit','rate_card_price_per_unit','transfer_price_per_unit'];
-            foreach ($priceFields as $pf) {
+            foreach (['price_per_unit','rate_card_price_per_unit','transfer_price_per_unit'] as $pf) {
                 $old = $sp->exists ? $sp->$pf : null;
                 $new = $request->$pf;
                 if ($old !== null && (float)$old != (float)$new) {
@@ -365,16 +305,36 @@ switch ($request->sort) {
             }
             $sp->currency = 'MYR';
             $sp->save();
+        }
 
-            if (!empty($changes)) {
-                \App\Services\ServiceAuditService::logChanges($service->id, $changes);
-            }
-        });
+        if (!empty($changes)) {
+            \App\Services\ServiceAuditService::logChanges($service->id, $changes);
+        }
+    });
 
-        $this->updatePricingConfig($catalog->id);
+    // Masih ok untuk regenerate config walaupun locked (no harm).
+    $this->updatePricingConfig($catalog->id);
 
-        return redirect()->route('services.index', ['catalog' => $catalog->id])->with('success', 'Service updated successfully.');
-    }
+    $msg = $locked
+        ? 'Saved non-price fields. Prices are locked for this version.'
+        : 'Service updated successfully.';
+
+    return redirect()->route('services.index', ['catalog' => $catalog->id])
+        ->with('success', $msg);
+}
+
+
+
+
+
+
+
+
+    private function isCatalogLocked(PriceCatalog $catalog): bool
+{
+    return ($catalog->is_current ?? false) || !is_null($catalog->effective_to);
+}
+
 
     public function import(Request $request)
     {
@@ -562,7 +522,7 @@ public function bulkPreview(Request $request)
             'service_id'       => $service->id,
         ])->first();
 
-        // kalau belum ada row dalam version ni, seed guna master
+      
         $old_ppu  = (float)($sp->price_per_unit           ?? $service->price_per_unit           ?? 0);
         $old_rcpu = (float)($sp->rate_card_price_per_unit ?? $service->rate_card_price_per_unit ?? 0);
         $old_tpu  = (float)($sp->transfer_price_per_unit  ?? $service->transfer_price_per_unit  ?? 0);
@@ -642,6 +602,10 @@ public function bulkPreview(Request $request)
     ]);
 
     $catalog  = \App\Models\PriceCatalog::findOrFail($data['catalog_id']);
+    if ($this->isCatalogLocked($catalog)) {
+    return redirect()->back()->with('error', 'This version is locked (current/ended). Create a new version to log prices.');
+}
+
     $services = \App\Models\Service::whereIn('id', $data['selected'])->get();
 
     $updated = 0;
@@ -699,6 +663,10 @@ public function bulkAdjust(Request $request)
     ]);
 
     $catalog     = \App\Models\PriceCatalog::findOrFail($data['catalog_id']);
+    if ($this->isCatalogLocked($catalog)) {
+    return redirect()->back()->with('error', 'This version is locked (current/ended). Create a new version to adjust prices.');
+}
+
     $services    = \App\Models\Service::whereIn('id', $data['selected'])->get();
     $pctPrice    = isset($data['pct_price']) ? (float)$data['pct_price'] : null;
     $pctRate     = isset($data['pct_rate']) ? (float)$data['pct_rate'] : null;

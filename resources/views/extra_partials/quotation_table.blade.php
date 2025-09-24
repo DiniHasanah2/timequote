@@ -13,7 +13,10 @@
            <div style="background-color:rgb(251, 194, 224); padding: 30px; display: flex; align-items: center; justify-content: center;">
     <img src="{{ asset('assets/time_logo.png') }}" alt="Time Logo" style="height: 29px; margin-right: 10px;">
     <span style="font-size: 30px; font-weight: bold; color: #000; line-height: 1;">CLOUD SERVICES</span>
-</div style="margin: 0 auto; width: 800px;">
+<!---</div style="margin: 0 auto; width: 800px;">--->
+
+</div>
+
 
       <table style="width: 100%; border-collapse: collapse; font-size: 20px; margin-top: 0px;">
     <tr style="background:rgb(147, 145, 145); color: #fff;">

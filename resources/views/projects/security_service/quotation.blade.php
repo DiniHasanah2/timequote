@@ -145,6 +145,26 @@
 
     <div class="card-body">
       
+    <!---@if(session('share_link'))
+  <div class="alert alert-success d-flex justify-content-between align-items-center">
+    <div>
+      <strong>Share link ready:</strong>
+      <a id="shareLinkA" href="{{ session('share_link') }}" target="_blank">
+        {{ session('share_link') }}
+      </a>
+    </div>
+    <div>
+      <button type="button" id="copyShareBtn" class="btn btn-sm btn-light">Copy</button>
+    </div>
+  </div>
+@endif
+
+@if(session('error'))
+  <div class="alert alert-danger">
+    {{ session('error') }}
+  </div>
+@endif--->
+
 
 
         <div style="border: 1px solid #ddd; border-radius: 5px; padding: 20px; background: #fff;">
@@ -174,7 +194,8 @@
            <div style="background-color:rgb(251, 194, 224); padding: 30px; display: flex; align-items: center; justify-content: center;">
     <img src="{{ asset('assets/time_logo.png') }}" alt="Time Logo" style="height: 29px; margin-right: 10px;">
     <span style="font-size: 30px; font-weight: bold; color: #000; line-height: 1;">CLOUD SERVICES</span>
-</div style="margin: 0 auto; width: 800px;">
+<!----</div style="margin: 0 auto; width: 800px;">--->
+</div>
 
       <table style="width: 100%; border-collapse: collapse; font-size: 20px; margin-top: 0px;">
     <tr style="background:rgb(147, 145, 145); color: #fff;">
@@ -379,12 +400,6 @@ document.querySelectorAll('.auto-save').forEach(function (element) {
 </tr>
 
 
-
-
-@php
-    $klEcsTotal = collect($ecsSummary)->sum('kl_price');
-    $cjEcsTotal = collect($ecsSummary)->sum('cj_price');
-@endphp
 
 <tr>
     <td style="border: 1px solid #000; padding: 4px;">Compute - ECS</td>
@@ -696,10 +711,13 @@ document.querySelectorAll('.auto-save').forEach(function (element) {
   <i class="bi bi-download"></i> Download Zip File
 </a>
 
-{{-- NEW: butang generate link untuk Commercial --}}
-<a href="{{ route('versions.export_link', $version->id) }}" class="btn btn-outline-secondary ms-2">
+
+<a href="{{ route('versions.export_link', $version->id) }}" 
+   class="btn btn-outline-secondary ms-2">
   <i class="bi bi-link-45deg"></i> Generate Share Link (Commercial)
 </a>
+
+
 
 {{-- Bila controller flash 'share_link', kita paparkan link + butang Copy --}}
 @if(session('share_link'))
@@ -723,6 +741,27 @@ document.querySelectorAll('.auto-save').forEach(function (element) {
   </div>
 @endif
 
+
+
+
+
+@if(session('portal_link'))
+  <br>
+  <div class="mt-2 small">
+    Portal View (Commercial):
+    <a id="portalLinkA" href="{{ session('portal_link') }}" target="_blank">
+      {{ session('portal_link') }}
+    </a>
+    <button type="button" id="copyPortalBtn" class="btn btn-sm btn-light ms-1">
+      Copy
+    </button>
+    <div id="copyPortalMsg" class="alert alert-success py-1 px-2 d-none mt-2 mb-0" role="alert"
+         style="display:inline-block;">
+      ✅ Copied!
+    </div>
+  </div>
+@endif
+
     </div>
 </div>
 
@@ -737,6 +776,42 @@ document.addEventListener('DOMContentLoaded', function () {
   const btn  = document.getElementById('copyShareBtn');
   const msg  = document.getElementById('copyMsg');
   const href = document.getElementById('shareLinkA')?.href || @json(session('share_link'));
+
+  async function copyWithFallback(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+    const tmp = document.createElement('input');
+    tmp.value = text;
+    document.body.appendChild(tmp);
+    tmp.select();
+    tmp.setSelectionRange(0, 99999);
+    const ok = document.execCommand('copy');
+    document.body.removeChild(tmp);
+    if (!ok) window.prompt('Copy this link:', text);
+  }
+
+  btn?.addEventListener('click', async () => {
+    try {
+      await copyWithFallback(href);
+      msg?.classList.remove('d-none');
+      setTimeout(() => msg?.classList.add('d-none'), 2000);
+    } catch (e) {
+      console.error(e);
+      alert('Failed to copy. Please copy manually.');
+    }
+  });
+});
+</script>
+@endif
+
+@if(session('portal_link'))
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const btn  = document.getElementById('copyPortalBtn');
+  const msg  = document.getElementById('copyPortalMsg');
+  const href = document.getElementById('portalLinkA')?.href || @json(session('portal_link'));
 
   async function copyWithFallback(text) {
     if (navigator.clipboard && window.isSecureContext) {

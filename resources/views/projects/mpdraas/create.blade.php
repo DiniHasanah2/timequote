@@ -137,18 +137,7 @@
                         
                             
 </tr>
-        <!---<tr>
-                            <td colspan="2">Starter Promotion (12 Months Validity)</td>
-                           
-                            <td colspan="3">
-                                    <div class="input-group">
-                                       <select name="starter_promotion" class="form-select">
-    <option value="No" @selected(old('starter_promotion', $mpdraas->starter_promotion ?? '') == 'No')>No</option>
-    <option value="Yes" @selected(old('starter_promotion', $mpdraas->starter_promotion ?? '') == 'Yes')>Yes</option>
-</select>
-                                    </div>
-   
-</td></tr>--->
+     
 
 <tr>
                             <td colspan="2">Number of Proxy</td>
@@ -323,127 +312,7 @@
 
 
 
-                 <!-- <table class="table table-bordered w-auto">
-                      <body>
-                        <thead class="table-dark">
-                            <tr>
-                                <th colspan="15">Disaster Recovery Components - ONLY ACTIVATED DURING DR</th>
-                            </tr>
-                        </thead>
-
-
-
-                          <tr>
-                            <td class="bg-light fw-bold" colspan="3">NETWORK</td>
-                            <td class="bg-light  fw-bold" colspan="2">QUANTITY</td>
-                            <td class="bg-light  fw-bold" colspan="3">MONTHLY RECURRING CHARGES</td>
-                        
-  
-
-
-
-
-                       
-                        
-                            
-</tr>
- <tr>
-                            <td class="bg-light">Code</td>
-                             <td class="bg-light">Component Name</td>
-                              <td class="bg-light">Unit</td>
-                               <td class="bg-light">KL</td>
-                                <td class="bg-light">CJ</td>
-                                 <td class="bg-light">KL Charges</td>
-                                  <td class="bg-light">CJ Charges</td>
-                                   <td class="bg-light">Total</td>
-                                    
-                            
-</tr>
-        
-
-<tr><td>CNET-BWS-SHR-DAY</td> <td>Network
-    <br>(Per Day) DR Bandwidth
-</td><td>Mbps</td>
-<td> <input type="number" name="" class="form-control" value="" min="0">
-                </td>
-<td><input type="number" name="" class="form-control" value="" min="0"></td>
-<td>RM-</td>
-<td>RM-</td>
-<td>RM-</td></tr>
-
-<tr><td>CNET-BWD-SHR-DAY</td><td>Network
-     <br>(Per Day) DR Bandwidth + AntiDDoS
-</td><td>Mbps</td>
-<td> <input type="number" name="" class="form-control" value="" min="0">
-                </td>
-<td><input type="number" name="" class="form-control" value="" min="0"></td>
-<td>RM-</td>
-<td>RM-</td>
-<td>RM-</td></tr>
-
-<tr><td>CNET-EIP-SHR-DAY</td><td>Network
-     <br>(Per Day) DR Elastic IP
-</td>
-<td>Unit</td>
-<td> <input type="number" name="" class="form-control" value="" min="0">
-                </td>
-<td><input type="number" name="" class="form-control" value="" min="0"></td>
-<td>RM-</td>
-<td>RM-</td>
-<td>RM-</td></tr>
-
-<tr><td>CMDR-ELB-DRD-STD</td><td>Elastic Load Balancer</td><td>Unit</td>
-<td> <input type="number" name="" class="form-control" value="" min="0">
-                </td>
-<td><input type="number" name="" class="form-control" value="" min="0"></td>
-<td>RM-</td>
-<td>RM-</td>
-<td>RM-</td></tr>
-
-
-<tr><td>CMDR-NAT-DRD-S</td><td>NAT GATEWAY (Small)</td><td>Unit</td>
-<td> <input type="number" name="" class="form-control" value="" min="0">
-                </td>
-<td><input type="number" name="" class="form-control" value="" min="0"></td>
-<td>RM-</td>
-<td>RM-</td>
-<td>RM-</td></tr>
-<tr><td>CMDR-NAT-DRD-M</td>
-<td>NAT GATEWAY (Medium)</td><td>Unit</td>
-<td> <input type="number" name="" class="form-control" value="" min="0">
-                </td>
-<td><input type="number" name="" class="form-control" value="" min="0"></td>
-<td>RM-</td>
-<td>RM-</td>
-<td>RM-</td></tr>
-<tr><td>CMDR-NAT-DRD-L</td><td>NAT GATEWAY (Large)</td><td>Unit</td><td> <input type="number" name="" class="form-control" value="" min="0">
-                </td>
-<td><input type="number" name="" class="form-control" value="" min="0"></td>
-<td>RM-</td>
-<td>RM-</td>
-<td>RM-</td></tr>
-<tr><td>CMDR-NAT-DRD-XL</td><td>NAT GATEWAY (Extra-Large)</td><td>Unit</td><td> <input type="number" name="" class="form-control" value="" min="0">
-                </td>
-<td><input type="number" name="" class="form-control" value="" min="0"></td>
-<td>RM-</td>
-<td>RM-</td>
-<td>RM-</td></tr>
-<tr><td>CSEC-VFW-DDT-FGDAY</td><td>Additional Services - Security
-     <br>(Per Day) DR Cloud Firewall (Fortigate)
-</td><td>Unit</td><td> <input type="number" name="" class="form-control" value="" min="0">
-                </td>
-<td><input type="number" name="" class="form-control" value="" min="0"></td>
-<td>RM-</td>
-<td>RM-</td>
-<td>RM-</td></tr>
-<tr><td>CSEC-VFW-DDT-OSDAY</td> <td>Additional Services - Security
-     <br>(Per Day) DR Cloud Firewall (OPNSense)
-</td><td>Unit</td><td> <input type="number" name="" class="form-control" value="" min="0">
-                </td>
-<td><input type="number" name="" class="form-control" value="" min="0"></td>
-<td>RM-</td>
-<td>RM-</td>
-<td>RM-</td></tr>
+         
 
 
 
@@ -451,14 +320,10 @@
      
 
 
-                                           
-                          
-                    </tbody>
-                </table>--->
 
                 
             </div>
- <!-- Table Kanan -->
+ 
 
  
   
@@ -547,16 +412,7 @@
                             <tr>
                                 <th colspan="2"><strong>MP-DRaaS VM</strong></th>
                                 <th colspan="22"><strong>DR Resources</strong></th>
-                                <!---<th class="bg-light text-dark border border-secondary-subtle" style="border: 1px solid #dee2e6;">DDoS Requirement?</th>
-                            <th class="bg-light text-dark border border-secondary-subtle" style="border: 1px solid #dee2e6;">
-                             
-                            <div class="input-group">
-                                       <select name="ddos_requirement" class="form-select">
-    <option value="No" @selected(old('ddos_requirement', $mpdraas->ddos_requirement ?? '') == 'No')>No</option>
-    <option value="Yes" @selected(old('ddos_requirement', $mpdraas->ddos_requirement ?? '') == 'Yes')>Yes</option>
-</select>
-                                    </div>
-                            </th>--->
+                            
                            
                             </tr>
                        
@@ -567,15 +423,7 @@
                             <th colspan="3">Monthly License</th>
                             <th colspan="3">Utilization</th>
                             <th colspan="10"></th>
-                            <!---<th class="bg-light text-dark border border-secondary-subtle" style="border: 1px solid #dee2e6;">Bandwidth Requirement for Replication</th>
-                            <th class="bg-light text-dark border border-secondary-subtle" style="border: 1px solid #dee2e6;">
-                                  <div class="input-group">
-    <input name="bandwidth_requirement" id="bandwidth_requirement"
-           class="form-control bg-light" 
-         value="{{ old('bandwidth_requirement', $mpdraas->bandwidth_requirement ?? '') }}" 
-                   readonly style="border-radius: 0;">
-</div>
-                            </th>--->
+                       
                             
                         </tr>
 
@@ -624,13 +472,7 @@
                                    </td>
                                  
                          
-                                       <!--- <td><select name="pin" class="form-select">
-    <option value="No" @selected(old('pin', $mpdraas->pin ?? '') == 'No')>No</option>
-    <option value="Yes" @selected(old('pin', $mpdraas->pin ?? '') == 'Yes')>Yes</option>
-</select>
-                                    </td>
-                                      <td><input type="number" name="vcpu" class="form-control" value="{{ old('vcpu', $mpdraas->vcpu ?? '') }}" min="0"></td>
-                                       <td><input type="number" name="vram" class="form-control" value="{{ old('vram', $mpdraas->vram ?? '') }}" min="0"></td>--->
+                                
 
                                        <td>
     <select name="pin" class="form-select w-100" style="min-width: 120px;">
@@ -746,6 +588,13 @@
                           
                     </tbody>
                 </table>
+                
+                <div>
+  <button type="button" id="btn-add-vm" class="btn btn-pink">
+    Add Row
+  </button>
+</div>
+
             </div>
 </div>
 
@@ -771,7 +620,7 @@
 
     
 
-                         
+                     
   <div class="d-flex flex-column align-items-centre gap-2">
             <div class="d-flex justify-content-end gap-3"> <!-- Added gap-3 for spacing -->
                 <button type="submit" class="btn btn-pink">Save MPDRaaS</button>
@@ -1113,91 +962,6 @@ document.getElementById('total_replication_input').value = totalReplication.toFi
 
 
 
-<!---<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const dataChangeSizeInput = document.getElementById('data_change_size');
-    const numReplicationInput = document.getElementById('num_replication');
-    const amountDataChangeOutput = document.getElementById('amount_data_change');
-
-    function calculateAmountDataChange() {
-        const dataChangeSize = parseFloat(dataChangeSizeInput.value) || 0;
-        const numReplication = parseFloat(numReplicationInput.value) || 0;
-
-        if (numReplication > 0) {
-            const result = Math.ceil(dataChangeSize / numReplication);
-            amountDataChangeOutput.value = result;
-        } else {
-            amountDataChangeOutput.value = 0;
-        }
-    }
-
-    // Calculate when related values change
-    dataChangeSizeInput.addEventListener('input', calculateAmountDataChange);
-    numReplicationInput.addEventListener('input', calculateAmountDataChange);
-
-    // Run on page load
-    calculateAmountDataChange();
-});
-</script>
-
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const amountDataChangeInput = document.getElementById('amount_data_change');
-    const replicationFrequencyInput = document.getElementById('replication_frequency');
-    const replicationBandwidthOutput = document.getElementById('replication_bandwidth');
-
-    function calculateReplicationBandwidth() {
-        const amountData = parseFloat(amountDataChangeInput.value) || 0;
-        const frequency = parseFloat(replicationFrequencyInput.value) || 0;
-
-        if (frequency > 0) {
-            const seconds = frequency * 60;
-            const raw = amountData / seconds;
-            const rounded = Math.ceil(raw * 10) / 10; // round up to 1 decimal
-            replicationBandwidthOutput.value = rounded;
-        } else {
-            replicationBandwidthOutput.value = '';
-        }
-    }
-
-    // Run on load
-    calculateReplicationBandwidth();
-
-    // Recalculate on input change
-    amountDataChangeInput.addEventListener('input', calculateReplicationBandwidth);
-    replicationFrequencyInput.addEventListener('input', calculateReplicationBandwidth);
-});
-</script>
-
-
-
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const amountDataChangeInput = document.getElementById('amount_data_change');
-    const replicationBandwidthInput = document.getElementById('replication_bandwidth');
-    const rpoAchievedOutput = document.getElementById('rpo_achieved');
-
-    function calculateRPOAchieved() {
-        const amountData = parseFloat(amountDataChangeInput.value) || 0;
-        const bandwidth = parseFloat(replicationBandwidthInput.value) || 0;
-
-        if (bandwidth > 0) {
-            const result = (amountData / bandwidth) / 60;
-            rpoAchievedOutput.value = result.toFixed(2); // or toFixed(0) if you prefer minutes rounded
-        } else {
-            rpoAchievedOutput.value = 0;
-        }
-    }
-
-    // Trigger on page load
-    calculateRPOAchieved();
-
-    // Recalculate when input changes
-    amountDataChangeInput.addEventListener('input', calculateRPOAchieved);
-    replicationBandwidthInput.addEventListener('input', calculateRPOAchieved);
-});
-</script>--->
-
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const replicationBandwidthInput = document.getElementById('replication_bandwidth');
@@ -1325,6 +1089,267 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
 </script>
+
+@php
+$FLAVOURS = [
+    ['m3.micro',1,1],['m3.small',1,2],['c3.large',2,4],['m3.large',2,8],['r3.large',2,16],
+    ['c3.xlarge',4,8],['m3.xlarge',4,16],['r3.xlarge',4,32],
+    ['c3.2xlarge',8,16],['m3.2xlarge',8,32],['r3.2xlarge',8,64],
+    ['m3.3xlarge',12,48],['c3.4xlarge',16,32],['m3.4xlarge',16,64],['r3.4xlarge',16,128],
+    ['m3.6xlarge',24,96],['c3.8xlarge',32,64],['m3.8xlarge',32,128],['r3.8xlarge',32,256],
+    ['r3.12xlarge',48,384],['c3.16xlarge',64,128],['m3.16xlarge',64,256],['r3.16xlarge',64,512],
+    ['c3p.xlarge',4,8],['m3p.xlarge',4,16],['r3p.xlarge',4,32],['c3p.2xlarge',8,16],['m3p.2xlarge',8,32],['r3p.2xlarge',8,64],
+    ['m3p.3xlarge',12,48],['c3p.4xlarge',16,32],['m3p.4xlarge',16,64],['r3p.4xlarge',16,64],
+    ['m3p.6xlarge',24,96],['c3p.8xlarge',32,64],['m3p.8xlarge',32,128],['r3p.8xlarge',32,128],
+    ['m3p.12xlarge',48,192],['r3p.12xlarge',48,384],['m3p.16xlarge',64,256],['r3p.16xlarge',64,512],
+    ['r3p.46xlarge.metal',64,1408],['m3gnt4.xlarge',4,16],['m3gnt4.2xlarge',8,32],['m3gnt4.4xlarge',16,64],
+    ['m3gnt4.8xlarge',32,128],['m3gnt4.16xlarge',64,256],['r3p.46xlarge.ddh',342,1480],
+];
+@endphp
+
+<script>
+(function(){
+  const CSRF = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+  const UPSERT_URL  = "{{ route('versions.mpdraas.vms.upsert', $version->id) }}";
+  // destroy url pakai placeholder, nanti kita ganti :id bila delete
+  const DESTROY_URL_TMPL = @json(route('versions.mpdraas.vms.destroy', [$version->id, ':id']));
+
+  const vmBody = document.getElementById('vm-body');
+  const tmpl   = document.getElementById('vm-template').querySelector('tr');
+  const addBtn = document.getElementById('btn-add-vm');
+
+  // helper
+  function debounce(fn, ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
+  function ceil10(x){ return Math.ceil(x*10)/10; }
+
+  function renumberRows(){
+    vmBody.querySelectorAll('tr.vm-row').forEach((tr, idx) => {
+      const no = tr.querySelector('.row-no');
+      if(no){ no.textContent = idx + 1; }
+      // update name="rows[i][field]" ke index baru
+      tr.querySelectorAll('[name^="rows["]').forEach(inp => {
+        
+    
+        
+        
+        
+inp.name = inp.name.replace(/rows\[(\d+|__INDEX__)\]/, `rows[${idx}]`);
+
+      });
+      tr.dataset.index = idx;
+    });
+  }
+
+  const FLAVOURS = @json($FLAVOURS);
+
+
+  function autoFlavour(vcpu, vram){
+    let best = null;
+    for(const [name,v,c] of FLAVOURS){
+      if(v >= vcpu && c >= vram){
+        if(!best || v < best[1] || (v===best[1] && c < best[2])) best = [name,v,c];
+      }
+    }
+    return best ? best[0] : 'No suitable flavour';
+  }
+
+  function calcRow(tr){
+    const g = sel => tr.querySelector(sel);
+
+    const sys = parseFloat(g('.system_disk')?.value||0);
+    const dat = parseFloat(g('.data_disk')?.value||0);
+    const ddp = parseFloat(g('.dd_change')?.value||0);
+    const frq = parseFloat(g('.replication_frequency')?.value||0);
+    const vcpu = parseInt(g('.vcpu')?.value||0);
+    const vram = parseInt(g('.vram')?.value||0);
+
+    // sync used_* = input
+    if(g('.used_system_disk')) g('.used_system_disk').value = sys;
+    if(g('.used_data_disk'))   g('.used_data_disk').value = dat;
+
+    // flavour
+    if(g('.flavour_mapping')){
+      const now = autoFlavour(vcpu, vram);
+      g('.flavour_mapping').value = now;
+    }
+
+    // data_change (GB)
+    const dchg = (sys + dat) * (ddp/100);
+    if(g('.data_change')) g('.data_change').value = dchg.toFixed(2);
+
+    // data_change_size (Mbits)
+    const dsize = dchg * 1024 * 8;
+    if(g('.data_change_size')) g('.data_change_size').value = Math.round(dsize);
+
+    // num_replication / day
+    const nrep = frq > 0 ? Math.ceil(1440 / frq) : 0;
+    if(g('.num_replication')) g('.num_replication').value = nrep;
+
+    // amount_data_change per sync (Mbits)
+    const perSync = nrep > 0 ? Math.ceil(dsize / nrep) : 0;
+    if(g('.amount_data_change')) g('.amount_data_change').value = perSync;
+
+    // replication_bandwidth (Mbps)
+    const bw = frq > 0 ? ceil10(perSync / (frq*60)) : 0;
+    if(g('.replication_bandwidth')) g('.replication_bandwidth').value = bw;
+
+    // rpo (Min)
+    const rpo = bw > 0 ? (perSync / bw) / 60 : 0;
+    if(g('.rpo_achieved')) g('.rpo_achieved').value = rpo.toFixed(2);
+
+    // return bw untuk summary atas
+    return bw;
+  }
+
+  const debouncedSave = debounce(saveRow, 500);
+
+  function collectPayload(tr){
+    // baca semua input by class yang kita support
+    function val(sel){ const el = tr.querySelector(sel); return el ? el.value : null; }
+
+    const payload = {
+      id: tr.dataset.id || null,
+      row_no: parseInt(tr.dataset.index || 0),
+
+      vm_name: val('.vm_name'),
+      always_on: val('.always_on'),
+      pin: val('.pin'),
+      vcpu: +val('.vcpu') || 0,
+      vram: +val('.vram') || 0,
+      flavour_mapping: val('.flavour_mapping'),
+      system_disk: +val('.system_disk') || 0,
+      data_disk: +val('.data_disk') || 0,
+      operating_system: val('.operating_system'),
+      rds_count: +val('.rds_count') || 0,
+      m_sql: val('.m_sql'),
+      used_system_disk: +val('.used_system_disk') || 0,
+      used_data_disk: +val('.used_data_disk') || 0,
+      solution_type: val('.solution_type'),
+      rto_expected: +val('.rto_expected') || 0,
+      dd_change: +val('.dd_change') || 0,
+      data_change: +val('.data_change') || 0,
+      data_change_size: +val('.data_change_size') || 0,
+      replication_frequency: +val('.replication_frequency') || 0,
+      num_replication: +val('.num_replication') || 0,
+      amount_data_change: +val('.amount_data_change') || 0,
+      replication_bandwidth: +val('.replication_bandwidth') || 0,
+      rpo_achieved: +val('.rpo_achieved') || 0,
+    };
+    return payload;
+  }
+
+  function saveRow(tr){
+    const payload = collectPayload(tr);
+    fetch(UPSERT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'X-CSRF-TOKEN': CSRF },
+      body: JSON.stringify(payload)
+    })
+    .then(r => r.json())
+    .then(j => {
+      if(!j.ok){ console.warn('upsert error', j); return; }
+      // simpan id daripada server (create kali pertama)
+      tr.dataset.id = j.vm.id;
+      // untuk DELETE nanti, kita letak link id pada data-delete-url
+      tr.dataset.deleteUrl = DESTROY_URL_TMPL.replace(':id', j.vm.id);
+    })
+    .catch(err => console.error(err));
+  }
+
+  function updateTopBandwidthRequirement(){
+    // ambil max replication_bandwidth dari semua row
+    let maxBw = 0;
+    vmBody.querySelectorAll('tr.vm-row .replication_bandwidth').forEach(inp => {
+      const v = parseFloat(inp.value || 0);
+      if(v > maxBw) maxBw = v;
+    });
+    const out = document.getElementById('bandwidth_requirement');
+    if(out){
+      out.value = maxBw < 2 ? '2.00' : (Math.round(maxBw*100)/100).toFixed(2);
+    }
+  }
+
+  function wireRow(tr){
+    // bila ada input berubah -> re-calc + debounced autosave + update summary atas
+    const inputs = tr.querySelectorAll('input, select');
+    inputs.forEach(el => {
+      el.addEventListener('input', () => {
+        calcRow(tr);
+        updateTopBandwidthRequirement();
+        debouncedSave(tr);
+      });
+      el.addEventListener('change', () => {
+        calcRow(tr);
+        updateTopBandwidthRequirement();
+        debouncedSave(tr);
+      });
+    });
+
+    // butang delete
+    const delBtn = tr.querySelector('.btn-delete-row');
+    if(delBtn){
+      delBtn.addEventListener('click', () => {
+        const id = tr.dataset.id;
+        if(!id){ // kalau belum pernah save di server, terus buang je
+          tr.remove();
+          renumberRows();
+          updateTopBandwidthRequirement();
+          return;
+        }
+        const url = (tr.dataset.deleteUrl || DESTROY_URL_TMPL.replace(':id', id));
+        fetch(url, {
+          method: 'DELETE',
+          headers: { 'X-CSRF-TOKEN': CSRF }
+        }).then(r => r.json()).then(j => {
+          if(j.ok){
+            tr.remove();
+            renumberRows();
+            updateTopBandwidthRequirement();
+          }else{
+            console.warn('delete error', j);
+          }
+        }).catch(err => console.error(err));
+      });
+    }
+
+    // initial calc & autosave (optional kalau nak terus persist)
+    const bw = calcRow(tr);
+    updateTopBandwidthRequirement();
+  }
+
+  // wire existing rows
+  vmBody.querySelectorAll('tr.vm-row').forEach(wireRow);
+  renumberRows();
+  updateTopBandwidthRequirement();
+
+  // Add Row
+  addBtn?.addEventListener('click', () => {
+    const idx = vmBody.querySelectorAll('tr.vm-row').length;
+    const clone = tmpl.cloneNode(true);
+    // Tukar semua name="rows[__INDEX__][x]" kepada rows[idx][x]
+    clone.querySelectorAll('[name]').forEach(inp => {
+      inp.name = inp.name.replace('__INDEX__', idx);
+      // kosongkan nilai default
+      if(inp.tagName === 'INPUT'){ inp.value = ''; }
+      if(inp.classList.contains('vcpu') || inp.classList.contains('vram') ||
+         inp.classList.contains('system_disk') || inp.classList.contains('data_disk') ||
+         inp.classList.contains('dd_change') || inp.classList.contains('replication_frequency') ||
+         inp.classList.contains('rds_count')){
+        inp.value = 0;
+      }
+    });
+    clone.dataset.index = idx;
+    clone.dataset.id = '';
+    vmBody.appendChild(clone);
+    wireRow(clone);
+    renumberRows();
+    // autosave terus untuk cipta rekod kosong (optional)
+    saveRow(clone);
+  });
+
+})();
+</script>
+
 
 @endsection
 

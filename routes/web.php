@@ -29,11 +29,47 @@ use App\Http\Controllers\QuotationCsvController;
 use App\Http\Controllers\InternalSummaryController;
 use App\Http\Controllers\NonStandardOfferingController;
 use App\Http\Controllers\CustomizationController;
-
+use Illuminate\Support\Str;
 use App\Models\Project; 
 use App\Models\Version;
+use App\Http\Controllers\CommercialLinkController;
 
-// Redirect root to login
+
+use Illuminate\Support\Facades\Storage; 
+
+Route::get('/obs/health', function () {
+    $key = 'healthchecks/' . \Illuminate\Support\Str::uuid() . '.txt';
+    Storage::disk('obs')->put($key, 'ok-' . now());
+    $exists = Storage::disk('obs')->exists($key);
+    return ['put' => true, 'exists' => $exists, 'key' => $key];
+});
+
+Route::middleware(['web','auth']) // ikut keperluan
+  ->prefix('portal-links')->group(function () {
+    Route::post('/pinned', [CommercialLinkController::class, 'createPinned']);  // {quoteId,versionId,ttl?}
+    Route::post('/latest', [CommercialLinkController::class, 'createLatest']);  // {quoteId,ttl?}
+    Route::delete('/{id}', [CommercialLinkController::class, 'revoke']);        // revoke
+  });
+  
+Route::get('/dev/make-token/{quoteId}/{versionId}', function ($quoteId, $versionId) {
+    $secret = env('PORTAL_LINK_JWT_SECRET', 'change-me');
+    $aud    = env('PORTAL_LINK_JWT_AUD', 'CommercialPortal');
+    $exp    = time() + 3600; // 1 jam
+
+    $header  = base64_encode(json_encode(['alg'=>'HS256','typ'=>'JWT']));
+    $payload = base64_encode(json_encode(['quoteId'=>(int)$quoteId,'versionId'=>(int)$versionId,'aud'=>$aud,'exp'=>$exp]));
+
+    // base64url (tanpa = dan URL-safe)
+    $b64url = fn($s) => rtrim(strtr($s, '+/', '-_'), '=');
+    $header  = $b64url($header);
+    $payload = $b64url($payload);
+
+    $sig = hash_hmac('sha256', $header.'.'.$payload, $secret, true);
+    $sig = $b64url(base64_encode($sig));
+
+    return $header.'.'.$payload.'.'.$sig;
+});
+
 Route::get('/', fn () => redirect()->route('login'));
 
 // Login routes
@@ -107,6 +143,14 @@ Route::middleware(['auth'])->group(function () {
         Route::post('mpdraas/autosave', [\App\Http\Controllers\MPDRaaSController::class, 'autosave'])
             ->name('versions.mpdraas.autosave');
 
+
+        Route::post('mpdraas/vms/upsert', [\App\Http\Controllers\MPDRaaSController::class, 'upsertVm'])
+    ->name('versions.mpdraas.vms.upsert');
+
+Route::delete('mpdraas/vms/{vm}', [\App\Http\Controllers\MPDRaaSController::class, 'destroyVm'])
+    ->name('versions.mpdraas.vms.destroy');
+         
+
         // Security, internal summary, quotation, dll.
         Route::get('security-service', [SecurityServiceController::class, 'create'])->name('versions.security_service.create');
         Route::post('security-service', [SecurityServiceController::class, 'store'])->name('versions.security_service.store');
@@ -153,11 +197,21 @@ Route::get('security-service/time/files/{file}/download', [SecurityServiceContro
         Route::post('customization', [CustomizationController::class, 'save'])
             ->name('versions.customization.save');
 
-        Route::get('ratecard', [\App\Http\Controllers\RateCardController::class, 'showRateCard'])
-            ->name('versions.quotation.ratecard');
+        /*Route::get('ratecard', [\App\Http\Controllers\RateCardController::class, 'showRateCard'])
+            ->name('versions.quotation.ratecard');*/
+ 
 
-        Route::get('ratecard-pdf', [\App\Http\Controllers\RateCardController::class, 'downloadRateCardPdf'])
-            ->name('versions.ratecard.pdf');
+
+        Route::get('ratecard', [\App\Http\Controllers\RateCardController::class, 'showRateCard'])
+    ->name('versions.quotation.ratecard')
+    ->middleware('nocache');
+
+Route::get('ratecard-pdf', [\App\Http\Controllers\RateCardController::class, 'downloadRateCardPdf'])
+    ->name('versions.ratecard.pdf')
+    ->middleware('nocache');
+
+             
+
 
         Route::get('quotation', [\App\Http\Controllers\QuotationController::class, 'generateQuotation'])
             ->name('versions.quotation.preview');
@@ -342,6 +396,9 @@ Route::resource('services', ServiceController::class);
     Route::resource('ecs-flavours', ECSFlavourController::class);
     Route::post('/ecs-flavours/import', [ECSFlavourController::class, 'import'])->name('ecs-flavours.import');
 
+    Route::post('/network-mappings/import', [NetworkMappingController::class, 'import'])
+    ->name('network-mappings.import');
+    
     Route::get('/network-mappings/export', [NetworkMappingController::class, 'export'])->name('network-mappings.export');
 
     Route::resource('network-mappings', NetworkMappingController::class);   

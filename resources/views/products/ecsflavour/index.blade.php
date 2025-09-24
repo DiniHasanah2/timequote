@@ -6,10 +6,122 @@
         {{ session('success') }}
     </div>
 @endif
+
+
+
+
+<div class="modal fade" id="servicePickerModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Pick Service (Category: Compute)</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-2 mb-3">
+          <div class="col-md-6">
+            <input id="svc-search" type="text" class="form-control" placeholder="Search by name, code, description…">
+          </div>
+        </div>
+
+        <div class="table-responsive" style="max-height:60vh; overflow:auto;">
+          <table class="table table-sm align-middle">
+            <thead class="table-light">
+              <tr>
+                <th style="min-width:160px;">Service Code</th>
+                <th style="min-width:220px;">Product Name</th>
+                <th>Description</th>
+                <th style="min-width:120px;">Unit</th>
+                <th style="min-width:140px;">Charge Duration</th>
+                <th style="min-width:120px;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="svc-body">
+              @foreach($computeServices as $svc)
+                <tr>
+                  <td><code>{{ $svc->code }}</code></td>
+                  <td>{{ $svc->name }}</td>
+                  <td class="text-muted">{{ $svc->description }}</td>
+                  <td>{{ $svc->measurement_unit }}</td>
+                  <td>{{ $svc->charge_duration }}</td>
+                  <td>
+                   
+                
+
+<button type="button"
+  class="btn btn-sm btn-pink pick-service-btn"
+  data-code="{{ $svc->code }}"
+  data-name="{{ $svc->name }}"
+  data-bs-dismiss="modal">Use</button>
+
+
+                  </td>
+                </tr>
+              @endforeach
+              @if($computeServices->isEmpty())
+                <tr><td colspan="6" class="text-center text-muted">
+                  No Compute services found. Add them in Products → Services first.
+                </td></tr>
+              @endif
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // Bila klik "Use": isi field & modal auto-close (sebab ada data-bs-dismiss="modal")
+  document.querySelectorAll('.pick-service-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const code = btn.dataset.code ?? '';
+      const name = btn.dataset.name ?? '';
+
+      const codeInput = document.getElementById('ecs_code');
+      const nameInput = document.getElementById('flavour_name');
+      if (codeInput) codeInput.value = code;
+      if (nameInput) nameInput.value = name;
+
+      // Kalau form Add masih hidden, tunjukkan
+      const addForm = document.getElementById('addForm');
+      if (addForm && addForm.style.display === 'none') addForm.style.display = 'block';
+
+      // Fokus ke field pertama yang boleh edit
+      document.getElementById('vCPU')?.focus();
+    });
+  });
+
+  // Carian pantas dalam modal
+  const q = document.getElementById('svc-search');
+  const tbody = document.getElementById('svc-body');
+  q?.addEventListener('input', function(){
+    const term = (this.value || '').toLowerCase();
+    tbody?.querySelectorAll('tr').forEach(tr => {
+      tr.style.display = tr.innerText.toLowerCase().includes(term) ? '' : 'none';
+    });
+  });
+
+  // (Optional) Bersih fallback kalau backdrop tertinggal
+  document.addEventListener('hidden.bs.modal', () => {
+    document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+    document.body.classList.remove('modal-open');
+    document.body.style.removeProperty('padding-right');
+  });
+});
+</script>
+
+
 <div class="d-flex justify-content-end mb-3">
      <a href="#" class="btn btn-pink me-2" onclick="document.getElementById('addForm').style.display='block'; return false;">
         <i class=""></i> Add New
     </a>
+
   <!-- Upload Button to Open Modal -->
 <a href="#" class="btn btn-pink me-2" data-bs-toggle="modal" data-bs-target="#importModal">
     <i class="bi bi-upload"></i> Import
@@ -19,8 +131,6 @@
     <a href="{{ route('ecs-flavours.export') }}" class="btn btn-pink">
     <i class="bi bi-download"></i> Export
 </a>
-
-
 
    
 </div>
@@ -47,15 +157,6 @@
         </select>
     </div>
 
-    <!---<div class="col-md-2">
-        <label class="form-label">vCPU</label>
-        <select name="vcpu" class="form-select" onchange="this.form.submit()">
-            <option value="">-- All vCPU --</option>
-            @foreach ($allVcpu as $cpu)
-                <option value="{{ $cpu }}" {{ request('vcpu') == $cpu ? 'selected' : '' }}>{{ $cpu }}</option>
-            @endforeach
-        </select>
-    </div>--->
 
     <div class="col-md-4">
         <label class="form-label">Search ECS Code</label>
@@ -76,7 +177,7 @@
                 <tr>
                     <th>ID</th>
                     <th>ECS Service Code</th>
-                    <th>Flavour Name</th>
+                    <th>Product Name</th>
                     <th>vCPU</th>
                     <th>RAM</th>
                     <th>Type</th>
@@ -96,7 +197,8 @@
             <tbody>
                 @forelse($ecs_flavours as $ecs_flavour)
                     <tr>
-                        <td>{{ $ecs_flavour->id }}</td>
+                        
+                          <td>{{ $loop->iteration }}</td>
                         <td>{{ $ecs_flavour->ecs_code }}</td>
                         <td>{{ $ecs_flavour->flavour_name }}</td>
                         <td>{{ $ecs_flavour->vCPU }}</td>
@@ -172,7 +274,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="15" class="text-center text-muted">No ecs flavour found.</td>
+                        <td colspan="16" class="text-center text-muted">No ecs flavour found.</td>
                     </tr>
                 @endforelse
             </tbody>
@@ -234,7 +336,26 @@
     <div class="card-body">
         <form method="POST" action="{{ route('ecs-flavours.store') }}">
         @csrf
+        
+
         <div class="mb-3">
+  <label class="form-label">Service (from Products → Services: Compute)</label>
+  <div class="input-group">
+    <input type="text" id="ecs_code" name="ecs_code" class="form-control" placeholder="Pick from Compute services…" required readonly>
+    <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#servicePickerModal">
+      Browse
+    </button>
+  </div>
+  <small class="text-muted">Add a Compute service in Products → Services; it will appear here automatically.</small>
+</div>
+
+<div class="mb-3">
+  <label class="form-label">Product Name</label>
+  <input type="text" id="flavour_name" name="flavour_name" class="form-control bg-light" readonly>
+</div>
+
+
+        <!---<div class="mb-3">
         
                 <label for="esc_code" class="form-label">ECS Service Code</label>
                 <input type="text" name="ecs_code" id="ecs_code" class="form-control" required>
@@ -243,7 +364,7 @@
         
                 <label for="flavour_name" class="form-label">Flavour Name</label>
                 <input type="text" name="flavour_name" id="flavour_name" class="form-control" required>
-            </div>
+            </div>--->
             <div class="mb-3">
                 <label for="vCPU" class="form-label">vCPU</label>
                 <input type="number" name="vCPU" id="vCPU" class="form-control" required min="0">

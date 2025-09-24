@@ -6,9 +6,14 @@
         <h5>Edit Service</h5>
     </div>
     <div class="card-body">
-        <form action="{{ route('services.update', $service->id) }}" method="POST">
+        <!---<form action="{{ route('services.update', $service->id) }}" method="POST">--->
+
+        <form action="{{ route('services.update', ['service' => $service->id, 'catalog' => request('catalog') ?? ($catalog->id ?? null)]) }}" method="POST">
+
             @csrf
             @method('PUT')
+            <input type="hidden" name="catalog" value="{{ request('catalog') ?? ($catalog->id ?? null) }}">
+
 
              <div class="mb-3">
                 <label for="id" class="form-label">SKU UUID</label>
@@ -62,30 +67,58 @@
                 <input type="text" name="charge_duration" id="charge_duration" class="form-control bg-light" value="{{ $service->charge_duration }}" readonly required>
             </div>
 
-            <div class="mb-3">
+            <!---<div class="mb-3">
                 <label for="description" class="form-label">Product Description</label>
                 <input type="text" name="description" class="form-control" value="{{ $service->description }}">
-            </div>
+            </div>--->
+
+            <div class="mb-3">
+  <label for="description" class="form-label">Product Description</label>
+  <textarea
+      id="description"
+      name="description"
+      class="form-control"
+      rows="4"
+      style="min-height:120px; resize: vertical;"
+      placeholder="Enter product details..."
+  >{{ old('description', $service->description ?? '') }}</textarea>
+</div>
+
 
           
             <div class="mb-3">
     <label for="price_per_unit" class="form-label">Price Per Unit</label>
-    <input type="number" name="price_per_unit" id="price_per_unit" class="form-control" value="{{ $service->price_per_unit }}" required min="0" step="any">
+    <!---<input type="number" name="price_per_unit" id="price_per_unit" class="form-control" value="{{ $service->price_per_unit }}" required min="0" step="any">--->
+
+    <input type="number" name="price_per_unit" id="price_per_unit" class="form-control"
+       value="{{ old('price_per_unit', $service->v_price_per_unit ?? $service->price_per_unit) }}"
+       required min="0" step="any">
+
 </div>
 
    <div class="mb-3">
     <label for="rate_card_price_per_unit" class="form-label">Rate Card Price Per Unit</label>
-    <input type="number" name="rate_card_price_per_unit" id="rate_card_price_per_unit" class="form-control" value="{{ $service->rate_card_price_per_unit }}" required min="0" step="any">
+    <!---<input type="number" name="rate_card_price_per_unit" id="rate_card_price_per_unit" class="form-control" value="{{ $service->rate_card_price_per_unit }}" required min="0" step="any">--->
+    <input type="number" name="rate_card_price_per_unit" id="rate_card_price_per_unit" class="form-control"
+       value="{{ old('rate_card_price_per_unit', $service->v_rate_card_price_per_unit ?? $service->rate_card_price_per_unit) }}"
+       required min="0" step="any">
+
 </div>
 
 
    <div class="mb-3">
     <label for="transfer_price_per_unit" class="form-label">Transfer Price Per Unit</label>
-    <input type="number" name="transfer_price_per_unit" id="transfer_price_per_unit" class="form-control" value="{{ $service->transfer_price_per_unit }}" required min="0" step="any">
+    <!---<input type="number" name="transfer_price_per_unit" id="transfer_price_per_unit" class="form-control" value="{{ $service->transfer_price_per_unit }}" required min="0" step="any">--->
+    <input type="number" name="transfer_price_per_unit" id="transfer_price_per_unit" class="form-control"
+       value="{{ old('transfer_price_per_unit', $service->v_transfer_price_per_unit ?? $service->transfer_price_per_unit) }}"
+       required min="0" step="any">
+
 </div>
 
             <button type="submit" class="btn btn-pink">Update</button>
-            <a href="{{ route('services.index') }}" class="btn btn-secondary">Cancel</a>
+            <!---<a href="{{ route('services.index') }}" class="btn btn-secondary">Cancel</a>--->
+            <a href="{{ route('services.index', ['catalog' => request('catalog') ?? ($catalog->id ?? null)]) }}" class="btn btn-secondary">Cancel</a>
+
         </form>
     </div>
 </div>
@@ -166,4 +199,15 @@
         document.getElementById('category_code').value = selectedOption.getAttribute('data-code');
     }
 </script>
+
+
+<script>
+document.addEventListener('input', function(e){
+  if (e.target.matches('textarea#description')) {
+    e.target.style.height = 'auto';
+    e.target.style.height = e.target.scrollHeight + 'px';
+  }
+});
+</script>
+
 @endsection

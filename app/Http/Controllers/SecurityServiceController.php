@@ -36,27 +36,6 @@ $lockedAt = optional($summary)->logged_at;
         ]);
     }
 
-   /*public function createTime($versionId)
-{
-    $version  = Version::with(['project', 'security_service'])->findOrFail($versionId);
-    $pricing  = config('pricing');
-
-    $summary  = InternalSummary::where('version_id', $versionId)->first();
-$isLocked = (bool) optional($summary)->is_logged;
-$lockedAt = optional($summary)->logged_at;
-
-   
-
-return view('projects.security_service.time_security_services.create', [
-    'project'          => $version->project,
-    'version'          => $version,
-    'security_service' => $version->security_service,
-    'pricing'          => $pricing,
-    'isLocked'         => $isLocked,
-    'lockedAt'         => $lockedAt,
-]);
-
-}*/
 
 public function createTime($versionId)
 {

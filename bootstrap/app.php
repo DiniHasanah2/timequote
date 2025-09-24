@@ -1,4 +1,6 @@
-<?php
+
+
+    <?php
 
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -11,8 +13,17 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // Route middleware aliases (Laravel 11)
+        $middleware->alias([
+            'nocache' => \App\Http\Middleware\NoCacheAndFrame::class,
+        ]);
+
+        // OPTIONAL: to apply to all web routes, uncomment:
+        // $middleware->group('web', [
+        //     \App\Http\Middleware\NoCacheAndFrame::class,
+        // ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
     })->create();
+

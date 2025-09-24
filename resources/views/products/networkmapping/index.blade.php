@@ -40,7 +40,8 @@
             <tbody>
                 @forelse($network_mappings as $network_mapping)
                     <tr>
-                        <td>{{ $network_mapping->id }}</td>
+                        
+                          <td>{{ $loop->iteration }}</td>
                         <td>{{ $network_mapping->network_code }}</td>
                         <td>{{ $network_mapping->min_bw }}</td>
                         <td>{{ $network_mapping->max_bw }}</td>
@@ -81,11 +82,29 @@
     <div class="card-body">
         <form method="POST" action="{{ route('network-mappings.store') }}">
         @csrf
+       
+
         <div class="mb-3">
-        
-                <label for="network_code" class="form-label">Network Service Code</label>
-                <input type="text" name="network_code" id="network_code" class="form-control" required>
-            </div>
+  <label for="network_code" class="form-label">Network Service (Cloud Network)</label>
+  <div class="input-group">
+    <input type="text" name="network_code" id="network_code" class="form-control" placeholder="Pick from Cloud Network services…" required readonly>
+    <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#netServicePickerModal">
+      Browse
+    </button>
+  </div>
+  <small class="text-muted">Add Cloud Network service in Products → Services; it will appear here.</small>
+</div>
+
+
+
+
+
+
+
+
+
+
+
             <div class="mb-3">
                  <label for="min_bw" class="form-label">min_bw</label>
                 <input type="number" name="min_bw" id="min_bw" class="form-control" required min="0">
@@ -106,11 +125,119 @@
             </div>
 
             <button type="submit" class="btn btn-pink">Save</button>
+
+
+<div class="modal fade" id="netServicePickerModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Pick Service (Category: Cloud Network)</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="row g-2 mb-3">
+          <div class="col-md-6">
+            <input id="net-svc-search" type="text" class="form-control" placeholder="Search by name, code, description…">
+          </div>
+        </div>
+
+        <div class="table-responsive" style="max-height:60vh; overflow:auto;">
+          <table class="table table-sm align-middle">
+            <thead class="table-light">
+              <tr>
+                <th style="min-width:160px;">Service Code</th>
+                <th style="min-width:220px;">Product Name</th>
+              
+                <th style="min-width:120px;">Unit</th>
+                <th style="min-width:140px;">Charge Duration</th>
+                <th style="min-width:120px;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="net-svc-body">
+              @foreach($networkServices as $svc)
+                <tr>
+                  <td><code>{{ $svc->code }}</code></td>
+                  <td>{{ $svc->name }}</td>
+               
+                  <td>{{ $svc->measurement_unit }}</td>
+                  <td>{{ $svc->charge_duration }}</td>
+                  <td>
+                    <button type="button"
+                            class="btn btn-sm btn-pink pick-net-service-btn"
+                            data-code="{{ $svc->code }}"
+                            data-bs-dismiss="modal">Use</button>
+                  </td>
+                </tr>
+              @endforeach
+              @if($networkServices->isEmpty())
+                <tr><td colspan="6" class="text-center text-muted">No Cloud Network services found.</td></tr>
+              @endif
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         </form>
     </div>
 </div>
 
 
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // isi network_code & auto-close via data-bs-dismiss
+  document.querySelectorAll('.pick-net-service-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.getElementById('network_code').value = btn.dataset.code ?? '';
+      // kalau form Add tersembunyi, tunjukkan
+      const addForm = document.getElementById('addForm');
+      if (addForm && addForm.style.display === 'none') addForm.style.display = 'block';
+      document.getElementById('min_bw')?.focus();
+    });
+  });
+
+  // carian pantas
+  const q = document.getElementById('net-svc-search');
+  const tbody = document.getElementById('net-svc-body');
+  q?.addEventListener('input', function(){
+    const term = (this.value || '').toLowerCase();
+    tbody?.querySelectorAll('tr').forEach(tr => {
+      tr.style.display = tr.innerText.toLowerCase().includes(term) ? '' : 'none';
+    });
+  });
+
+  // fallback kalau backdrop tertinggal (optional)
+  document.addEventListener('hidden.bs.modal', () => {
+    document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+    document.body.classList.remove('modal-open');
+    document.body.style.removeProperty('padding-right');
+  });
+});
+</script>
 
 {{-- Auto-show form if URL has #add --}}
 <script>

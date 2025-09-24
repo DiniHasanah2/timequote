@@ -925,13 +925,34 @@ $rows[] = ['Terms and Conditions:'];
         return 'CNET-PLL-SHR-100';
     }
 
-    private function computeProfessionalTotals($s)
+    /*private function computeProfessionalTotals($s)
     {
         $unit = (float) data_get(config('pricing'), 'CPFS-PFS-MDY-5OTC.price_per_unit', 1200);
         $days = (int) ($s->mandays ?? 0);
         $total = $days * $unit;
         return [$days, $unit, $total];
-    }
+    }*/
+    private function computeProfessionalTotals($s)
+{
+    $days = (int) ($s->mandays ?? 0);
+
+    $pricing = config('pricing');
+
+    $sku1 = 'CPFS-PFS-MDY-1OTC'; // <=4 days
+    $sku5 = 'CPFS-PFS-MDY-5OTC'; // >=5 days (discounted)
+
+    $price1 = (float) data_get($pricing, "$sku1.price_per_unit", 0);
+    $price5 = (float) data_get($pricing, "$sku5.price_per_unit", $price1);
+
+    // Pilih harga ikut hari
+    $unitPrice = $days >= 5 ? $price5 : $price1;
+
+    $total = round($days * $unitPrice, 2);
+
+    // Return ikut signature sedia ada: [$psDays, $psUnit, $totalProfessionalCharges]
+    return [$days, 'Day', $total];
+}
+
 }
 
 

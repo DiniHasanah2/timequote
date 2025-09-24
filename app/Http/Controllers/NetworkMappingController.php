@@ -3,6 +3,7 @@ namespace App\Http\Controllers;
 
 use App\Models\NetworkMapping;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Validator;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Response;
@@ -12,14 +13,66 @@ use App\Models\NetworkMappingLog;
 
 class NetworkMappingController extends Controller
 {
+   
+
     public function index()
-    {
-        $network_mappings = NetworkMapping::orderBy('created_at', 'asc')->get();
-        //dd($network_mappings);
-        return view('products.networkmapping.index', compact('network_mappings'));
-    }
+{
+    $network_mappings = NetworkMapping::orderBy('created_at', 'asc')->get();
+
+  
+    $networkServices = \App\Models\Service::where('category_name', 'Cloud Network')
+        ->orderBy('name')
+        ->get(['id','name','code','description','measurement_unit','charge_duration']);
+
+    return view('products.networkmapping.index', compact('network_mappings','networkServices'));
+}
+
+
 
 public function store(Request $request)
+{
+    $validated = $request->validate([
+        'network_code' => [
+            'required','string',
+            'unique:network_mappings,network_code',
+            Rule::exists('services','code')->where(fn($q)=>$q->where('category_name','Cloud Network')),
+        ],
+        'min_bw'  => 'required|numeric|min:0',
+        'max_bw'  => 'required|numeric|min:0|gte:min_bw',
+        'eip_foc' => 'required|integer|min:0',
+        'anti_ddos' => 'nullable|in:on',
+    ]);
+
+    try {
+        \DB::beginTransaction();
+
+        $created = NetworkMapping::create([
+            'network_code' => $validated['network_code'],
+            'min_bw'       => $validated['min_bw'],
+            'max_bw'       => $validated['max_bw'],
+            'eip_foc'      => $validated['eip_foc'],
+            'anti_ddos'    => $request->boolean('anti_ddos'),
+        ]);
+
+        NetworkMappingLog::create([
+            'network_mapping_id' => $created->id,
+            'action'     => 'created',
+            'old_values' => null,
+            'new_values' => $created->only(['network_code','min_bw','max_bw','eip_foc','anti_ddos']),
+            'user_id'    => auth()->id(),
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->header('User-Agent'),
+        ]);
+
+        \DB::commit();
+        return redirect()->route('network-mappings.index')->with('success','Network mapping added successfully.');
+    } catch (\Throwable $e) {
+        \DB::rollBack();
+        return back()->withErrors(['error'=>$e->getMessage()])->withInput();
+    }
+}
+
+/*public function store(Request $request)
 {
     $validated = $request->validate([
         'network_code' => 'required|string|unique:network_mappings,network_code',
@@ -61,7 +114,7 @@ public function store(Request $request)
         DB::rollBack();
         return back()->withErrors(['error' => $e->getMessage()])->withInput();
     }
-}
+}*/
 
 
 

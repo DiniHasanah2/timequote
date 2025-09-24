@@ -211,12 +211,6 @@
 </tr>
 
 
-
-@php
-    $klEcsTotal = collect($ecsSummary)->sum('kl_price');
-    $cjEcsTotal = collect($ecsSummary)->sum('cj_price');
-@endphp
-
 <tr>
     <td style="border: 1px solid #000; padding: 4px;">Compute - ECS</td>
     <td style="border: 1px solid #000; padding: 4px;"></td>

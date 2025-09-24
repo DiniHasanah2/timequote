@@ -186,7 +186,10 @@
            <div style="background-color:rgb(251, 194, 224); padding: 30px; display: flex; align-items: center; justify-content: center;">
     <img src="{{ asset('assets/time_logo.png') }}" alt="Time Logo" style="height: 29px; margin-right: 10px;">
     <span style="font-size: 30px; font-weight: bold; color: #000; line-height: 1;">CLOUD SERVICES</span>
-</div style="margin: 0 auto; width: 800px;">
+<!---/div style="margin: 0 auto; width: 800px;">--->
+
+</div>
+
 
       <table style="width: 100%; border-collapse: collapse; font-size: 20px; margin-top: 0px;">
     <tr style="background:rgb(147, 145, 145); color: #fff;">
@@ -401,11 +404,6 @@
     <td style="border: 1px solid #000; padding: 4px;">RM -</td>
     <td style="border: 1px solid #000; padding: 4px;">RM -</td>
 </tr>--->
-
-@php
-    $klEcsTotal = collect($ecsSummary)->sum('kl_price');
-    $cjEcsTotal = collect($ecsSummary)->sum('cj_price');
-@endphp
 
 <tr>
     <td style="border: 1px solid #000; padding: 4px;">Compute - ECS</td>
@@ -754,10 +752,15 @@
         </a>
 
 
-{{-- NEW: butang generate link untuk Commercial --}}
-<a href="{{ route('versions.export_link', $version->id) }}" class="btn btn-outline-secondary ms-2">
+
+
+
+
+<a href="{{ route('versions.export_link', $version->id) }}" 
+   class="btn btn-outline-secondary ms-2">
   <i class="bi bi-link-45deg"></i> Generate Share Link (Commercial)
 </a>
+
 
 {{-- Bila controller flash 'share_link', kita paparkan link + butang Copy --}}
 @if(session('share_link'))

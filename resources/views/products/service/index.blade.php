@@ -9,6 +9,11 @@
     </div>
 @endif
 
+@if(session('error'))
+  <div class="alert alert-danger">
+    {{ session('error') }}
+  </div>
+@endif
 
 
 
@@ -20,6 +25,12 @@
 
   <div class="card-body py-2">
 
+  @php
+  // locked kalau version ni current ATAU dah ended (ada effective_to)
+  $isLocked = ($catalog->is_current ?? false) || !empty($catalog->effective_to);
+@endphp
+
+
     {{-- Banner: you are viewing a non-current version --}}
     @if(isset($catalog) && !$catalog->is_current)
       <div class="alert alert-light border mb-2 py-1" role="alert" style="font-size:.9rem;">
@@ -30,6 +41,28 @@
         </form>
       </div>
     @endif
+
+
+
+
+
+    @if($isLocked)
+  <div class="alert alert-warning mb-2 py-1" style="font-size:.9rem;">
+    <strong>{{ $catalog->version_name }}</strong> is <strong>locked</strong>
+    @if($catalog->is_current) (current/live) @else (ended) @endif — prices can’t be adjusted. Create a new version to make changes.
+  </div>
+@endif
+
+
+
+
+    @if($catalog?->committed_at)
+  <div class="small text-muted mt-1">
+    Committed at: {{ \Carbon\Carbon::parse($catalog->committed_at)->format('d M Y, H:i') }}
+  </div>
+@endif
+
+
 
     <div class="row g-2">
       {{-- Current (live) --}}
@@ -72,9 +105,7 @@
       </div>
     </div>
 
-    {{-- (Optional) show Last Version (previous current) as a small line --}}
-    
-
+   
 
 
 
@@ -90,7 +121,6 @@
   </div>
 @endif
 
-  
 
     {{-- Viewing selector + actions --}}
     <form method="GET" action="{{ route('services.index') }}" class="mt-3">
@@ -122,41 +152,47 @@
   <div class="d-flex align-items-center gap-2 flex-wrap">
 
    <div class="d-flex align-items-center gap-2 flex-wrap">
+ 
+
+    
+    <!---<a href="{{ route('services.export', ['catalog' => $catalog->id ?? request('catalog')]) }}"
+       class="btn btn-outline-pink text-nowrap">
+      <i class="bi bi-download me-1"></i> Export This Version
+    </a>---->
   
+</div>
+
+   
+
+  </div>
+</div>
+
+    </form>
+
+     <br>
  {{-- ===== Log Selected (copy master price → current version) ===== --}}
-    <form id="bulk-log-form" method="POST" action="{{ route('services.bulkLog') }}" class="m-0">
+   <!--- <form id="bulk-log-form" method="POST" action="{{ route('services.bulkLog') }}" class="m-0">
       @csrf
       <input type="hidden" name="catalog_id" value="{{ $catalog->id }}">
       <div class="selected-container"></div>
       <button type="button" class="btn btn-outline-pink text-nowrap"
               onclick="submitSelected('bulk-log-form')">
-        <i class="bi bi-journal-arrow-up me-1"></i> Log Selected to {{ $catalog->version_name ?? 'Current' }}
+        <i></i> Log Selected to {{ $catalog->version_name ?? 'Current' }}
       </button>
     </form>
-
-    
-    <a href="{{ route('services.export', ['catalog' => $catalog->id ?? request('catalog')]) }}"
-       class="btn btn-outline-pink text-nowrap">
-      <i class="bi bi-download me-1"></i> Export This Version
-    </a>
-  
-</div>
-
-    {{-- Commit --}}
+<br>
+     {{-- Commit --}}
     <button type="button"
             class="btn btn-outline-danger btn-sm"
             data-bs-toggle="modal"
             data-bs-target="#commitVersionModal">
       Commit This Version
-    </button>
-
+    </button>--->
   </div>
+  
 </div>
 
-    </form>
 
-  </div>
-</div>
 
 
 <div class="modal fade" id="commitVersionModal" tabindex="-1" aria-hidden="true">
@@ -246,8 +282,76 @@
   </div>
 </div>
 
+<div class="d-flex flex-wrap justify-content-end gap-2 mt-2">
+  <input type="hidden" id="activeCatalogId" value="{{ $catalog->id }}">
+
+  @if(!$isLocked)
+    <button type="button" class="btn btn-outline-pink" id="open-bulk-adjust">
+      <i></i> Bulk Price Adjustment
+    </button>
+
+    <form id="bulk-log-form" method="POST" action="{{ route('services.bulkLog') }}" class="m-0">
+      @csrf
+      <input type="hidden" name="catalog_id" value="{{ $catalog->id }}">
+      <div class="selected-container"></div>
+      <button type="button" class="btn btn-outline-pink"
+              onclick="submitSelected('bulk-log-form')">
+        <i></i> Log Selected to {{ $catalog->version_name }}
+      </button>
+    </form>
+
+    {{-- Commit hanya bila bukan current --}}
+    @unless($catalog->is_current)
+      <button type="button"
+              class="btn btn-outline-danger btn-sm"
+              data-bs-toggle="modal"
+              data-bs-target="#commitVersionModal">
+        Commit This Version
+      </button>
+    @endunless
+
+  @else
+    {{-- Bila locked, tunjuk butang disabled + hint --}}
+    <button type="button" class="btn btn-outline-pink" disabled
+            title="Locked (current/ended). Create a new version to adjust.">
+      Bulk Price Adjustment
+    </button>
+
+    <button type="button" class="btn btn-outline-pink" disabled
+            title="Locked (current/ended). Create a new version to log.">
+      Log Selected to {{ $catalog->version_name }}
+    </button>
+  @endif
+</div>
 
 
+<!---<div class="d-flex flex-wrap justify-content-end gap-2 mt-2">
+  <input type="hidden" id="activeCatalogId" value="{{ $catalog->id }}">
+
+  <button type="button" class="btn btn-outline-pink" id="open-bulk-adjust">
+    <i></i> Bulk Price Adjustment
+  </button>
+
+  <form id="bulk-log-form" method="POST" action="{{ route('services.bulkLog') }}" class="m-0">
+    @csrf
+    <input type="hidden" name="catalog_id" value="{{ $catalog->id }}">
+    <div class="selected-container"></div>
+    
+    <button type="button" class="btn btn-outline-pink"
+        onclick="submitSelected('bulk-log-form')">
+  <i></i> Log Selected to {{ $catalog->version_name }}
+</button>
+
+  </form>
+
+
+  <button type="button"
+          class="btn btn-outline-danger btn-sm"
+          data-bs-toggle="modal"
+          data-bs-target="#commitVersionModal">
+    Commit This Version
+  </button>
+</div>--->
 
 
 
@@ -364,9 +468,29 @@
   </td>
 
  <td>
-        <a href="{{ route('services.edit', $service->id) }}" class="btn btn-sm btn-outline-primary" title="Edit">
-            <i class="bi bi-pencil"></i>
-        </a>
+       
+        <!---<a href="{{ route('services.edit', ['service' => $service->id, 'catalog' => $catalog->id]) }}"
+   class="btn btn-sm btn-outline-primary" title="Edit">
+  <i class="bi bi-pencil"></i>
+</a>-->
+
+
+
+
+
+@if(!$isLocked)
+  <a href="{{ route('services.edit', ['service' => $service->id, 'catalog' => $catalog->id]) }}"
+     class="btn btn-sm btn-outline-primary" title="Edit">
+    <i class="bi bi-pencil"></i>
+  </a>
+@else
+  <button class="btn btn-sm btn-outline-secondary" disabled
+          title="Locked (current/ended). Create a new version to edit prices.">
+    <i class="bi bi-lock"></i>
+  </button>
+@endif
+
+
 
         <a href="{{ route('services.priceHistory', $service->id) }}"
    class="btn btn-sm btn-outline-secondary" title="History">
@@ -422,8 +546,9 @@
     </div>
 </div>
 
-{{-- ===== Bottom-right bulk toolbar (tambahan, tak usik block lain) ===== --}}
-<div class="d-flex justify-content-end align-items-center gap-2 mt-2">
+@if(!$isLocked)
+<div id="bulk-adjust-toolbar"
+     class="d-flex justify-content-end align-items-center gap-2 mt-2 d-none">
   <!-- hidden catalog id untuk JS -->
   <input type="hidden" id="activeCatalogId" value="{{ $catalog->id }}">
 
@@ -449,7 +574,48 @@
       Preview Adjustments
     </button>
 
-    <!-- butang terus apply (tanpa preview) jika nak cepat -->
+    <form id="quick-apply-form" method="POST" action="{{ route('services.bulkAdjust') }}">
+      @csrf
+      <input type="hidden" name="catalog_id" value="{{ $catalog->id }}">
+      <input type="hidden" name="pct_price" id="qa-pct-price">
+      <input type="hidden" name="pct_rate" id="qa-pct-rate">
+      <input type="hidden" name="pct_transfer" id="qa-pct-transfer">
+      <div id="qa-selected"></div>
+      <button type="button" id="btn-quick-apply" class="btn btn-pink">Apply Now</button>
+    </form>
+
+    {{-- butang sorok --}}
+    <button type="button" class="btn btn-outline-secondary" id="hide-bulk-adjust">Hide</button>
+  </div>
+</div>
+@endif
+<!---<div class="d-flex justify-content-end align-items-center gap-2 mt-2">
+ 
+  <input type="hidden" id="activeCatalogId" value="{{ $catalog->id }}">
+
+  <div class="text-muted small me-3">
+    Selected: <span id="sel-count-bottom">0</span> / {{ $services->count() }}
+  </div>
+
+  <div class="d-flex align-items-end gap-2">
+    <div>
+      <label class="form-label mb-0 small">Price %</label>
+      <input type="number" step="any" id="bp-pct-price" class="form-control form-control-sm" placeholder="e.g. 5 or -3">
+    </div>
+    <div>
+      <label class="form-label mb-0 small">Rate Card %</label>
+      <input type="number" step="any" id="bp-pct-rate" class="form-control form-control-sm" placeholder="e.g. 5 or -3">
+    </div>
+    <div>
+      <label class="form-label mb-0 small">Transfer %</label>
+      <input type="number" step="any" id="bp-pct-transfer" class="form-control form-control-sm" placeholder="e.g. 5 or -3">
+    </div>
+
+    <button type="button" id="btn-preview-bulk" class="btn btn-outline-pink">
+      Preview Adjustments
+    </button>
+
+   
     <form id="quick-apply-form" method="POST" action="{{ route('services.bulkAdjust') }}">
       @csrf
       <input type="hidden" name="catalog_id" value="{{ $catalog->id }}">
@@ -460,7 +626,7 @@
       <button type="button" id="btn-quick-apply" class="btn btn-pink">Apply Now</button>
     </form>
   </div>
-</div>
+</div>--->
 
 {{-- ===== Modal Preview Bulk Adjustment (tambahan) ===== --}}
 <div class="modal fade" id="bulkPreviewModal" tabindex="-1" aria-hidden="true">
@@ -723,7 +889,7 @@ document.addEventListener('DOMContentLoaded', function(){
   const wrap = document.getElementById('clone-adjust-wrapper');
   function toggleCloneAdjust(){
     if(!sel) return;
-    const show = !!sel.value;         // hanya bila ada source dipilih
+    const show = !!sel.value;       
     wrap.classList.toggle('d-none', !show);
   }
   if(sel){
@@ -777,7 +943,7 @@ document.addEventListener('DOMContentLoaded', function(){
     });
   }
 
-  // QUICK APPLY (tanpa preview)
+  
   const btnQuick = document.getElementById('btn-quick-apply');
   if (btnQuick){
     btnQuick.addEventListener('click', function(){
@@ -866,6 +1032,63 @@ document.addEventListener('DOMContentLoaded', function(){
 })();
 </script>
 
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const openBtn   = document.getElementById('open-bulk-adjust');
+  const hideBtn   = document.getElementById('hide-bulk-adjust');
+  const toolbar   = document.getElementById('bulk-adjust-toolbar');
+  const priceIn   = document.getElementById('bp-pct-price');
+  const bottomCnt = document.getElementById('sel-count-bottom');
+
+  function countSelected(){
+    return Array.from(document.querySelectorAll('.row-check'))
+      .filter(cb => cb.checked).length;
+  }
+
+  // Show toolbar
+  openBtn?.addEventListener('click', () => {
+    if (!toolbar) return;
+    toolbar.classList.remove('d-none');       // tunjuk
+    if (bottomCnt) bottomCnt.textContent = countSelected(); // update selected
+    priceIn?.focus();                          // autofocus input %
+    toolbar.scrollIntoView({behavior:'smooth', block:'center'}); // scroll
+  });
+
+  // Hide toolbar
+  hideBtn?.addEventListener('click', () => {
+    toolbar?.classList.add('d-none');
+  });
+
+  // Tekan Enter dalam mana-mana input % = terus trigger preview
+  ['bp-pct-price','bp-pct-rate','bp-pct-transfer'].forEach(id=>{
+    const el = document.getElementById(id);
+    el?.addEventListener('keydown', (e)=>{
+      if(e.key === 'Enter'){
+        e.preventDefault();
+        document.getElementById('btn-preview-bulk')?.click();
+      }
+    });
+  });
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  document.getElementById('btn-bulk-log')?.addEventListener('click', function(){
+    // akan isi <div class="selected-container"></div> dan submit form
+    if (typeof submitSelected === 'function') {
+      submitSelected('bulk-log-form');
+    }
+  });
+
+  // (optional) selector disable/enable butang: betulkan selector lama
+  const bulkButtons = Array.from(document.querySelectorAll(
+    '#bulk-log-form button.btn, #bulk-adjust-toolbar button.btn'
+  ));
+});
+</script>
+
+
 </div>
 @endsection
 
@@ -951,7 +1174,11 @@ table td {
   vertical-align:middle;
 }
 
-  
+  #bulk-adjust-toolbar{
+  position: sticky; bottom: 0; z-index: 100;
+  background: #fff; padding: .5rem; border-top: 1px solid #eee;
+}
+
 
  
 
