@@ -12,7 +12,7 @@ return new class extends Migration
    public function up()
 {
     Schema::table('regions', function (Blueprint $table) {
-        $table->text('scope_of_work')->nullable(); // boleh buang after() kalau tak perlu
+        $table->text('scope_of_work')->nullable(); 
     });
 }
 

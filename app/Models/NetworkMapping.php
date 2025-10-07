@@ -27,7 +27,6 @@ class NetworkMapping extends Model
     public function logs()
     {
         return $this->hasMany(\App\Models\NetworkMappingLog::class);
-        // kalau nak default sort latest:
-        // return $this->hasMany(\App\Models\NetworkMappingLog::class)->latest();
+       
     }
 }

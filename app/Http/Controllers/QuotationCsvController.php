@@ -83,104 +83,7 @@ class QuotationCsvController extends Controller
         $finalTotal    = $contractTotal + $serviceTax;
 
 
-        // 0) meta untuk header atas
-        /*$confLine = 'Confidential | ' . now()->format('d/m/Y')
-            . ' | Quotation ID: ' . ($quotation->id ?? '-')
-            . ($catalogLabel ? (' | Catalog Version: ' . $catalogLabel) : '');
-
-        // label commitment ikut mode
-        $isMonthly      = ($mode === 'monthly');
-        $commitLabel    = $isMonthly ? 'Monthly Commitment (Exclude SST):' : 'Annual Commitment (Exclude SST):';
-        $commitValueNum = $isMonthly ? (float)$monthlyTotal : (float)($monthlyTotal * 12);
-
-        
-
-        // logo path (cari yang wujud)
-$logoPath = collect([
-    public_path('assets/time_logo.png'),
-    public_path('images/time-logo.png'),
-    public_path('time_logo.png'),
-])->first(fn($p) => is_file($p)) ?: null;
-
-
-        // 1) HEADER + INFO ATAS
-        $rows   = [];
-        $rows[] = [$confLine]; // A1: Confidential line
-        $rows[] = ['CLOUD SERVICES']; // banner pink + logo (styled in AfterSheet)
-        $rows[] = []; // spacer
-        $rows[] = ['Attention:', $version->project->customer->name ?? 'N/A'];
-
-        // 2) CONTRACT DURATION + COMMITMENT (2 rows grid)
-        $rows[] = ['Contract Duration:', $contractDuration . ' Months', $commitLabel, (float)$commitValueNum];
-        $rows[] = ['One Time Charges (Exclude SST):', (float)($totalProfessionalCharges ?? 0), '', ''];
-
-        // 3) BOX "TOTAL CONTRACT VALUE (WITH SST)"
-        $rows[] = ['TOTAL CONTRACT VALUE (WITH SST)'];
-        $rows[] = [(float)$finalTotal];
-
-        // 4) spacer
-        $rows[] = [];
-
-        // 5) tajuk & header jadual summary
-        $rows[] = ['Summary of Quotation'];
-        $rows[] = ['Category', 'One Time Charges', 'KL Monthly', 'CJ Monthly', 'Total Monthly'];
-
-     
-        // Professional Services
-        $rows[] = ['Professional Services', (float)$totalProfessionalCharges, null, null, null];
-
-        // Managed
-        $klManaged = (float) collect($managedSummary)->sum('kl_price');
-        $cjManaged = (float) collect($managedSummary)->sum('cj_price');
-        $rows[] = ['Managed Services', 0.0, $klManaged, $cjManaged, (float)$totalManagedCharges];
-
-        // Network
-        $rows[] = ['Network', 0.0, (float)$klTotal, (float)$cjTotal, (float)(($klTotal ?? 0) + ($cjTotal ?? 0))];
-
-        // ECS
-        $rows[] = ['Compute - ECS', 0.0, (float)$klEcsTotal, (float)$cjEcsTotal, (float)(($klEcsTotal ?? 0) + ($cjEcsTotal ?? 0))];
-
-        // License
-        $rows[] = ['Licenses', 0.0, (float)$licenseKL, (float)$licenseCJ, (float)$licenseTotal];
-
-        // Storage
-        $klStorage = (float) collect($storageSummary)->sum('kl_price');
-        $cjStorage = (float) collect($storageSummary)->sum('cj_price');
-        $rows[] = ['Storage', 0.0, $klStorage, $cjStorage, (float)$totalStorageCharges];
-
-        // Backup
-        $klBackup = (float) collect($backupSummary)->sum('kl_price');
-        $cjBackup = (float) collect($backupSummary)->sum('cj_price');
-        $rows[] = ['Backup', 0.0, $klBackup, $cjBackup, (float)$totalBackupCharges];
-
-        // Cloud Security
-        $klCloud = (float) collect($cloudSecuritySummary)->sum('kl_price');
-        $cjCloud = (float) collect($cloudSecuritySummary)->sum('cj_price');
-        $rows[] = ['Cloud Security', 0.0, $klCloud, $cjCloud, (float)$totalcloudSecurityCharges];
-
-        // Monitoring
-        $klMonitor = (float) collect($monitoringSummary)->sum('kl_price');
-        $cjMonitor = (float) collect($monitoringSummary)->sum('cj_price');
-        $rows[] = ['Monitoring', 0.0, $klMonitor, $cjMonitor, (float)$totalMonitoringCharges];
-
-        // Security Services
-        $klSecurity = (float) collect($securitySummary)->sum('kl_price');
-        $cjSecurity = (float) collect($securitySummary)->sum('cj_price');
-        $rows[] = ['Security Services', 0.0, $klSecurity, $cjSecurity, (float)$totalSecurityCharges];
-
-        // 6) totals (label di B, amount di C — styled & merged dlm AfterSheet)
-        $rows[] = [];
-        $rows[] = ['', 'ONE TIME CHARGES TOTAL', (float)$totalProfessionalCharges];
-        $rows[] = ['', 'MONTHLY TOTAL',           (float)$monthlyTotal];
-        $rows[] = ['', 'CONTRACT TOTAL',          (float)$contractTotal];
-        $rows[] = ['', 'SERVICE TAX (8%)',        (float)$serviceTax];
-        $rows[] = ['', 'FINAL TOTAL (Include Tax)', (float)$finalTotal];
-
-        // 7) TERMS & CONDITIONS
-        $rows[] = [];
-        $rows[] = ['Terms and Conditions:'];*/
-        // ====== bina ROWS untuk .xlsx yang follow layout PDF ======
-
+       
 // 0) meta untuk header atas
 $confLine = 'Confidential | ' . now()->format('d/m/Y')
     . ' | Quotation ID: ' . ($quotation->id ?? '-')
@@ -296,19 +199,19 @@ $rows[] = ['Terms and Conditions:'];
             "8. All sums due are exclusive of the taxes of any nature including but not limited to service tax, withholding taxes and any other taxes and all other government fees and charges assessed upon or with respect to the service(s)."
         ];
 
-        // nama fail include slug versi
+     
         $verSlug  = Str::slug($catalogLabel ?: 'legacy', '_');
         $filename = 'quotation_' . $version->id . '_' . $verSlug . '_' . now()->format('Ymd_His') . '.xlsx';
 
         return Excel::download(new QuotationArrayExport($rows, 'Quotation Summary', $logoPath), $filename);
     }
 
-    // ===== CSV (.csv) kekalkan (kalau nak), tak perlu styling =====
+   
     public function generateCsv(Request $request, $versionId)
     {
         $version = Version::with(['project.customer', 'solution_type'])->findOrFail($versionId);
 
-        // Create a real quotation row if not exists
+      
         $quotation = Quotation::firstOrCreate(
             ['version_id' => $versionId],
             [
@@ -319,7 +222,7 @@ $rows[] = ['Terms and Conditions:'];
             ]
         );
 
-        $mode = $request->query('mode', 'monthly'); // 'monthly' | 'annual'
+        $mode = $request->query('mode', 'monthly'); 
         $contractDuration = $mode === 'annual'
             ? 12
             : (int) (session("quotation.$versionId.contract_duration", $quotation->contract_duration ?? 12));
@@ -327,7 +230,7 @@ $rows[] = ['Terms and Conditions:'];
         $internal = InternalSummary::where('version_id', $versionId)->first() ?? new InternalSummary();
         $pricing  = config('pricing');
 
-        // meta katalog
+      
         $catalogMeta  = config('pricing._catalog') ?? [];
         $catalogLabel = is_array($catalogMeta)
             ? ($catalogMeta['version_name'] ?? ($catalogMeta['version_code'] ?? 'legacy'))
@@ -335,7 +238,7 @@ $rows[] = ['Terms and Conditions:'];
         $catalogFrom  = is_array($catalogMeta) ? ($catalogMeta['effective_from'] ?? null) : null;
         $catalogTo    = is_array($catalogMeta) ? ($catalogMeta['effective_to'] ?? null) : null;
 
-        // summary data
+       
         [$managedSummary, $totalManagedCharges] = $this->computeManagedSummary($version);
         [$licenseRateCard, $totalLicenseCharges] = $this->computeLicenseRateCard($internal, $pricing);
         [$ecsSummary, $klEcsTotal, $cjEcsTotal] = $this->computeEcsSummary($version);
@@ -366,10 +269,10 @@ $rows[] = ['Terms and Conditions:'];
         $serviceTax    = $contractTotal * 0.08;
         $finalTotal    = $contractTotal + $serviceTax;
 
-        // Create CSV in memory
+        
         $csv = Writer::createFromFileObject(new SplTempFileObject());
 
-        // Header
+        
         $csv->insertOne(['Quotation Report']);
         $csv->insertOne(['Generated Date', now()->format('d/m/Y')]);
         $csv->insertOne(['Logged Version', $catalogLabel]);
@@ -925,13 +828,7 @@ $rows[] = ['Terms and Conditions:'];
         return 'CNET-PLL-SHR-100';
     }
 
-    /*private function computeProfessionalTotals($s)
-    {
-        $unit = (float) data_get(config('pricing'), 'CPFS-PFS-MDY-5OTC.price_per_unit', 1200);
-        $days = (int) ($s->mandays ?? 0);
-        $total = $days * $unit;
-        return [$days, $unit, $total];
-    }*/
+   
     private function computeProfessionalTotals($s)
 {
     $days = (int) ($s->mandays ?? 0);
@@ -949,7 +846,7 @@ $rows[] = ['Terms and Conditions:'];
 
     $total = round($days * $unitPrice, 2);
 
-    // Return ikut signature sedia ada: [$psDays, $psUnit, $totalProfessionalCharges]
+   
     return [$days, 'Day', $total];
 }
 

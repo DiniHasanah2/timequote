@@ -57,14 +57,15 @@
 
         <div class="table-responsive">
             <table class="table table-bordered">
-                <thead class="table-light">
+            
+                    <tr class="table-light">
                     <tr>
                         <th></th>
                         <th></th>
                         <th>Kuala Lumpur</th>
                         <th>Cyberjaya</th>
                     </tr>
-                </thead>
+                </tr>
                 <tbody>
                     <!-- Professional Services -->
                     <tr>
@@ -261,14 +262,14 @@
 
 
 
-                      <thead class="table-light">
+                      <tr class="table-light">
                     <tr>
                         <th>Monitoring Service</th>
                         <th>Unit</th>
                         <th>KL.Qty</th>
                         <th>CJ.Qty</th>
                     </tr>
-                </thead>
+                </tr>
                     
 
                         <tr>
@@ -279,14 +280,14 @@
                     </tr>
 
 
-                      <thead class="table-light">
+                    <tr class="table-light">
                     <tr>
                         <th>Security Services</th>
                         <th>Unit</th>
                         <th>KL.Qty</th>
                         <th>CJ.Qty</th>
                     </tr>
-                </thead>
+                </tr>
                     <tr>
                         <td>Cloud Vulnerability Assessment (Per IP)</td>
                         <td>Mbps</td>
@@ -297,14 +298,15 @@
 
 
 
-                      <thead class="table-light">
+                 
+                        <tr class="table-light">
                     <tr>
                         <th>Cloud Security</th>
                         <th>Unit</th>
                         <th>KL.Qty</th>
                         <th>CJ.Qty</th>
                     </tr>
-                </thead>
+                </tr>
                     <tr>
                         <td>Cloud Firewall (Fortigate)</td>
                         <td>Unit</td>
@@ -361,14 +363,15 @@
 </tr>
 
 
-                     <thead class="table-light">
+
+                     <tr class="table-light">
                     <tr>
                         <th>Storage Type</th>
                         <th>Unit</th>
                         <th>KL.Qty</th>
                         <th>CJ.Qty</th>
                     </tr>
-                </thead>
+                </tr>
 
 
                     <tr>
@@ -395,14 +398,15 @@
                      </tr>
 
 
-                        <thead class="table-light">
+               
+                            <tr class="table-light">
                     <tr>
                         <th>Image Management Service (IMS)</th>
                         <th>Unit</th>
                         <th>KL.Qty</th>
                         <th>CJ.Qty</th>
                     </tr>
-                </thead>
+                </tr>
 
 
                 <tr>
@@ -432,14 +436,15 @@
 </tr>
 
 
-                   <thead class="table-light">
+          
+                   <tr class="table-light">
     <tr>
         <th>Backup Service in VPC</th>
         <th>Unit</th>
         <th>KL.Qty</th>
         <th>CJ.Qty</th>
     </tr>
-</thead>
+</tr>
 
 
 
@@ -466,14 +471,15 @@
                      </tr>
 
 
-                   <thead class="table-light">
+              
+                    <tr class="table-light">
     <tr>
         <th>Disaster Recovery in VPC</th>
         <th>Unit</th>
         <th>KL.Qty</th>
         <th>CJ.Qty</th>
     </tr>
-</thead>
+</tr>
 
 
 
@@ -522,14 +528,15 @@
 
 
 
-                                     <thead class="table-light">
+                               
+                                        <tr class="table-light">
     <tr>
         <th>Disaster Recovery Network and Security</th>
         <th>Unit</th>
         <th>KL.Qty</th>
         <th>CJ.Qty</th>
     </tr>
-</thead>
+</tr>
 
 
 
@@ -598,14 +605,15 @@
 </tr>
 
 
-                   <thead class="table-light">
+                
+                    <tr class="table-light">
     <tr>
         <th>Compute - Elastic Cloud Server (ECS)</th>
         <th>Sizing</th>
         <th>KL.Qty</th>
         <th>CJ.Qty</th>
     </tr>
-</thead>
+</tr>
 <tbody>
     @php
         $ecsList = [
@@ -683,14 +691,15 @@
 </tr>
 
 
-                     <thead class="table-light">
+                  
+                        <tr class="table-light">
                     <tr>
                         <th>Microsoft</th>
                         <th>Unit</th>
                         <th>KL.Qty</th>
                         <th>CJ.Qty</th>
                     </tr>
-                </thead>
+                </tr>
 
 
                     <tr>

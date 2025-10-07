@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 
 use App\Models\InternalSummary;
 use App\Models\Version;
+use App\Models\MPDRaaS;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
@@ -26,19 +27,87 @@ class InternalSummaryController extends Controller
 
         $missing = [];
         if (!$solution_type)   $missing[] = 'Solution Type';
-        if (!$project)         $missing[] = 'Project';
-        if (!$region)          $missing[] = 'Professional Services (Region)';
-        if (!$securityService) $missing[] = 'Security Services';
-        if ($ecsData->isEmpty()) $missing[] = 'ECS & Backup (at least 1 VM/row)';
-        /* Tambah apa2 lain yang kau nak enforce di sini */
+    
+$mp = \App\Models\MPDRaaS::where('version_id', $version->id)->first();
 
-        // Kalau ada yang missing → terus render view dengan alert, dan SKIP semua kiraan di bawah.
+$mpSummary = [
+    'activation_days' => (int)($mp->mpdraas_activation_days ?? 0),
+    'location'        => $mp->mpdraas_location ?? ($version->region->dr_location ?? 'None'),
+    'ddos'            => $mp->ddos_requirement ?? 'No',
+    'bandwidth'       => (float)($mp->bandwidth_requirement ?? 0), // Mbps
+    'storage_evs'     => [
+        'main'              => (float)($mp->main ?? 0),
+        'used'              => (float)($mp->used ?? 0),
+        'delta'             => (float)($mp->delta ?? 0),
+        'total_replication' => (float)($mp->total_replication ?? 0),
+    ],
+    'dr_network' => collect($mp->dr_network ?? [])->map(function ($row, $code) {
+        return [
+            'code'   => $code,
+            'name'   => $row['name'] ?? $code,
+            'unit'   => $row['unit'] ?? '',
+            'kl_qty' => (float)($row['kl_qty'] ?? 0),
+            'cj_qty' => (float)($row['cj_qty'] ?? 0),
+        ];
+    })->values()->all(),
+];
+
+
+$mpVms = \App\Models\MPDRaaSVM::where('version_id', $version->id)->get();
+
+
+$mpCounts = $mpVms
+    ->filter(fn($r) => trim((string)($r->flavour_mapping ?? '')) !== '')
+    ->groupBy(fn($r) => strtolower(trim((string)$r->flavour_mapping)))
+    ->map->count();
+
+
+$mpUsedFlavours = $mpCounts->keys()->sort()->values();
+
+$loc = trim((string)($mpSummary['location'] ?? ''));
+$mpDrCountsKL = collect();
+$mpDrCountsCJ = collect();
+
+if (strcasecmp($loc, 'Kuala Lumpur') === 0) {
+    $mpDrCountsKL = $mpCounts;
+} elseif (strcasecmp($loc, 'Cyberjaya') === 0) {
+    $mpDrCountsCJ = $mpCounts;
+} else {
+  
+    $mpDrCountsKL = $mpCounts;
+}
+
+
+$allFlavours = \App\Models\ECSFlavour::all()
+    ->keyBy(fn($f) => strtolower(trim((string)$f->flavour_name)));
+
+$mpDrKeys = $mpUsedFlavours->map(fn($f) => strtolower(trim($f . '.dr')));
+
+$mpFlavourDetails = collect($allFlavours)
+    ->only($mpDrKeys)
+    ->map(fn($f) => [
+        'vcpu'                 => (int) $f->vcpu,
+        'vram'                 => (int) $f->vram,
+        'type'                 => $f->type,
+        'generation'           => $f->generation,
+        'memory_label'         => $f->memory_label,
+        'windows_license_count'=> (int) ($f->windows_license_count ?? 0),
+        'mssql'                => (int) ($f->mssql ?? 0),
+        'rhel'                 => (int) ($f->rhel ?? 0),
+        'dr'                   => $f->dr,
+        'pin'                  => $f->pin,
+        'gpu'                  => $f->gpu,
+        'ddh'                  => $f->ddh,
+    ]);
+
+
+       
         if (!empty($missing)) {
             return view('projects.security_service.internal_summary', [
                 'version'              => $version,
                 'project'              => $project,
                 'solution_type'        => $solution_type,
-                'summary'              => null,               // let null so blade not acess property
+                'summary'              => null,              
                 'klManagedServices'    => [],
                 'cyberManagedServices' => [],
                 'nonStandardItems'     => $version->non_standard_items ?? collect(),
@@ -54,7 +123,14 @@ class InternalSummaryController extends Controller
                 'drCountsCJ'           => collect(),
                 'usedFlavoursCompute'   => collect(),
                 'computeFlavourDetails' => collect(),
-                'missing'              => $missing,        
+                'missing'              => $missing,
+                 'mpdraas' => $mpSummary,
+               
+'mpUsedFlavours'   => $mpUsedFlavours,
+'mpFlavourDetails' => $mpFlavourDetails,
+'mpDrCountsKL'     => $mpDrCountsKL,
+'mpDrCountsCJ'     => $mpDrCountsCJ,
+        
                 
             ]);
         }
@@ -66,16 +142,16 @@ class InternalSummaryController extends Controller
         $isCJ  = strcasecmp($drLoc, 'Cyberjaya') === 0;
 
         $flavourMap = \App\Models\ECSFlavour::all()
-            // KEY MUST be trimmed + lowercased, or lookups will miss
+         
             ->keyBy(function ($item) {
                 return strtolower(trim((string) $item->flavour_name));
             })
-            // store only the numbers needed, as ints
+         
             ->map(function ($item) {
                 return [
                     'vcpu'                  => (int) $item->vcpu,
                     'windows_license_count' => (int) $item->windows_license_count,
-                    // support either column name: microsoft_sql_license_count OR mssql
+                 
                     'mssql'                 => (int) (
                         $item->microsoft_sql_license_count
                         ?? $item->mssql
@@ -93,7 +169,7 @@ class InternalSummaryController extends Controller
             $row->seed_vm_required   = strtoupper(trim((string)($row->seed_vm_required ?? 'No'))) === 'YES' ? 'Yes' : 'No';
             $row->required           = strtoupper(trim((string)($row->required ?? 'No'))) === 'YES' ? 'Yes' : 'No';
             $row->csbs_standard_policy = preg_replace('/\s+/', ' ', trim((string)($row->csbs_standard_policy ?? '')));
-            // keep your existing normalisations
+        
             $row->ecs_flavour_mapping      = strtolower(trim((string)($row->ecs_flavour_mapping ?? '')));
             $row->license_operating_system = trim((string)($row->license_operating_system ?? ''));
             $row->license_microsoft_sql    = trim((string)($row->license_microsoft_sql ?? ''));
@@ -101,7 +177,7 @@ class InternalSummaryController extends Controller
             return $row;
         });
 
-        // Pengiraan Full Backup Capacity (GB)
+       
         $klFullBackupCapacity = $ecsData->where('region', 'Kuala Lumpur')
             ->where('csbs_standard_policy', '!=', 'No Backup')
             ->sum(function ($item) {
@@ -114,18 +190,7 @@ class InternalSummaryController extends Controller
                 return ($item->csbs_initial_data_size ?? 0) * (($item->full_backup_total_retention_full_copies ?? 0) + 1);
             });
 
-        // Pengiraan Incremental Backup Capacity (GB)
-        /*$klIncrementalBackupCapacity = $ecsData->where('region', 'Kuala Lumpur')
-            ->where('csbs_standard_policy', '!=', 'No Backup')
-            ->sum(function ($item) {
-                return ceil(($item->csbs_estimated_incremental_data_change ?? $item->csbs_incremental_change ?? 0) * ($item->incremental_backup_total_retention_incremental_copies ?? 0));
-            });
-
-        $cyberIncrementalBackupCapacity = $ecsData->where('region', 'Cyberjaya')
-            ->where('csbs_standard_policy', '!=', 'No Backup')
-            ->sum(function ($item) {
-                return ceil(($item->csbs_estimated_incremental_data_change ?? $item->csbs_incremental_change ?? 0) * ($item->incremental_backup_total_retention_incremental_copies ?? 0));
-            });*/
+        
 
             // KL
 $klIncrementalBackupCapacity = $ecsData->where('region', 'Kuala Lumpur')
@@ -133,10 +198,10 @@ $klIncrementalBackupCapacity = $ecsData->where('region', 'Kuala Lumpur')
     ->sum(function ($item) {
         $initial = (float)($item->csbs_initial_data_size ?? 0);            
         $pct     = (float)($item->csbs_incremental_change ?? 0);       
-        $copies  = (int)($item->incremental_backup_total_retention_incremental_copies ?? 0); // contoh 8
+        $copies  = (int)($item->incremental_backup_total_retention_incremental_copies ?? 0); 
 
-        $incPerCopy = $initial * ($pct / 100.0); // 6.3
-        return (int) ceil($incPerCopy * $copies); // 6.3*8=50.4 -> ceil=51
+        $incPerCopy = $initial * ($pct / 100.0); 
+        return (int) ceil($incPerCopy * $copies); 
     });
 
 // Cyberjaya
@@ -152,7 +217,7 @@ $cyberIncrementalBackupCapacity = $ecsData->where('region', 'Cyberjaya')
     });
 
 
-        // Pengiraan Replication Retention Capacity (GB)
+       
         $klReplicationRetentionCapacity = $ecsData->where('region', 'Cyberjaya')
             ->where('csbs_standard_policy', '!=', 'No Backup')
             ->where('required', 'Yes')
@@ -183,7 +248,7 @@ $cyberIncrementalBackupCapacity = $ecsData->where('region', 'Cyberjaya')
                 return ($item->csbs_total_storage ?? 0) + ($item->additional_storage ?? 0);
             });
 
-        // 4. Cold DR Days (Days)
+        
         $coldDrDaysKL = 0;
         $coldDrDaysCJ = 0;
 
@@ -192,7 +257,7 @@ $cyberIncrementalBackupCapacity = $ecsData->where('region', 'Cyberjaya')
             $coldDrDaysCJ = $region->dr_location === 'Cyberjaya' ? $region->cyber_dr_activation_days : 0;
         }
 
-        // 5. Cold DR – Seeding VM (Unit)
+     
         $coldDrSeedingVMKL = 0;
         $coldDrSeedingVMCJ = 0;
 
@@ -210,7 +275,7 @@ $cyberIncrementalBackupCapacity = $ecsData->where('region', 'Cyberjaya')
                 ->count();
         }
 
-        // 6. Cloud Server Disaster Recovery Storage (GB)
+      
         $drStorageKL = 0;
         $drStorageCJ = 0;
 
@@ -224,23 +289,21 @@ $cyberIncrementalBackupCapacity = $ecsData->where('region', 'Cyberjaya')
                 ->sum('csbs_total_storage');
         }
 
-        // ===== DR rows to match Excel =====
-        // (7) Replication: IF(D7="Kuala Lumpur", COUNTIF(CSDR Needed?,"Yes"), 0)
-        //     -> Count ALL "Yes" (no region filter), put into chosen destination column only.
+     
         $yesCountAll = $ecsData->where('csdr_needed', 'Yes')->count();
 
         $drReplicationKL = $isKL ? $yesCountAll : 0;
         $drReplicationCJ = $isCJ ? $yesCountAll : 0;
 
-        // (8) DR Declaration Days: IF([replication]=0, 0, ColdDRDays)
+
         $drDeclarationKL = $drReplicationKL > 0 ? (int)($region->kl_dr_activation_days ?? 0)    : 0;
         $drDeclarationCJ = $drReplicationCJ > 0 ? (int)($region->cyber_dr_activation_days ?? 0) : 0;
 
-        // (9) Managed Service – Per Day: same as (7)
+       
         $drManagedServiceKL = $drReplicationKL;
         $drManagedServiceCJ = $drReplicationCJ;
 
-        // ===DR License summary==
+      
         $drLic = $this->getDrLicenseSummary(
             $ecsData,
             $flavourMap,
@@ -250,60 +313,19 @@ $cyberIncrementalBackupCapacity = $ecsData->where('region', 'Cyberjaya')
             (int)$coldDrDaysCJ
         );
 
-        // ===== DR Elastic Volume Service (EVS) — During DR Activation =====
-        // Destinasi = site lawan + gandaan 2 (168 vs 84)
+       
         $klEvsDR = $ecsData
-            ->where('region', 'Cyberjaya')      // asal CJ → DR kat KL
+            ->where('region', 'Cyberjaya')     
             ->where('dr_activation', 'Yes')
             ->sum(fn ($i) => ($i->storage_system_disk ?? 0) + ($i->storage_data_disk ?? 0)) * 2;
 
         $cyberEvsDR = $ecsData
-            ->where('region', 'Kuala Lumpur')   // asal KL → DR kat CJ
+            ->where('region', 'Kuala Lumpur')   
             ->where('dr_activation', 'Yes')
             ->sum(fn ($i) => ($i->storage_system_disk ?? 0) + ($i->storage_data_disk ?? 0)) * 2;
 
-        /* // ========== DR FLAVOUR COUNTS — FLIP DESTINATION ==========
-        // KL column = kira VM asal di CJ
-        $drCountsKL = $ecsData
-            ->where('region', 'Cyberjaya')
-            ->where('dr_activation', 'Yes')
-            ->groupBy('ecs_flavour_mapping')        // base flavour (tanpa .dr)
-            ->map->count();                          // contoh: ['m3.micro' => 1, 'c3.4xlarge' => 2]
 
-        // CJ column = kira VM asal di KL
-        $drCountsCJ = $ecsData
-            ->where('region', 'Kuala Lumpur')
-            ->where('dr_activation', 'Yes')
-            ->groupBy('ecs_flavour_mapping')
-            ->map->count();
-
-        // Senarai flavour (base) yang terlibat di mana-mana destinasi
-        $usedFlavours = $drCountsKL->keys()->merge($drCountsCJ->keys())->unique()->sort();
-
-        // Ambil details untuk VARIAN .dr (bukan base)
-        $drNames = $usedFlavours->map(fn($f) => $f . '.dr');
-
-        $flavourDetails = \App\Models\ECSFlavour::whereIn('flavour_name', $drNames->toArray())
-            ->get()
-            ->keyBy('flavour_name')
-            ->map(function ($flavour) {
-                return [
-                    'vcpu' => $flavour->vcpu,
-                    'vram' => $flavour->vram,
-                    'type' => $flavour->type,
-                    'generation' => $flavour->generation,
-                    'memory_label' => $flavour->memory_label,
-                    'windows_license_count' => $flavour->windows_license_count,
-                    'rhel' => $flavour->rhel,
-                    'dr' => $flavour->dr,
-                    'pin' => $flavour->pin,
-                    'gpu' => $flavour->gpu,
-                    'ddh' => $flavour->ddh,
-                    'mssql' => $flavour->mssql,
-                ];
-            });*/
-
-            // ========== DR FLAVOUR COUNTS — robust & fallback ==========
+          
 $fromKL = $ecsData->filter(function ($r) {
     return strcasecmp((string)$r->region, 'Kuala Lumpur') === 0
         && (string)$r->dr_activation === 'Yes'
@@ -321,21 +343,21 @@ $drCountsCJ   = collect();
 $usedFlavours = collect();
 
 if ($isKL) {
-    // DR run di KL → ambil VM asal CJ
+  
     $drCountsKL = $fromCJ
         ->groupBy(fn($r) => strtolower(trim((string)$r->ecs_flavour_mapping)))
         ->map->count();
 
     $usedFlavours = $drCountsKL->keys()->sort()->values();
 } elseif ($isCJ) {
-    // DR run di CJ → ambil VM asal KL
+   
     $drCountsCJ = $fromKL
         ->groupBy(fn($r) => strtolower(trim((string)$r->ecs_flavour_mapping)))
         ->map->count();
 
     $usedFlavours = $drCountsCJ->keys()->sort()->values();
 } else {
-    // Fallback: tiada lokasi DR dipilih → tunjuk kedua-dua belah
+  
     $drCountsKL = $fromCJ
         ->groupBy(fn($r) => strtolower(trim((string)$r->ecs_flavour_mapping)))
         ->map->count();
@@ -347,39 +369,18 @@ if ($isKL) {
     $usedFlavours = $drCountsKL->keys()->merge($drCountsCJ->keys())->unique()->sort()->values();
 }
 
-// Ambil detail varian .dr untuk flavour yang digunakan (key lower-case)
-/*$drNames = $usedFlavours->map(fn($f) => $f . '.dr');
 
-$flavourDetails = \App\Models\ECSFlavour::whereIn('flavour_name', $drNames->toArray())
-    ->get()
-    ->keyBy(fn($f) => strtolower(trim((string)$f->flavour_name))) // penting: key lower-case
-    ->map(fn($flavour) => [
-        'vcpu' => (int)$flavour->vcpu,
-        'vram' => (int)$flavour->vram,
-        'type' => $flavour->type,
-        'generation' => $flavour->generation,
-        'memory_label' => $flavour->memory_label,
-        'windows_license_count' => (int)$flavour->windows_license_count,
-        'rhel' => (int)$flavour->rhel,
-        'dr' => $flavour->dr,
-        'pin' => $flavour->pin,
-        'gpu' => $flavour->gpu,
-        'ddh' => $flavour->ddh,
-        'mssql' => (int)$flavour->mssql,
-    ]);*/
-    // === GANTI SATU BLOK INI DALAM index() ===
 
-// Ambil SEMUA flavour, key lower-case
 $allFlavours = \App\Models\ECSFlavour::all()
     ->keyBy(fn($f) => strtolower(trim((string) $f->flavour_name)));
 
-// Senarai key .dr yang diperlukan (lower-case)
+
 $drKeys = $usedFlavours
     ->map(fn($f) => strtolower($f . '.dr'))
     ->values()
     ->all();
 
-// Potong ikut key yang diperlukan sahaja, dan map field yang dipakai Blade
+
 $flavourDetails = collect($allFlavours)
     ->only($drKeys)
     ->map(fn($f) => [
@@ -411,7 +412,7 @@ $flavourDetails = collect($allFlavours)
                 return $regionGroup->map->count();
             });
 
-        // Format: ['Kuala Lumpur' => ['m3.large' => 2], 'Cyberjaya' => ['m3.large' => 1, 'r3.large' => 1]]
+     
         $ecsSummary = $ecsSummary->toArray();
 
         $klEvs = $ecsData
@@ -448,17 +449,17 @@ $flavourDetails = collect($allFlavours)
                 ($item->image_copies * (($item->storage_system_disk ?? 0) + ($item->storage_data_disk ?? 0)));
         });
 
-        // ================= DR Network & Security =================
+       
 
         // vPLL
         $klDrVpll     = $isKL ? (int) ceil(($region->kl_db_bandwidth ?? 0) / 10) : 0;
         $cyberDrVpll  = $isCJ ? (int) ceil(($region->cyber_db_bandwidth ?? 0) / 10) : 0;
 
-        // DR Elastic IP (Unit Per Day) – ikut destinasi DR
+        // DR Elastic IP (Unit Per Day) 
         $klDrEip      = $isKL ? (int) ($region->kl_elastic_ip_dr ?? 0) : 0;
         $cyberDrEip   = $isCJ ? (int) ($region->cyber_elastic_ip_dr ?? 0) : 0;
 
-        // DR Bandwidth vs Anti-DDoS (hanya salah satu ikut dr_bandwidth_type)
+    
         $klDrBw = $cyberDrBw = $klDrBwAnti = $cyberDrBwAnti = 0;
 
         if ($isKL) {
@@ -485,13 +486,13 @@ $flavourDetails = collect($allFlavours)
         $klDrOpn      = $isKL ? $opnCount   : 0;
         $cyberDrOpn   = $isCJ ? $opnCount   : 0;
 
-        // --- Snapshot yang sedia ada (jika pernah commit)
+        // --- Snapshot 
         $summary  = \App\Models\InternalSummary::where('version_id', $version->id)->first();
         $isLocked = (bool) optional($summary)->is_logged;
 
-        // ===== Selepas ni: kalau locked, kita BEKUKAN paparan dari snapshot =====
+     
         if ($isLocked) {
-            // 1) License Summary override dari snapshot
+        
             $licenseSummary = [
                 'windows_std' => [
                     'Kuala Lumpur' => (int) ($summary->kl_windows_std ?? 0),
@@ -527,19 +528,19 @@ $flavourDetails = collect($allFlavours)
                 ],
             ];
 
-            // 2) DR EVS during activation
+            
             $klEvsDR    = (int) ($summary->kl_evs_dr ?? $klEvsDR ?? 0);
             $cyberEvsDR = (int) ($summary->cyber_evs_dr ?? $cyberEvsDR ?? 0);
 
-            // 3) Computing table dari snapshot
+           
             if (is_array($summary->ecs_flavour_summary ?? null)) {
                 $ecsSummary = $summary->ecs_flavour_summary;
             }
         }
 
-        // ================= AFTER LOG SECTION: freeze output when locked =================
+       
         if ($isLocked) {
-            // 1) replace $licenseSummary that blade used with snapshot value
+           
             $licenseSummary = [
                 'windows_std' => [
                     'Kuala Lumpur' => (int) ($summary->kl_windows_std ?? 0),
@@ -575,11 +576,11 @@ $flavourDetails = collect($allFlavours)
                 ],
             ];
 
-            // 2) DR EVS that blade shown → use snapshot
+           
             $klEvsDR    = (int) ($summary->kl_evs_dr ?? $klEvsDR ?? 0);
             $cyberEvsDR = (int) ($summary->cyber_evs_dr ?? $cyberEvsDR ?? 0);
 
-            // 3) ECS summary by flavour (if you save as array in snapshot)
+           
             if (is_array($summary->ecs_flavour_summary)) {
                 $ecsSummary = $summary->ecs_flavour_summary;
             }
@@ -592,7 +593,7 @@ $flavourDetails = collect($allFlavours)
             'Managed DR',
         ];
 
-        // Count KL
+       
         $klManagedServices = [
             'Managed Operating System' => 0,
             'Managed Backup and Restore' => 0,
@@ -607,7 +608,7 @@ $flavourDetails = collect($allFlavours)
             }
         }
 
-        // Count Cyber
+        
         $cyberManagedServices = [
             'Managed Operating System' => 0,
             'Managed Backup and Restore' => 0,
@@ -622,12 +623,12 @@ $flavourDetails = collect($allFlavours)
             }
         }
 
-        // ========= NEW: Build "live summary" supaya Blade tak kosong sebelum lock =========
+       
         $summarySnap = \App\Models\InternalSummary::where('version_id', $version->id)->first();
         $isLockedFinal = (bool) optional($summarySnap)->is_logged;
 
         $summaryLive = (object)[
-            // Network (KL/CJ)
+         
             'kl_bandwidth' => $region->kl_bandwidth ?? 0,
             'kl_bandwidth_with_antiddos' => $region->kl_bandwidth_with_antiddos ?? 0,
             'kl_included_elastic_ip' => $region->kl_included_elastic_ip ?? 0,
@@ -727,11 +728,11 @@ $flavourDetails = collect($allFlavours)
             'kl_dr_firewall_opnsense' => $klDrOpn ?? 0,
             'cyber_dr_firewall_opnsense' => $cyberDrOpn ?? 0,
 
-            // DR EVS during activation
+           
             'kl_evs_dr' => $klEvsDR ?? 0,
             'cyber_evs_dr' => $cyberEvsDR ?? 0,
 
-            // “snapshot-like” extras utk Blade
+         
             'ecs_flavour_summary' => $ecsSummary ?? [],
             'is_logged' => false,
 
@@ -761,10 +762,10 @@ $flavourDetails = collect($allFlavours)
 
         ];
 
-        // Pilih snapshot kalau lock; kalau belum lock guna live object
+        
         $summaryForView = $isLockedFinal ? $summarySnap : $summaryLive;
 
-        // (extra) Compute table sizing details (base flavours untuk "Compute - ECS")
+       
         $usedFlavoursCompute = collect($ecsSummary['Kuala Lumpur'] ?? [])
             ->keys()
             ->merge(collect($ecsSummary['Cyberjaya'] ?? [])->keys())
@@ -776,11 +777,44 @@ $flavourDetails = collect($allFlavours)
             ->keyBy('flavour_name')
             ->map(fn($f)=>['vcpu'=>$f->vcpu,'vram'=>$f->vram]);
 
+
+
+
+     
+$mp = MPDRaaS::where('version_id', $version->id)->first();
+
+$mpSummary = [
+    'activation_days' => (int)($mp->mpdraas_activation_days ?? 0),
+    'location'        => $mp->mpdraas_location ?? ($version->region->dr_location ?? 'None'),
+    'ddos'            => $mp->ddos_requirement ?? 'No',
+    'bandwidth'       => (float)($mp->bandwidth_requirement ?? 0), // Mbps
+
+    
+    'storage_evs' => [
+        'main'               => (float)($mp->main ?? 0),
+        'used'               => (float)($mp->used ?? 0),
+        'delta'              => (float)($mp->delta ?? 0),
+        'total_replication'  => (float)($mp->total_replication ?? 0),
+    ],
+
+    
+    'dr_network' => collect($mp->dr_network ?? [])->map(function($row, $code){
+        return [
+            'code'   => $code,
+            'name'   => $row['name'] ?? $code,
+            'unit'   => $row['unit'] ?? '',
+            'kl_qty' => (float)($row['kl_qty'] ?? 0),
+            'cj_qty' => (float)($row['cj_qty'] ?? 0),
+        ];
+    })->values()->all(),
+];
+
+
         return view('projects.security_service.internal_summary', [
             'version'               => $version,
             'project'               => $project,
             'solution_type'         => $solution_type,
-            // PENTING: sekarang summary sentiasa ada (live kalau belum lock, snapshot kalau lock)
+          
             'summary'               => $summaryForView,
             'klManagedServices'     => $klManagedServices,
             'cyberManagedServices'  => $cyberManagedServices,
@@ -791,14 +825,22 @@ $flavourDetails = collect($allFlavours)
             'cyberEvs'              => $cyberEvs,
             'klEvsDR'               => $klEvsDR,
             'cyberEvsDR'            => $cyberEvsDR,
-            // DR computing (.dr) yang kau dah ada
+           
             'usedFlavours'          => $usedFlavours,
             'flavourDetails'        => $flavourDetails,
             'drCountsKL'            => $drCountsKL,
             'drCountsCJ'            => $drCountsCJ,
-            // NEW: untuk “Compute - ECS” (base flavour, bukan .dr)
+          
             'usedFlavoursCompute'   => $usedFlavoursCompute,
             'computeFlavourDetails' => $computeFlavourDetails,
+            'mpdraas' => $mpSummary,
+           
+'mpUsedFlavours'   => $mpUsedFlavours,
+'mpFlavourDetails' => $mpFlavourDetails,
+'mpDrCountsKL'     => $mpDrCountsKL,
+'mpDrCountsCJ'     => $mpDrCountsCJ,
+
+
         ]);
     }
 
@@ -814,7 +856,7 @@ $flavourDetails = collect($allFlavours)
             'solution_type',
         ])->findOrFail($versionId);
 
-        // paling atas dalam commit($versionId) — lepas load $version
+       
 $missing = [];
 if (!$version->solution_type)   $missing[] = 'Solution Type';
 if (!$version->project)         $missing[] = 'Project';
@@ -831,7 +873,7 @@ if (!empty($missing)) {
 }
 
 
-        // Kalau dah locked, jangan commit lagi
+       
         if (InternalSummary::where('version_id', $version->id)->where('is_logged', true)->exists()) {
             return redirect()
                 ->route('versions.internal_summary.show', $version->id)
@@ -842,7 +884,7 @@ if (!empty($missing)) {
         $region          = $version->region;
         $securityService = $version->security_service;
 
-        // --- NORMALIZE & MAP FLAVOUR META ---
+       
         $flavourMap = \App\Models\ECSFlavour::all()
             ->keyBy(fn($x) => strtolower(trim((string)$x->flavour_name)))
             ->map(fn($x) => [
@@ -854,7 +896,7 @@ if (!empty($missing)) {
 
         // --- ECS rows ---
         $ecsData = collect($version->ecs_configuration ?? [])->map(function ($row) {
-            // jaga object/array
+     
             $row->region            = trim((string)($row->region ?? ''));
             $row->dr_activation     = strtoupper(trim((string)($row->dr_activation ?? 'No'))) === 'YES' ? 'Yes' : 'No';
             $row->csdr_needed       = strtoupper(trim((string)($row->csdr_needed ?? 'No'))) === 'YES' ? 'Yes' : 'No';
@@ -868,15 +910,11 @@ if (!empty($missing)) {
             return $row;
         });
 
-        // ===== BACKUP CAPACITIES =====
+        
         $sumFull = fn($regionName) => $ecsData->where('region', $regionName)
             ->where('csbs_standard_policy', '!=', 'No Backup')
             ->sum(fn($i) => ($i->csbs_initial_data_size ?? 0) * ( ($i->full_backup_total_retention_full_copies ?? 0) + 1 ));
 
-        /*$sumInc = fn($regionName) => $ecsData->where('region', $regionName)
-            ->where('csbs_standard_policy', '!=', 'No Backup')
-            ->sum(fn($i) => ceil( ($i->csbs_estimated_incremental_data_change ?? $i->csbs_incremental_change ?? 0)
-                                  * ($i->incremental_backup_total_retention_incremental_copies ?? 0) ));*/
 
 
         $sumInc = fn($regionName) => $ecsData->where('region', $regionName)
@@ -896,7 +934,7 @@ if (!empty($missing)) {
         $klIncrementalBackupCapacity    = $sumInc('Kuala Lumpur');
         $cyberIncrementalBackupCapacity = $sumInc('Cyberjaya');
 
-        // Replication retention (mirror-site logic)
+     
         $klReplicationRetentionCapacity = $ecsData->where('region','Cyberjaya')
             ->where('csbs_standard_policy','!=','No Backup')
             ->where('required','Yes')
@@ -976,7 +1014,7 @@ if (!empty($missing)) {
             $drStorageCJ = $ecsData->where('region','Kuala Lumpur')->where('csdr_needed','Yes')->sum('csbs_total_storage');
         }
 
-        // Replication count → goes to destination column only
+        
         $yesCountAll = $ecsData->where('csdr_needed','Yes')->count();
         $drReplicationKL = $isKL ? $yesCountAll : 0;
         $drReplicationCJ = $isCJ ? $yesCountAll : 0;
@@ -989,23 +1027,23 @@ if (!empty($missing)) {
         $drManagedServiceKL = $drReplicationKL;
         $drManagedServiceCJ = $drReplicationCJ;
 
-        // ===== DR EVS during activation (double) =====
+       
         $klEvsDR = $ecsData->where('region','Cyberjaya')->where('dr_activation','Yes')
             ->sum(fn($i)=>(($i->storage_system_disk ?? 0)+($i->storage_data_disk ?? 0))) * 2;
         $cyberEvsDR = $ecsData->where('region','Kuala Lumpur')->where('dr_activation','Yes')
             ->sum(fn($i)=>(($i->storage_system_disk ?? 0)+($i->storage_data_disk ?? 0))) * 2;
 
-        // ===== DR Flavour counts (destination flipped) =====
+       
         $drCountsKL = $ecsData->where('region','Cyberjaya')->where('dr_activation','Yes')
             ->groupBy('ecs_flavour_mapping')->map->count();
         $drCountsCJ = $ecsData->where('region','Kuala Lumpur')->where('dr_activation','Yes')
             ->groupBy('ecs_flavour_mapping')->map->count();
 
-        // ===== DR License summary (guna helper yang kau dah tulis) =====
+     
         $drLic = $this->getDrLicenseSummary($ecsData, $flavourMap, $isKL, $isCJ, (int)$coldDrDaysKL, (int)$coldDrDaysCJ);
 
-        // ===== DR Network & Security =====
-        // NOTE: field nama ikut Region form kau. Kalau field sebenar lain (cth: dr bandwidth), tukar sini.
+     
+        
         $klDrVpll    = $isKL ? (int) ceil(($region->kl_db_bandwidth ?? 0) / 10)      : 0;
         $cyberDrVpll = $isCJ ? (int) ceil(($region->cyber_db_bandwidth ?? 0) / 10)   : 0;
 
@@ -1027,7 +1065,7 @@ if (!empty($missing)) {
         $klDrForti = $isKL ? $fortiCount : 0;   $cyberDrForti = $isCJ ? $fortiCount : 0;
         $klDrOpn   = $isKL ? $opnCount   : 0;   $cyberDrOpn   = $isCJ ? $opnCount   : 0;
 
-        // ===== Build payload =====
+       
         $payload = [
             'id'         => \Illuminate\Support\Str::uuid(),
             'version_id' => $version->id,
@@ -1035,7 +1073,7 @@ if (!empty($missing)) {
             'customer_id' => $project->customer_id ?? null,
             'presale_id'  => $project->presale_id ?? null,
 
-            // Network (KL/CJ)
+          
             'kl_bandwidth' => $region->kl_bandwidth,
             'kl_bandwidth_with_antiddos' => $region->kl_bandwidth_with_antiddos,
             'kl_included_elastic_ip' => $region->kl_included_elastic_ip,
@@ -1184,8 +1222,9 @@ if (!empty($missing)) {
             // DR EVS during activation
             'kl_evs_dr'    => $klEvsDR,
             'cyber_evs_dr' => $cyberEvsDR,
+            
 
-            // LOCK
+          
             'is_logged' => true,
             'logged_at' => now(),
         ];
@@ -1261,7 +1300,7 @@ if (!empty($missing)) {
         return $summary;
     }
 
-    // ==== DRLicense summary ===
+   
     private function getDrLicenseSummary(
         \Illuminate\Support\Collection $ecsData,
         \Illuminate\Support\Collection|array $flavourMap,
@@ -1270,11 +1309,11 @@ if (!empty($missing)) {
         int $coldDrDaysKL,
         int $coldDrDaysCJ
     ): array {
-        // Destination (where DR will run) and Source (original site)
+       
         $destSite   = $isKL ? 'Kuala Lumpur' : ($isCJ ? 'Cyberjaya' : null);
         $sourceSite = $isKL ? 'Cyberjaya'    : ($isCJ ? 'Kuala Lumpur' : null);
 
-        // If DR location not chosen → zeros
+       
         if (!$destSite || !$sourceSite) {
             $zero = array_fill_keys([
                 'license_months','windows_std','windows_dc','rds',
@@ -1283,7 +1322,7 @@ if (!empty($missing)) {
             return ['kl' => $zero, 'cj' => $zero];
         }
 
-        // Helpers
+        
         $mapArr = is_array($flavourMap) ? $flavourMap : $flavourMap->toArray();
         $getInMap = function ($flv, $key) use ($mapArr) {
             $base = strtolower(trim((string)$flv));
@@ -1299,25 +1338,25 @@ if (!empty($missing)) {
         $isNotLinux= fn($r) => strcasecmp($r->license_operating_system, 'Linux') !== 0;
         $isRhel    = fn($r) => strcasecmp($r->license_operating_system, 'Red Hat Enterprise Linux') === 0;
 
-        // Pick ONLY VMs from the source site that have DR Activation = Yes
+    
         $vm = $ecsData->filter(function ($r) use ($sourceSite) {
             return strcasecmp((string)$r->region, $sourceSite) === 0
                 && (string)$r->dr_activation === 'Yes';
         });
 
-        // License Month (goes to DESTINATION column)
+     
         $licenseMonths = $isKL
             ? ($coldDrDaysKL > 0 ? (int)ceil($coldDrDaysKL / 30) : 0)
             : ($coldDrDaysCJ > 0 ? (int)ceil($coldDrDaysCJ / 30) : 0);
 
-        // Counts (belong to the SOURCE column)
+      
         $winStd = $vm->filter($isWinStd)
                      ->sum(fn($r) => $getInMap($r->ecs_flavour_mapping, 'windows_license_count'));
 
         $winDc  = $vm->filter($isWinDC)
                      ->sum(fn($r) => $getInMap($r->ecs_flavour_mapping, 'windows_license_count'));
 
-        // RDS: count Windows VMs that selected an RDS SAL (string flag starts with "Microsoft")
+        
         $rds    = $vm->filter($isWinOS)
                      ->filter(fn($r) => str_starts_with((string)($r->license_rds_license ?? ''), 'Microsoft'))
                      ->count();
@@ -1341,16 +1380,16 @@ if (!empty($missing)) {
             return ($v >= 9) ? $v : 0;
         });
 
-        // Prepare result buckets
+       
         $kl = $cj = array_fill_keys([
             'license_months','windows_std','windows_dc','rds',
             'sql_web','sql_std','sql_ent','rhel_1_8','rhel_9_127'
         ], 0);
 
-        // Put License Month in DEST column; put all counts in SOURCE column
-        if ($isKL) {                 // DR runs in KL, source = CJ
-            $kl['license_months'] = $licenseMonths;  // months at destination
-            $cj['windows_std']    = $winStd;         // counts at source
+      
+        if ($isKL) {                
+            $kl['license_months'] = $licenseMonths;  
+            $cj['windows_std']    = $winStd;         
             $cj['windows_dc']     = $winDc;
             $cj['rds']            = $rds;
             $cj['sql_web']        = $sqlWeb;
@@ -1358,7 +1397,7 @@ if (!empty($missing)) {
             $cj['sql_ent']        = $sqlEnt;
             $cj['rhel_1_8']       = $rhel_1_8;
             $cj['rhel_9_127']     = $rhel_9_127;
-        } elseif ($isCJ) {           // DR runs in CJ, source = KL
+        } elseif ($isCJ) {          
             $cj['license_months'] = $licenseMonths;
             $kl['windows_std']    = $winStd;
             $kl['windows_dc']     = $winDc;
@@ -1370,7 +1409,7 @@ if (!empty($missing)) {
             $kl['rhel_9_127']     = $rhel_9_127;
         }
 
-        // Optional: debug
+      
         logger('DR VM picked', $vm->map(fn($r) => [
             'region' => $r->region,
             'dr_act' => $r->dr_activation,

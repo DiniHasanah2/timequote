@@ -34,7 +34,7 @@
         ($totalManagedCharges ?? 0) +                 // Managed Services (total)
         (($klTotal ?? 0) + ($cjTotal ?? 0)) +         // Network (KL + CJ)
         (($klEcsTotal ?? 0) + ($cjEcsTotal ?? 0)) +   // ECS (KL + CJ)
-        ($totalLicenseCharges ?? ($licenseKL + $licenseCJ)) + // License (guna total kalau ada, else KL+CJ)
+        ($totalLicenseCharges ?? ($licenseKL + $licenseCJ)) + // License 
         ($totalStorageCharges ?? 0) +                 // Storage (total)
         ($totalBackupCharges ?? 0) +                  // Backup (total)
         ($totalcloudSecurityCharges ?? 0) +           // Cloud Security (total)
@@ -104,14 +104,25 @@
             <a href="{{ route('versions.mpdraas.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.mpdraas.create' ? 'active-link' : '' }} {{ $isViewOnly ? 'disabled-link' : '' }}">MP-DRaaS</a>
             <span class="breadcrumb-separator">»</span>
             @endif
-          <a href="{{ route('versions.security_service.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.create' ? 'active-link' : '' }}">Cloud Security</a>
+          <a href="{{ route('versions.security_service.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.create' ? 'active-link' : '' }}">Managed Services & Cloud Security</a>
             <span class="breadcrumb-separator">»</span>
                <a href="{{ route('versions.security_service.time.create', $version->id) }}"
    class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.time.create' ? 'active-link' : '' }}">
   Time Security Services
 </a>
 <span class="breadcrumb-separator">»</span>
-            <a href="{{ route('versions.non_standard_items.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.non_standard_items.create' ? 'active-link' : '' }} {{ $isViewOnly ? 'disabled-link' : '' }}">Non-Standard Services</a>
+
+
+
+
+
+   <a href="{{ route('versions.non_standard_offerings.create', $version->id) }}"
+   class="breadcrumb-link {{ Route::currentRouteName() === 'versions.non_standard_offerings.create' ? 'active-link' : '' }}">
+  Standard Services
+</a>
+<span class="breadcrumb-separator">»</span>
+
+            <a href="{{ route('versions.non_standard_items.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.non_standard_items.create' ? 'active-link' : '' }} {{ $isViewOnly ? 'disabled-link' : '' }}">3rd Party (Non-Standard)</a>
             <span class="breadcrumb-separator">»</span>
             <a href="{{ route('versions.internal_summary.show', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.internal_summary.show' ? 'active-link' : '' }} {{ $isViewOnly ? 'disabled-link' : '' }}">Internal Summary</a>
               <span class="breadcrumb-separator">»</span>

@@ -77,7 +77,7 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-  // Bila klik "Use": isi field & modal auto-close (sebab ada data-bs-dismiss="modal")
+ 
   document.querySelectorAll('.pick-service-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const code = btn.dataset.code ?? '';
@@ -88,16 +88,16 @@ document.addEventListener('DOMContentLoaded', () => {
       if (codeInput) codeInput.value = code;
       if (nameInput) nameInput.value = name;
 
-      // Kalau form Add masih hidden, tunjukkan
+    
       const addForm = document.getElementById('addForm');
       if (addForm && addForm.style.display === 'none') addForm.style.display = 'block';
 
-      // Fokus ke field pertama yang boleh edit
+     
       document.getElementById('vCPU')?.focus();
     });
   });
 
-  // Carian pantas dalam modal
+  
   const q = document.getElementById('svc-search');
   const tbody = document.getElementById('svc-body');
   q?.addEventListener('input', function(){
@@ -107,7 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // (Optional) Bersih fallback kalau backdrop tertinggal
+  
   document.addEventListener('hidden.bs.modal', () => {
     document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
     document.body.classList.remove('modal-open');

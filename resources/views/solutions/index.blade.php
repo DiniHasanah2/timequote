@@ -39,8 +39,8 @@
         <label class="form-label mb-1">Status</label>
         <select name="status" class="form-select">
           <option value="" {{ empty($filters['status']) ? 'selected' : '' }}>All</option>
-          <option value="pending"  {{ ($filters['status'] ?? '') === 'pending'  ? 'selected' : '' }}>pending</option>
-          <option value="complete" {{ ($filters['status'] ?? '') === 'complete' ? 'selected' : '' }}>complete</option>
+          <option value="pending"  {{ ($filters['status'] ?? '') === 'pending'  ? 'selected' : '' }}>Pending</option>
+          <option value="committed" {{ ($filters['status'] ?? '') === 'committed' ? 'selected' : '' }}>Committed</option>
         </select>
       </div>
 
@@ -83,7 +83,17 @@
         <td>{{ $solution->customer_name }}</td>
         <td>{{ $solution->project_name }}</td>
         <td>{{ $solution->version_name }}</td>
-        <td>{{ $solution->status }}</td>
+        <!---<td>{{ $solution->status }}</td>--->
+
+
+        <td>
+  @if(strtolower($solution->status) === 'committed')
+    <span class="badge rounded-pill text-bg-success">Committed</span>
+  @else
+    <span class="badge rounded-pill text-bg-warning">Pending</span>
+  @endif
+</td>
+
         <td>{{ $solution->quotation_id }}</td>
         <td>
     <!---<a href="{{ route('versions.quotation.preview', $solution->version_id) }}" class="btn btn-sm btn-outline-primary" title="View Quotation">

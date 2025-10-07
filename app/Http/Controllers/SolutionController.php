@@ -11,15 +11,15 @@ use App\Models\Customer;
 
 class SolutionController extends Controller
 {
-    public function index(Request $request)
+    /*public function index(Request $request)
     {
         // --- Filters from query string ---
         $customerId = $request->query('customer_id');
         $projectId  = $request->query('project_id');
-        $status     = $request->query('status'); // 'pending' | 'complete' | null
+        $status     = $request->query('status'); 
 
         // Hanya benarkan status ini (case-insensitive handling)
-        $allowedStatuses = ['pending','complete','Pending','Complete','PENDING','COMPLETE'];
+        $allowedStatuses = ['pending','committed','Pending','Committed','PENDING','COMMITTED'];
 
         // === Existing Solutions (yang sudah dibuat) ===
         $existingSolutionsQuery = Solution::with(['quotation', 'version', 'customer', 'project'])
@@ -76,8 +76,7 @@ class SolutionController extends Controller
         })->concat($autoSolutions);
 
         // Dropdown sources
-        /*$customers = Customer::orderBy('name')->get(['id','name']);
-        $projects  = Project::orderBy('name')->get(['id','name']);*/
+        
         $user   = auth()->user();
 $userId = $user->id;
 
@@ -112,11 +111,7 @@ if ($user->role === 'admin') {
 
       
         $existingIdsAll = Solution::pluck('quotation_id')->toArray();
-        /*$availableQuotations = Quotation::with(['version','project.customer'])
-            ->whereNotIn('id', $existingIdsAll)
-            ->whereIn('status', $allowedStatuses)
-            ->orderByDesc('created_at')
-            ->get();*/
+        
 
         $availableQuotationsQuery = Quotation::with(['version','project.customer'])
     ->whereNotIn('id', $existingIdsAll)
@@ -146,7 +141,135 @@ $availableQuotations = $availableQuotationsQuery->orderByDesc('created_at')->get
                 'status'      => $status,
             ],
         ]);
+    }*/
+
+    public function index(Request $request)
+{
+    $customerId = $request->query('customer_id');
+    $projectId  = $request->query('project_id');
+    $statusRaw  = $request->query('status');          // 'pending' | 'committed' | null
+    $status     = $statusRaw ? strtolower($statusRaw) : null;
+
+    // ========= EXISTING SOLUTIONS (yang dah create) =========
+    $existingSolutionsQuery = \App\Models\Solution::with([
+            'quotation',
+            'customer',
+            'project',
+       
+            'version.internal_summary',
+        ])
+        ->when($customerId, fn($q) => $q->where('customer_id', $customerId))
+        ->when($projectId,  fn($q) => $q->where('project_id',  $projectId));
+
+    // tapis status berdasarkan internal_summaries.is_logged
+    if ($status === 'committed') {
+        $existingSolutionsQuery->whereHas('version.internal_summary', fn($iq) => $iq->where('is_logged', 1));
+    } elseif ($status === 'pending') {
+        $existingSolutionsQuery->where(function ($q) {
+            $q->whereDoesntHave('version.internal_summary')
+              ->orWhereHas('version.internal_summary', fn($iq) => $iq->whereNull('is_logged')->orWhere('is_logged', 0));
+        });
     }
+
+    $existingSolutions = $existingSolutionsQuery->get();
+
+    // ========= QUOTATIONS TANPA SOLUTION (auto-rows) =========
+    $existingQuotationIds = $existingSolutions->pluck('quotation_id')->toArray();
+
+    $quotationsQuery = \App\Models\Quotation::with([
+            'version.internal_summary',
+            'project.customer'
+        ])
+        ->whereNotIn('id', $existingQuotationIds)
+        ->when($customerId, fn($q) => $q->whereHas('project', fn($qq) => $qq->where('customer_id', $customerId)))
+        ->when($projectId,  fn($q) => $q->where('project_id', $projectId));
+
+    if ($status === 'committed') {
+        $quotationsQuery->whereHas('version.internal_summary', fn($iq) => $iq->where('is_logged', 1));
+    } elseif ($status === 'pending') {
+        $quotationsQuery->where(function ($q) {
+            $q->whereDoesntHave('version.internal_summary')
+              ->orWhereHas('version.internal_summary', fn($iq) => $iq->whereNull('is_logged')->orWhere('is_logged', 0));
+        });
+    }
+
+    $quotations = $quotationsQuery->get();
+
+    
+    // Existing solutions → status DIKIRA dari internal_summary (bukan field solution/quotation)
+    $existingRows = $existingSolutions->map(function ($s) {
+        $isCommitted = optional(optional($s->version)->internal_summary)->is_logged == 1;
+        return (object)[
+            'version_name'  => $s->version_name ?? optional($s->version)->version_name ?? '-',
+            'customer_name' => $s->customer_name ?? optional($s->customer)->name ?? '-',
+            'project_name'  => $s->project_name  ?? optional($s->project)->name ?? '-',
+            'status'        => $isCommitted ? 'Committed' : 'Pending',
+            'quotation_id'  => $s->quotation_id,
+            'version_id'    => $s->version_id,
+            'is_auto'       => false,
+        ];
+    });
+
+    // Auto rows dari quotations
+    $autoRows = $quotations->map(function ($q) {
+        $isCommitted = optional(optional($q->version)->internal_summary)->is_logged == 1;
+        return (object)[
+            'version_name'  => optional($q->version)->version_name ?? '-',
+            'customer_name' => optional($q->project->customer)->name ?? '-',
+            'project_name'  => optional($q->project)->name ?? '-',
+            'status'        => $isCommitted ? 'Committed' : 'Pending',
+            'quotation_id'  => $q->id,
+            'version_id'    => $q->version_id,
+            'is_auto'       => true,
+        ];
+    });
+
+    $allSolutions = $existingRows->concat($autoRows);
+
+    // Dropdown sources (kekalkan logic role seperti sedia ada)
+    $user   = auth()->user();
+    $userId = $user->id;
+
+    if ($user->role === 'admin') {
+        $customers = \App\Models\Customer::orderBy('name')->get(['id','name']);
+        $projects  = \App\Models\Project::orderBy('name')->get(['id','name']);
+    } else {
+        $customers = \App\Models\Customer::whereHas('projects', function ($q) use ($userId) {
+                $q->where(function ($qq) use ($userId) {
+                    $qq->where('presale_id', $userId)
+                       ->orWhereHas('assigned_presales', fn($q2) => $q2->where('users.id', $userId));
+                });
+            })
+            ->orderBy('name')->get(['id','name']);
+
+        $projects = \App\Models\Project::where(function ($q) use ($userId) {
+                $q->where('presale_id', $userId)
+                  ->orWhereHas('assigned_presales', fn($q2) => $q2->where('users.id', $userId));
+            })
+            ->orderBy('name')->get(['id','name']);
+    }
+
+    // Quotation untuk "Add Solution" (tak perlu tapis status lagi)
+    $existingIdsAll = \App\Models\Solution::pluck('quotation_id')->toArray();
+    $availableQuotations = \App\Models\Quotation::with(['version','project.customer'])
+        ->whereNotIn('id', $existingIdsAll)
+        ->orderByDesc('created_at')
+        ->get();
+
+    return view('solutions.index', [
+        'solutions'           => $allSolutions,
+        'availableQuotations' => $availableQuotations,
+        'presales'            => \App\Models\User::where('role', 'presale')->get(),
+        'customers'           => $customers,
+        'projects'            => $projects,
+        'filters'             => [
+            'customer_id' => $customerId,
+            'project_id'  => $projectId,
+            'status'      => $statusRaw,
+        ],
+    ]);
+}
+
 
     public function store(Request $request)
     {
@@ -154,7 +277,7 @@ $availableQuotations = $availableQuotationsQuery->orderByDesc('created_at')->get
         $request->validate([
             'quotation_id' => 'required|uuid|exists:quotations,id',
             'presale_id'   => 'required|uuid|exists:users,id',
-            'status'       => 'nullable|in:pending,complete,Pending,Complete,PENDING,COMPLETE',
+            'status'       => 'nullable|in:pending,committed,Pending,Committed,PENDING,COMMITTED',
         ]);
 
         $status = $request->input('status', 'pending');

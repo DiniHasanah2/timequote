@@ -88,6 +88,21 @@
     $computeFlavourDetails   = collect($computeFlavourDetails ?? []);
 @endphp
 
+
+
+@php
+    // value not 0? (numeric > 0 or string/array not zero)
+    $nz = function($v) {
+        return is_numeric($v) ? ((float)$v) > 0 : !empty($v);
+    };
+    // at least 1 value
+    $any = function(...$vs) use ($nz) {
+        foreach ($vs as $x) { if ($nz($x)) return true; }
+        return false;
+    };
+@endphp
+
+
 @section('content')
 <div class="card shadow-sm">
     <div class="card-header d-flex justify-between align-items-center">
@@ -143,7 +158,7 @@
                 <span class="breadcrumb-separator">»</span>
             @endif
 
-            <a href="{{ route('versions.security_service.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.create' ? 'active-link' : '' }}">Cloud Security</a>
+            <a href="{{ route('versions.security_service.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.create' ? 'active-link' : '' }}">Managed Services & Cloud Security</a>
             <span class="breadcrumb-separator">»</span>
                <a href="{{ route('versions.security_service.time.create', $version->id) }}"
    class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.time.create' ? 'active-link' : '' }}">
@@ -151,10 +166,17 @@
 </a>
 <span class="breadcrumb-separator">»</span>
 
+
+   <a href="{{ route('versions.non_standard_offerings.create', $version->id) }}"
+   class="breadcrumb-link {{ Route::currentRouteName() === 'versions.non_standard_offerings.create' ? 'active-link' : '' }}">
+  Standard Services
+</a>
+<span class="breadcrumb-separator">»</span>
+
           
             <a href="{{ route('versions.non_standard_items.create', $version->id) }}"
                class="breadcrumb-link {{ Route::currentRouteName() === 'versions.non_standard_items.create' ? 'active-link' : '' }}">
-               Non-Standard Services
+               3rd Party (Non-Standard)
             </a>
             <span class="breadcrumb-separator">»</span>
 
@@ -240,54 +262,81 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <!-- Professional Services -->
-                        <tr>
-                            <td style="background-color: #e76ccf;font-weight: bold;">Professional Services</td>
-                            <td style="background-color: #e76ccf;font-weight: bold;">Unit</td>
-                            <td style="background-color: #e76ccf;font-weight: bold;">Qty</td>
-                            <td style="background-color: #e76ccf;font-weight: bold;">Qty</td>
-                             
-                        </tr>
-                        <tr>
-                            <td>Professional Services (ONE TIME Provisioning)</td>
-                            <td>Days</td>
-                            <td colspan="2">{{ $summary->mandays ?? 0 }}</td>
-                           
-                        </tr>
-                        <!---<tr>
-                            <td>Migration Tools One Time Charge</td>
-                            <td>Unit Per Month*</td>
-                            {{-- License Count (Unit) --}}
-                            <td>
-                                {{ $summary->kl_license_count ?? $summary->cyber_license_count ?? 0 }} Unit
-                            </td>
-                            {{-- Duration (Months) --}}
-                            <td>
-                                {{ $summary->kl_duration ?? $summary->cyber_duration ?? 0 }} Months
-                            </td>
-                          
-                        </tr>--->
-                        @php
-    // Ambil dari KL dulu; kalau <=0 cuba CJ; kalau tetap <=0, pakai 1
-    $migUnit = (int)($summary->kl_license_count ?? 0);
-    if ($migUnit <= 0) $migUnit = (int)($summary->cyber_license_count ?? 0);
-    if ($migUnit <= 0) $migUnit = 1;
-
-    $migMonths = (int)($summary->kl_duration ?? 0);
-    if ($migMonths <= 0) $migMonths = (int)($summary->cyber_duration ?? 0);
-    if ($migMonths <= 0) $migMonths = 1;
+                    
+@php
+    $ps_show = $any($summary->mandays ?? 0,
+                    $summary->kl_license_count ?? 0, $summary->cyber_license_count ?? 0,
+                    $summary->kl_duration ?? 0,       $summary->cyber_duration ?? 0);
 @endphp
-
+@if($ps_show)
 <tr>
-  <td>Migration Tools One Time Charge</td>
-  <td>Unit Per Month*</td>
-  <td>{{ $migUnit }} Unit</td>
-  <td>{{ $migMonths }} Months</td>
+    <td style="background-color:#e76ccf;font-weight:bold;">Professional Services</td>
+    <td style="background-color:#e76ccf;font-weight:bold;">Unit</td>
+    <td style="background-color:#e76ccf;font-weight:bold;">Qty</td>
+    <td style="background-color:#e76ccf;font-weight:bold;">Qty</td>
 </tr>
 
+@if($nz($summary->mandays ?? 0))
+<tr>
+    <td>Professional Services (ONE TIME Provisioning)</td>
+    <td>Days</td>
+    <td colspan="2">{{ (int)($summary->mandays ?? 0) }}</td>
+</tr>
+@endif
 
-                        <!-- Managed Services -->
-                        <tr>
+@php
+    // guna nilai mentah; JANGAN auto “1” — bila kosong, baris disembunyi
+    $migUnit   = max((int)($summary->kl_license_count ?? 0), (int)($summary->cyber_license_count ?? 0));
+    $migMonths = max((int)($summary->kl_duration ?? 0),      (int)($summary->cyber_duration ?? 0));
+@endphp
+@if($any($migUnit, $migMonths))
+<tr>
+    <td>Migration Tools One Time Charge</td>
+    <td>Unit Per Month*</td>
+    <td>{{ $migUnit }} Unit</td>
+    <td>{{ $migMonths }} Months</td>
+</tr>
+@endif
+@endif
+
+
+{{-- Managed Services (tunjuk hanya servis yang >0) --}}
+@php
+    $managedRows = collect([
+        ['name' => 'Managed Operating System',
+         'kl' => $klManagedServices['Managed Operating System'] ?? 0,
+         'cj' => $cyberManagedServices['Managed Operating System'] ?? 0],
+        ['name' => 'Managed Backup and Restore',
+         'kl' => $klManagedServices['Managed Backup and Restore'] ?? 0,
+         'cj' => $cyberManagedServices['Managed Backup and Restore'] ?? 0],
+        ['name' => 'Managed Patching',
+         'kl' => $klManagedServices['Managed Patching'] ?? 0,
+         'cj' => $cyberManagedServices['Managed Patching'] ?? 0],
+        ['name' => 'Managed DR',
+         'kl' => $klManagedServices['Managed DR'] ?? 0,
+         'cj' => $cyberManagedServices['Managed DR'] ?? 0],
+    ])->filter(fn($r) => ($r['kl'] ?? 0) > 0 || ($r['cj'] ?? 0) > 0);
+@endphp
+
+@if($managedRows->count())
+<tr>
+    <td style="background-color:#e76ccf;font-weight:bold;">Managed Services</td>
+    <td style="background-color:#e76ccf;font-weight:bold;">Unit</td>
+    <td style="background-color:#e76ccf;font-weight:bold;">KL.Qty</td>
+    <td style="background-color:#e76ccf;font-weight:bold;">CJ.Qty</td>
+</tr>
+@foreach($managedRows as $r)
+<tr>
+    <td>{{ $r['name'] }}</td>
+    <td>VM</td>
+    <td>{{ $r['kl'] }}</td>
+    <td>{{ $r['cj'] }}</td>
+</tr>
+@endforeach
+@endif
+
+
+                        <!--<tr>
                             <td style="background-color: #e76ccf;font-weight: bold;">Managed Services</td>
                             <td style="background-color: #e76ccf;font-weight: bold;">Unit</td>
                             <td style="background-color: #e76ccf;font-weight: bold;">KL.Qty</td>
@@ -311,10 +360,9 @@
                                 <td>{{ $cyberManagedServices[$service] ?? 0 }}</td>
                             
                             </tr>
-                        @endforeach
+                        @endforeach--->
 
-                        <!-- Network -->
-                        <tr>
+                        <!---<tr>
                             <td style="background-color: #e76ccf;font-weight: bold;">Network</td>
                             <td style="background-color: #e76ccf;font-weight: bold;">Unit</td>
                             <td style="background-color: #e76ccf;font-weight: bold;">KL.Qty</td>
@@ -419,9 +467,86 @@
                             <td>{{ $summary->kl_gslb ?? 0 }}</td>
                             <td>{{ $summary->cyber_gslb ?? 0 }}</td>
                                
-                        </tr>
+                        </tr>--->
+                        {{-- Network (auto-filter baris nilai kosong) --}}
+@php
+    $networkRows = [
+        ['label'=>'Bandwidth','unit'=>'Mbps','kl'=>$summary->kl_bandwidth ?? 0,'cj'=>$summary->cyber_bandwidth ?? 0],
+        ['label'=>'Bandwidth with Anti-DDoS','unit'=>'Mbps','kl'=>$summary->kl_bandwidth_with_antiddos ?? 0,'cj'=>$summary->cyber_bandwidth_with_antiddos ?? 0],
+        ['label'=>'Included Elastic IP (FOC)','unit'=>'Unit','kl'=>$summary->kl_included_elastic_ip ?? 0,'cj'=>$summary->cyber_included_elastic_ip ?? 0],
+        ['label'=>'Elastic IP','unit'=>'Unit','kl'=>$summary->kl_elastic_ip ?? 0,'cj'=>$summary->cyber_elastic_ip ?? 0],
+        ['label'=>'Elastic Load Balancer (External)','unit'=>'Unit','kl'=>$summary->kl_elastic_load_balancer ?? 0,'cj'=>$summary->cyber_elastic_load_balancer ?? 0],
+        ['label'=>'Direct Connect Virtual Gateway','unit'=>'Unit','kl'=>$summary->kl_direct_connect_virtual ?? 0,'cj'=>$summary->cyber_direct_connect_virtual ?? 0],
+        ['label'=>'L2BR instance','unit'=>'Unit','kl'=>$summary->kl_l2br_instance ?? 0,'cj'=>$summary->cyber_l2br_instance ?? 0],
+        ['label'=>'Virtual Private Leased Line (vPLL)','unit'=>'Mbps','kl'=>$summary->kl_virtual_private_leased_line ?? 0,'cj'=>null], // CJ tiada
+        ['label'=>'vPLL L2BR','unit'=>'Pair','kl'=>$summary->kl_vpll_l2br ?? 0,'cj'=>null],
+        ['label'=>'NAT Gateway (Small)','unit'=>'Unit','kl'=>$summary->kl_nat_gateway_small ?? 0,'cj'=>$summary->cyber_nat_gateway_small ?? 0],
+        ['label'=>'NAT Gateway (Medium)','unit'=>'Unit','kl'=>$summary->kl_nat_gateway_medium ?? 0,'cj'=>$summary->cyber_nat_gateway_medium ?? 0],
+        ['label'=>'NAT Gateway (Large)','unit'=>'Unit','kl'=>$summary->kl_nat_gateway_large ?? 0,'cj'=>$summary->cyber_nat_gateway_large ?? 0],
+        ['label'=>'NAT Gateway (Extra-Large)','unit'=>'Unit','kl'=>$summary->kl_nat_gateway_xlarge ?? 0,'cj'=>$summary->cyber_nat_gateway_xlarge ?? 0],
+        ['label'=>'Managed Global Server Load Balancer (GSLB)','unit'=>'Domain','kl'=>$summary->kl_gslb ?? 0,'cj'=>$summary->cyber_gslb ?? 0],
+    ];
+    $networkRows = array_values(array_filter($networkRows, fn($r) =>
+        ($r['kl'] ?? 0) > 0 || ($r['cj'] ?? 0) > 0
+    ));
+@endphp
 
-                        <tr>
+@if(count($networkRows))
+<tr>
+    <td style="background-color:#e76ccf;font-weight:bold;">Network</td>
+    <td style="background-color:#e76ccf;font-weight:bold;">Unit</td>
+    <td style="background-color:#e76ccf;font-weight:bold;">KL.Qty</td>
+    <td style="background-color:#e76ccf;font-weight:bold;">CJ.Qty</td>
+</tr>
+@foreach($networkRows as $r)
+<tr>
+    <td>{{ $r['label'] }}</td>
+    <td>{{ $r['unit'] }}</td>
+    <td>{{ $r['kl'] ?? 0 }}</td>
+    <td>
+        @if(is_null($r['cj']))
+            <input class="form-control bg-light text-muted" disabled>
+        @else
+            {{ $r['cj'] }}
+        @endif
+    </td>
+</tr>
+@endforeach
+@endif
+
+@php $usedFlavours = $usedFlavoursCompute->sort()->values(); @endphp
+@if($usedFlavours->count())
+<tr>
+    <td colspan="4" style="background-color:#e76ccf;font-weight:bold;">Computing</td>
+</tr>
+<thead class="table-light">
+<tr>
+    <th>Compute - Elastic Cloud Server (ECS)</th>
+    <th>Sizing</th>
+    <th>KL.Qty</th>
+    <th>CJ.Qty</th>
+</tr>
+</thead>
+
+@foreach($usedFlavours as $flavour)
+@php
+    $details = $computeFlavourDetails->get($flavour);
+    $sizing  = $details ? ($details['vcpu'].' vCPU , '.$details['vram'].' vRAM') : '-';
+    $klQty   = (int)($ecsSummary['Kuala Lumpur'][$flavour] ?? 0);
+    $cjQty   = (int)($ecsSummary['Cyberjaya'][$flavour] ?? 0);
+@endphp
+<tr style="background-color:rgb(251,194,224);">
+    <td><a href="{{ route('flavour.index',['highlight'=>$flavour]) }}">{{ $flavour }}</a></td>
+    <td>{{ $sizing }}</td>
+    <td>{{ $klQty }}</td>
+    <td>{{ $cjQty }}</td>
+</tr>
+@endforeach
+@endif
+
+
+
+                        <!---<tr>
                             <td colspan="4" style="background-color: #e76ccf; font-weight: bold;">Computing</td>
                         </tr>
                         <thead class="table-light">
@@ -457,9 +582,49 @@
                                 <td>{{ $cjQty }}</td>
                                
                             </tr>
-                        @endforeach
+                        @endforeach--->
+{{-- License (tunjuk baris yang ada qty) --}}
+@php
+    $msRows = [
+        ['label'=>'Microsoft Windows Server (Core Pack) - Standard','kl'=>$licenseSummary['windows_std']['Kuala Lumpur'] ?? 0,'cj'=>$licenseSummary['windows_std']['Cyberjaya'] ?? 0],
+        ['label'=>'Microsoft Windows Server (Core Pack) - Data Center','kl'=>$licenseSummary['windows_dc']['Kuala Lumpur'] ?? 0,'cj'=>$licenseSummary['windows_dc']['Cyberjaya'] ?? 0],
+        ['label'=>'Microsoft Remote Desktop Services (SAL)','kl'=>$licenseSummary['rds']['Kuala Lumpur'] ?? 0,'cj'=>$licenseSummary['rds']['Cyberjaya'] ?? 0],
+        ['label'=>'Microsoft SQL (Web) (Core Pack)','kl'=>$licenseSummary['sql_web']['Kuala Lumpur'] ?? 0,'cj'=>$licenseSummary['sql_web']['Cyberjaya'] ?? 0],
+        ['label'=>'Microsoft SQL (Standard) (Core Pack)','kl'=>$licenseSummary['sql_std']['Kuala Lumpur'] ?? 0,'cj'=>$licenseSummary['sql_std']['Cyberjaya'] ?? 0],
+        ['label'=>'Microsoft SQL (Enterprise) (Core Pack)','kl'=>$licenseSummary['sql_ent']['Kuala Lumpur'] ?? 0,'cj'=>$licenseSummary['sql_ent']['Cyberjaya'] ?? 0],
+    ];
+    $msRows = array_values(array_filter($msRows, fn($r)=>($r['kl'] ?? 0)>0 || ($r['cj'] ?? 0)>0));
 
-                        <tr>
+    $rhelRows = [
+        ['label'=>'RHEL (1-8vCPU)','kl'=>$licenseSummary['rhel_1_8']['Kuala Lumpur'] ?? 0,'cj'=>$licenseSummary['rhel_1_8']['Cyberjaya'] ?? 0],
+        ['label'=>'RHEL (9-127vCPU)','kl'=>$licenseSummary['rhel_9_127']['Kuala Lumpur'] ?? 0,'cj'=>$licenseSummary['rhel_9_127']['Cyberjaya'] ?? 0],
+    ];
+    $rhelRows = array_values(array_filter($rhelRows, fn($r)=>($r['kl'] ?? 0)>0 || ($r['cj'] ?? 0)>0));
+@endphp
+
+@if(count($msRows) || count($rhelRows))
+<tr><td colspan="4" style="background-color:#e76ccf;font-weight:bold;">License</td></tr>
+@endif
+
+@if(count($msRows))
+<thead class="table-light">
+<tr><th>Microsoft</th><th>Unit</th><th>KL.Qty</th><th>CJ.Qty</th></tr>
+</thead>
+@foreach($msRows as $r)
+<tr><td>{{ $r['label'] }}</td><td>Unit</td><td>{{ $r['kl'] }}</td><td>{{ $r['cj'] }}</td></tr>
+@endforeach
+@endif
+
+@if(count($rhelRows))
+<thead class="table-light">
+<tr><th>Red Hat Enterprise License</th><th>Unit</th><th>KL.Qty</th><th>CJ.Qty</th></tr>
+</thead>
+@foreach($rhelRows as $r)
+<tr><td>{{ $r['label'] }}</td><td>Unit</td><td>{{ $r['kl'] }}</td><td>{{ $r['cj'] }}</td></tr>
+@endforeach
+@endif
+
+                        <!---<tr>
                             <td colspan="4" style="background-color: #e76ccf; font-weight: bold;">License</td>
                         </tr>
                         <thead class="table-light">
@@ -536,9 +701,44 @@
                             <td>{{ $licenseSummary['rhel_9_127']['Kuala Lumpur'] ?? 0 }}</td>
                             <td>{{ $licenseSummary['rhel_9_127']['Cyberjaya'] ?? 0 }}</td>
                            
-                        </tr>
+                        </tr>--->
+{{-- Storage --}}
+@php
+    $storageRows = [
+        ['label'=>'Elastic Volume Service (EVS)','unit'=>'GB','kl'=>$summary->kl_evs ?? 0,'cj'=>$summary->cyber_evs ?? 0],
+        ['label'=>'Scalable File Service (SFS)','unit'=>'GB','kl'=>$summary->kl_scalable_file_service ?? 0,'cj'=>$summary->cyber_scalable_file_service ?? 0],
+        ['label'=>'Object Storage Service (OBS)','unit'=>'GB','kl'=>$summary->kl_object_storage_service ?? 0,'cj'=>$summary->cyber_object_storage_service ?? 0],
+    ];
+    $storageRows = array_values(array_filter($storageRows, fn($r)=>($r['kl'] ?? 0)>0 || ($r['cj'] ?? 0)>0));
+@endphp
+@if(count($storageRows))
+<tr><td colspan="4" style="background-color:#e76ccf;font-weight:bold;">Storage</td></tr>
+<thead class="table-light">
+<tr><th>Storage Type</th><th>Unit</th><th>KL.Qty</th><th>CJ.Qty</th></tr>
+</thead>
+@foreach($storageRows as $r)
+<tr><td>{{ $r['label'] }}</td><td>{{ $r['unit'] }}</td><td>{{ number_format($r['kl']) }}</td><td>{{ number_format($r['cj']) }}</td></tr>
+@endforeach
+@endif
 
-                        <tr>
+{{-- IMS --}}
+@php
+    $imsRows = [
+        ['label'=>'Snapshot Storage','unit'=>'GB','kl'=>$summary->kl_snapshot_storage ?? 0,'cj'=>$summary->cyber_snapshot_storage ?? 0],
+        ['label'=>'Image Storage','unit'=>'GB','kl'=>$summary->kl_image_storage ?? 0,'cj'=>$summary->cyber_image_storage ?? 0],
+    ];
+    $imsRows = array_values(array_filter($imsRows, fn($r)=>($r['kl'] ?? 0)>0 || ($r['cj'] ?? 0)>0));
+@endphp
+@if(count($imsRows))
+<thead class="table-light">
+<tr><th>Image Management Service (IMS)</th><th>Unit</th><th>KL.Qty</th><th>CJ.Qty</th></tr>
+</thead>
+@foreach($imsRows as $r)
+<tr><td>{{ $r['label'] }}</td><td>{{ $r['unit'] }}</td><td>{{ number_format($r['kl']) }}</td><td>{{ number_format($r['cj']) }}</td></tr>
+@endforeach
+@endif
+
+                        <!---<tr>
                             <td colspan="4" style="background-color: #e76ccf; font-weight: bold;">Storage</td>
                         </tr>
                         <thead class="table-light">
@@ -594,9 +794,27 @@
                             <td>{{ $summary->kl_image_storage ?? 0 }}</td>
                             <td>{{ $summary->cyber_image_storage ?? 0 }}</td>
                              
-                        </tr>
+                        </tr>--->
+{{-- Backup in VPC --}}
+@php
+    $bkRows = [
+        ['label'=>'Cloud Server Backup Service - Full Backup Capacity','unit'=>'GB','kl'=>$summary->kl_full_backup_capacity ?? 0,'cj'=>$summary->cyber_full_backup_capacity ?? 0],
+        ['label'=>'Cloud Server Backup Service - Incremental Backup Capacity','unit'=>'GB','kl'=>$summary->kl_incremental_backup_capacity ?? 0,'cj'=>$summary->cyber_incremental_backup_capacity ?? 0],
+        ['label'=>'Cloud Server Replication Service - Retention Capacity','unit'=>'GB','kl'=>$summary->kl_replication_retention_capacity ?? 0,'cj'=>$summary->cyber_replication_retention_capacity ?? 0],
+    ];
+    $bkRows = array_values(array_filter($bkRows, fn($r)=>($r['kl'] ?? 0)>0 || ($r['cj'] ?? 0)>0));
+@endphp
+@if(count($bkRows))
+<tr><td colspan="4" style="background-color:#e76ccf;font-weight:bold;">Backup and DR</td></tr>
+<thead class="table-light">
+<tr><th>Backup Service in VPC</th><th>Unit</th><th>KL.Qty</th><th>CJ.Qty</th></tr>
+</thead>
+@foreach($bkRows as $r)
+<tr><td>{{ $r['label'] }}</td><td>{{ $r['unit'] }}</td><td>{{ number_format($r['kl']) }}</td><td>{{ number_format($r['cj']) }}</td></tr>
+@endforeach
+@endif
 
-                        <tr>
+                        <!---<tr>
                             <td colspan="4" style="background-color: #e76ccf; font-weight: bold;">Backup and DR</td>
                         </tr>
                         <thead class="table-light">
@@ -628,9 +846,29 @@
                             <td>{{ number_format($summary->kl_replication_retention_capacity ?? 0) }}</td>
                             <td>{{ number_format($summary->cyber_replication_retention_capacity ?? 0) }}</td>
                              
-                        </tr>
+                        </tr>--->
+{{-- DR in VPC --}}
+@php
+    $drvpcRows = [
+        ['label'=>'Cold DR Days','unit'=>'Days','kl'=>$summary->kl_cold_dr_days ?? 0,'cj'=>$summary->cyber_cold_dr_days ?? 0],
+        ['label'=>'Cold DR - Seeding VM','unit'=>'Unit','kl'=>$summary->kl_cold_dr_seeding_vm ?? 0,'cj'=>$summary->cyber_cold_dr_seeding_vm ?? 0],
+        ['label'=>'Cloud Server Disaster Recovery Storage','unit'=>'GB','kl'=>$summary->kl_dr_storage ?? 0,'cj'=>$summary->cyber_dr_storage ?? 0],
+        ['label'=>'Cloud Server Disaster Recovery Replication','unit'=>'Unit','kl'=>$summary->kl_dr_replication ?? 0,'cj'=>$summary->cyber_dr_replication ?? 0],
+        ['label'=>'Cloud Server Disaster Recovery Days (DR Declaration)','unit'=>'Days','kl'=>$summary->kl_dr_declaration ?? 0,'cj'=>$summary->cyber_dr_declaration ?? 0],
+        ['label'=>'Cloud Server Disaster Recovery Managed Service - Per Day','unit'=>'Unit','kl'=>$summary->kl_dr_managed_service ?? 0,'cj'=>$summary->cyber_dr_managed_service ?? 0],
+    ];
+    $drvpcRows = array_values(array_filter($drvpcRows, fn($r)=>($r['kl'] ?? 0)>0 || ($r['cj'] ?? 0)>0));
+@endphp
+@if(count($drvpcRows))
+<thead class="table-light">
+<tr><th>Disaster Recovery in VPC</th><th>Unit</th><th>KL.Qty</th><th>CJ.Qty</th></tr>
+</thead>
+@foreach($drvpcRows as $r)
+<tr><td>{{ $r['label'] }}</td><td>{{ $r['unit'] }}</td><td>{{ number_format($r['kl']) }}</td><td>{{ number_format($r['cj']) }}</td></tr>
+@endforeach
+@endif
 
-                        <thead class="table-light">
+                        <!---<thead class="table-light">
                             <tr>
                                 <th>Disaster Recovery in VPC</th>
                                 <th>Unit</th>
@@ -680,9 +918,29 @@
                             <td>{{ $summary->kl_dr_managed_service ?? 0 }}</td>
                             <td>{{ $summary->cyber_dr_managed_service ?? 0 }}</td>
                           
-                        </tr>
+                        </tr>--->
+{{-- DR Network & Security --}}
+@php
+    $drnsRows = [
+        ['label'=>'Cloud Server Disaster Recovery (vPLL)','unit'=>'Mbps','kl'=>$summary->kl_dr_vpll ?? 0,'cj'=>$summary->cyber_dr_vpll ?? 0],
+        ['label'=>'DR Elastic IP','unit'=>'Unit Per Day','kl'=>$summary->kl_dr_elastic_ip ?? 0,'cj'=>$summary->cyber_dr_elastic_ip ?? 0],
+        ['label'=>'DR Bandwidth','unit'=>'Mbps Per Day','kl'=>$summary->kl_dr_bandwidth ?? 0,'cj'=>$summary->cyber_dr_bandwidth ?? 0],
+        ['label'=>'DR Bandwidth + Anti-DDoS','unit'=>'Mbps Per Day','kl'=>$summary->kl_dr_bandwidth_antiddos ?? 0,'cj'=>$summary->cyber_dr_bandwidth_antiddos ?? 0],
+        ['label'=>'DR Cloud Firewall (Fortigate)','unit'=>'Unit Per Day','kl'=>$summary->kl_dr_firewall_fortigate ?? 0,'cj'=>$summary->cyber_dr_firewall_fortigate ?? 0],
+        ['label'=>'DR Cloud Firewall (OPNSense)','unit'=>'Unit Per Day','kl'=>$summary->kl_dr_firewall_opnsense ?? 0,'cj'=>$summary->cyber_dr_firewall_opnsense ?? 0],
+    ];
+    $drnsRows = array_values(array_filter($drnsRows, fn($r)=>($r['kl'] ?? 0)>0 || ($r['cj'] ?? 0)>0));
+@endphp
+@if(count($drnsRows))
+<thead class="table-light">
+<tr><th>Disaster Recovery Network and Security</th><th>Unit</th><th>KL.Qty</th><th>CJ.Qty</th></tr>
+</thead>
+@foreach($drnsRows as $r)
+<tr><td>{{ $r['label'] }}</td><td>{{ $r['unit'] }}</td><td>{{ $r['kl'] }}</td><td>{{ $r['cj'] }}</td></tr>
+@endforeach
+@endif
 
-                        <thead class="table-light">
+                        <!---<thead class="table-light">
                             <tr>
                                 <th>Disaster Recovery Network and Security</th>
                                 <th>Unit</th>
@@ -732,56 +990,73 @@
                             <td>{{ $summary->kl_dr_firewall_opnsense ?? 0 }}</td>
                             <td>{{ $summary->cyber_dr_firewall_opnsense ?? 0 }}</td>
                              
-                        </tr>
-
-                        <thead class="table-light">
-                            <tr>
-                                <th>Disaster Recovery Resources (During DR Activation)</th>
-                                <th>Unit</th>
-                                <th>KL.Qty</th>
-                                <th>CJ.Qty</th>
-                             
-                            </tr>
-                        </thead>
-                        <tr>
-                            <td>DR Elastic Volume Service (EVS)</td>
-                            <td>GB</td>
-                            <td>{{ $klEvsDR ?? 0 }}</td>
-                            <td>{{ $cyberEvsDR ?? 0 }}</td>
-                            
-                        </tr>
-
+                        </tr>--->
 @php
-    // Sentiasa papar DR variant baris Computing (asal CJ → KL, asal KL → CJ)
+    $hasDrFlavourRows = (collect($drCountsKL)->sum() + collect($drCountsCJ)->sum()) > 0;
 @endphp
+@if($any($klEvsDR ?? 0, $cyberEvsDR ?? 0) || $hasDrFlavourRows)
+<thead class="table-light">
+<tr><th>Disaster Recovery Resources (During DR Activation)</th><th>Unit</th><th>KL.Qty</th><th>CJ.Qty</th></tr>
+</thead>
+
+@if($any($klEvsDR ?? 0, $cyberEvsDR ?? 0))
+<tr>
+    <td>DR Elastic Volume Service (EVS)</td>
+    <td>GB</td>
+    <td>{{ $klEvsDR ?? 0 }}</td>
+    <td>{{ $cyberEvsDR ?? 0 }}</td>
+</tr>
+@endif
+
 @foreach(($usedFlavours ?? collect()) as $flavour)
     @php
         $flavourWithDR = $flavour . '.dr';
         $details = $flavourDetails->get($flavourWithDR);
-        $sizing = $details ? "{$details['vcpu']} vCPU , {$details['vram']} vRAM" : '-';
-        $klQty = $drCountsKL[$flavour] ?? 0; // asal CJ → masuk KL
-        $cjQty = $drCountsCJ[$flavour] ?? 0; // asal KL → masuk CJ
+        $sizing  = $details ? "{$details['vcpu']} vCPU , {$details['vram']} vRAM" : '-';
+        $klQty   = (int)($drCountsKL[$flavour] ?? 0);
+        $cjQty   = (int)($drCountsCJ[$flavour] ?? 0);
     @endphp
-    <tr style="background-color: rgb(251, 194, 224);">
-        <td>
-            <a href="{{ route('flavour.index', ['highlight' => $flavourWithDR]) }}">
-                {{ $flavourWithDR }}
-            </a>
-        </td>
+    @continue(!$any($klQty, $cjQty)) 
+    <tr style="background-color:rgb(251,194,224);">
+        <td><a href="{{ route('flavour.index',['highlight'=>$flavourWithDR]) }}">{{ $flavourWithDR }}</a></td>
         <td>{{ $sizing }}</td>
         <td>{{ $klQty }}</td>
         <td>{{ $cjQty }}</td>
-       
     </tr>
 @endforeach
+@endif
+
+
+{{-- DR Licenses --}}
+@php
+    $drlRows = [
+        ['label'=>'License Month','unit'=>'Month(s)','kl'=>$summary->kl_dr_license_months ?? 0,'cj'=>$summary->cyber_dr_license_months ?? 0],
+        ['label'=>'DR Per Month - Microsoft Windows Server (Core Pack) - Standard','unit'=>'Unit Per Month','kl'=>$summary->kl_dr_windows_std ?? 0,'cj'=>$summary->cyber_dr_windows_std ?? 0],
+        ['label'=>'DR Per Month - Microsoft Windows Server (Core Pack) - Data Center','unit'=>'Unit Per Month','kl'=>$summary->kl_dr_windows_dc ?? 0,'cj'=>$summary->cyber_dr_windows_dc ?? 0],
+        ['label'=>'DR Per Month - Microsoft Remote Desktop Services (SAL)','unit'=>'Unit Per Month','kl'=>$summary->kl_dr_rds ?? 0,'cj'=>$summary->cyber_dr_rds ?? 0],
+        ['label'=>'DR Per Month - Microsoft SQL (Web) (Core Pack)','unit'=>'Unit Per Month','kl'=>$summary->kl_dr_sql_web ?? 0,'cj'=>$summary->cyber_dr_sql_web ?? 0],
+        ['label'=>'DR Per Month - Microsoft SQL (Standard) (Core Pack)','unit'=>'Unit Per Month','kl'=>$summary->kl_dr_sql_std ?? 0,'cj'=>$summary->cyber_dr_sql_std ?? 0],
+        ['label'=>'DR Per Month - Microsoft SQL (Enterprise) (Core Pack)','unit'=>'Unit Per Month','kl'=>$summary->kl_dr_sql_ent ?? 0,'cj'=>$summary->cyber_dr_sql_ent ?? 0],
+        ['label'=>'DR Per Month - RHEL (1–8vCPU)','unit'=>'Unit Per Month','kl'=>$summary->kl_dr_rhel_1_8 ?? 0,'cj'=>$summary->cyber_dr_rhel_1_8 ?? 0],
+        ['label'=>'DR Per Month - RHEL (9–127vCPU)','unit'=>'Unit Per Month','kl'=>$summary->kl_dr_rhel_9_127 ?? 0,'cj'=>$summary->cyber_dr_rhel_9_127 ?? 0],
+    ];
+    $drlRows = array_values(array_filter($drlRows, fn($r)=>($r['kl'] ?? 0)>0 || ($r['cj'] ?? 0)>0));
+@endphp
+@if(count($drlRows))
+<thead class="table-light">
+<tr><th>Disaster Recovery Licenses</th><th>Unit</th><th>KL.Qty</th><th>CJ.Qty</th></tr>
+</thead>
+@foreach($drlRows as $r)
+<tr><td>{{ $r['label'] }}</td><td>{{ $r['unit'] }}</td><td>{{ $r['kl'] }}</td><td>{{ $r['cj'] }}</td></tr>
+@endforeach
+@endif
 
 
 
 
 
 
-
-                        <thead class="table-light">
+                        <!---<thead class="table-light">
                             <tr>
                                 <th>Disaster Recovery Licenses</th>
                                 <th>Unit</th>
@@ -852,9 +1127,62 @@
                             <td>{{ $summary->kl_dr_rhel_9_127 ?? 0 }}</td>
                             <td>{{ $summary->cyber_dr_rhel_9_127 ?? 0 }}</td>
                        
-                        </tr>
+                        </tr>--->
+{{-- Additional Services (Cloud Security) --}}
+@php
+    $addRows = [
+        ['label'=>'Cloud Firewall (Fortigate)','unit'=>'Unit','kl'=>$summary->kl_firewall_fortigate ?? 0,'cj'=>$summary->cyber_firewall_fortigate ?? 0],
+        ['label'=>'Cloud Firewall (OPNSense)','unit'=>'Unit','kl'=>$summary->kl_firewall_opnsense ?? 0,'cj'=>$summary->cyber_firewall_opnsense ?? 0],
+        ['label'=>'Cloud Shared WAF (Mbps)','unit'=>'Mbps','kl'=>$summary->kl_shared_waf ?? 0,'cj'=>$summary->cyber_shared_waf ?? 0],
+        ['label'=>'Anti-Virus (Panda)','unit'=>'Unit','kl'=>$summary->kl_antivirus ?? 0,'cj'=>$summary->cyber_antivirus ?? 0],
+    ];
+    $addRows = array_values(array_filter($addRows, fn($r)=>($r['kl'] ?? 0)>0 || ($r['cj'] ?? 0)>0));
+@endphp
+@if(count($addRows))
+<tr><td colspan="4" style="background-color:#e76ccf;font-weight:bold;">Additional Services</td></tr>
+<thead class="table-light">
+<tr><th>Cloud Security</th><th>Unit</th><th>KL.Qty</th><th>CJ.Qty</th></tr>
+</thead>
+@foreach($addRows as $r)
+<tr><td>{{ $r['label'] }}</td><td>{{ $r['unit'] }}</td><td>{{ $r['kl'] }}</td><td>{{ $r['cj'] }}</td></tr>
+@endforeach
+@endif
 
-                        <tr>
+{{-- Security Services --}}
+@php
+    $secRows = [
+        ['label'=>'Cloud Vulnerability Assessment (Per IP)','unit'=>'Mbps','kl'=>$summary->kl_cloud_vulnerability ?? 0,'cj'=>$summary->cyber_cloud_vulnerability ?? 0],
+    ];
+    $secRows = array_values(array_filter($secRows, fn($r)=>($r['kl'] ?? 0)>0 || ($r['cj'] ?? 0)>0));
+@endphp
+@if(count($secRows))
+<thead class="table-light">
+<tr><th>Security Services</th><th>Unit</th><th>KL.Qty</th><th>CJ.Qty</th></tr>
+</thead>
+@foreach($secRows as $r)
+<tr><td>{{ $r['label'] }}</td><td>{{ $r['unit'] }}</td><td>{{ $r['kl'] }}</td><td>{{ $r['cj'] }}</td></tr>
+@endforeach
+@endif
+
+{{-- Monitoring Service --}}
+@php
+    $monRows = [
+        ['label'=>'TCS inSight vMonitoring','unit'=>'Unit',
+         'kl'=> (int)(($summary->kl_insight_vmonitoring ?? 0) == 1),
+         'cj'=> (int)(($summary->cyber_insight_vmonitoring ?? 0) == 1)],
+    ];
+    $monRows = array_values(array_filter($monRows, fn($r)=>($r['kl'] ?? 0)>0 || ($r['cj'] ?? 0)>0));
+@endphp
+@if(count($monRows))
+<thead class="table-light">
+<tr><th>Monitoring Service</th><th>Unit</th><th>KL.Qty</th><th>CJ.Qty</th></tr>
+</thead>
+@foreach($monRows as $r)
+<tr><td>{{ $r['label'] }}</td><td>{{ $r['unit'] }}</td><td>{{ $r['kl'] }}</td><td>{{ $r['cj'] }}</td></tr>
+@endforeach
+@endif
+
+                        <!---<tr>
                             <td colspan="4" style="background-color: #e76ccf; font-weight: bold;">Additional Services</td>
                         </tr>
                         <thead class="table-light">
@@ -927,7 +1255,88 @@
                             <td>{{ ($summary->kl_insight_vmonitoring ?? 0) == 1 ? 1 : 0 }}</td>
                             <td>{{ ($summary->cyber_insight_vmonitoring ?? 0) == 1 ? 1 : 0 }}</td>
                              
-                        </tr>
+                        </tr>--->
+
+
+
+                    
+@php
+   
+    $mpUsedFlavours   = $mpUsedFlavours   ?? collect();
+    $mpFlavourDetails = $mpFlavourDetails ?? collect();
+    $mpDrCountsKL     = $mpDrCountsKL     ?? [];
+    $mpDrCountsCJ     = $mpDrCountsCJ     ?? [];
+
+    
+    $hasMp = !empty($mpdraas) && (
+        (int)($mpdraas['activation_days'] ?? 0) > 0 ||
+        (float)($mpdraas['bandwidth'] ?? 0) > 0 ||
+        (count($mpUsedFlavours ?? []) > 0) ||
+        (collect($mpdraas['dr_network'] ?? [])->sum(
+            fn($r) => (float)($r['kl_qty'] ?? 0) + (float)($r['cj_qty'] ?? 0)
+        ) > 0)
+    );
+@endphp
+@if($hasMp)
+<tr>
+    <td colspan="4" style="background-color:#e76ccf; font-weight:bold;">
+        Multi-Platform DR (MP-DRaaS)
+    </td>
+</tr>
+
+<tr>
+    <td class="table-light" style="width:35%">Activation Days (per annum)</td>
+    <td style="width:15%">{{ $mpdraas['activation_days'] ?? 0 }}</td>
+    <td class="table-light" style="width:35%">DDoS Requirement</td>
+    <td style="width:15%">{{ $mpdraas['ddos'] ?? 'No' }}</td>
+</tr>
+<tr>
+    <td class="table-light">DR Location</td>
+    <td>{{ $mpdraas['location'] ?? 'None' }}</td>
+    <td class="table-light">Bandwidth Requirement for Replication (Mbps)</td>
+    <td>{{ number_format((float)($mpdraas['bandwidth'] ?? 0), 2) }}</td>
+</tr>
+
+<tr class="table-light">
+    <th>MP-DRaaS Flavour Mapping</th>
+    <th>Sizing</th>
+    <th>KL.Qty</th>
+    <th>CJ.Qty</th>
+</tr>
+
+<!---@php
+  $isKL = ($mpdraas['location'] ?? '') === 'Kuala Lumpur';
+  $isCJ = ($mpdraas['location'] ?? '') === 'Cyberjaya';
+@endphp--->
+
+@php
+  $loc  = (string)($mpdraas['location'] ?? '');
+  $isKL = strcasecmp($loc, 'Kuala Lumpur') === 0;
+  $isCJ = strcasecmp($loc, 'Cyberjaya') === 0;
+@endphp
+
+
+@foreach(($mpUsedFlavours ?? collect()) as $flavour)
+  @php
+    $flavourWithDR = $flavour . '.dr';
+    $details = $mpFlavourDetails->get(strtolower($flavourWithDR));
+    $sizing  = $details ? ($details['vcpu'].' vCPU , '.$details['vram'].' vRAM') : '-';
+    $klQty   = $isKL ? ($mpDrCountsKL[$flavour] ?? 0) : 0;
+    $cjQty   = $isCJ ? ($mpDrCountsCJ[$flavour] ?? 0) : 0;
+  @endphp
+  <tr style="background-color: rgb(251, 194, 224);">
+    <td>
+      <a href="{{ route('flavour.index', ['highlight' => $flavourWithDR]) }}">
+        {{ $flavourWithDR }}
+      </a>
+    </td>
+    <td>{{ $sizing }}</td>
+    <td>{{ $klQty }}</td>
+    <td>{{ $cjQty }}</td>
+  </tr>
+@endforeach
+@endif
+
 
                         @if($nonStandardItems && $nonStandardItems->count())
                             <tr>
@@ -953,8 +1362,8 @@
                             @endforeach
                         @endif
 
-                        <tr>
-  <td colspan="6">
+                        <!---<tr>
+  <td colspan="4">
     <a href="{{ route('versions.customization.show', $version->id) }}"
        class="btn btn-outline-secondary btn-sm"
        aria-label="Open customization for entire subscription period">
@@ -962,7 +1371,7 @@
       Customization for entire subscription period
     </a>
   </td>
-</tr>
+</tr>--->
 
 
 

@@ -10,12 +10,82 @@
   <div class="alert alert-danger">{{ session('error') }}</div>
 @endif
 
+
+{{-- Filter + Add (one row) --}}
+<div>  <!---class="card mb-3"--->
+  <div class="card-body py-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-2">
+
+      {{-- LEFT: Search form --}}
+      <form method="GET" action="{{ route('customers.index') }}" class="d-flex flex-wrap align-items-end gap-2">
+        {{-- OPTIONAL: Department filter (auto-submit) --}}
+        @if(!empty($deptOptions))
+        <div class="d-flex flex-column">
+          <label class="form-label mb-1">Department</label>
+          <select name="department" class="form-select" style="min-width:220px" onchange="this.form.submit()">
+            <option value="">— All Departments —</option>
+            @foreach($deptOptions as $dept)
+              <option value="{{ $dept }}" {{ request('department') === $dept ? 'selected' : '' }}>
+                {{ $dept }}
+              </option>
+            @endforeach
+          </select>
+        </div>
+        @endif
+        
+        <div class="d-flex flex-column">
+          <label class="form-label mb-1">Search Customer</label>
+          <input
+            type="text"
+            name="q"
+            class="form-control"
+            style="min-width:260px"
+            placeholder="Type customer name..."
+            value="{{ request('q', '') }}"
+          >
+        </div>
+
+        
+
+        <div class="d-flex align-items-end">
+          <button type="submit" class="btn btn-pink">Search</button>
+        </div>
+
+        @if(request()->filled('q') || request()->filled('department'))
+          <div class="d-flex align-items-end">
+            <a href="{{ route('customers.index') }}" class="btn btn-pink">Reset</a>
+          </div>
+        @endif
+      </form>
+
+      {{-- RIGHT: Add New Customer --}}
+      <div class="d-flex">
+        <a href="#" class="btn btn-pink" onclick="openAddForm(); return false;">
+          Add New Customer
+        </a>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+
 {{-- Add Customer Button --}}
-<div class="d-flex justify-content-end mb-3">
+<!---<div class="d-flex justify-content-end mb-3">
   <a href="#" class="btn btn-pink" onclick="openAddForm(); return false;">
     Add New Customer
   </a>
-</div>
+</div>--->
+
+
+
+
+
+
+
+
+
 
 {{-- Customer Table --}}
 <div class="card shadow-sm">

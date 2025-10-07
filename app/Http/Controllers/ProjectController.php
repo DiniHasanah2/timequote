@@ -15,7 +15,94 @@ use Illuminate\Support\Facades\Schema;
 
 class ProjectController extends Controller
 {
-  public function index(Request $request)
+    public function index(Request $request)
+{
+    $user = Auth::user();
+    if (!$user) abort(403, 'Unauthorized');
+
+    // ==== filters from query ====
+    $selectedCustomerId = $request->query('customer_id');
+    $projectKeyword     = trim($request->query('project', ''));
+    $status             = $request->query('status'); // 'pending' | 'committed' | null
+
+    // ==== base query (start with Project::query()) ====
+    $projectsQuery = Project::query();
+
+    // ---- scope by role (presale sees own + assigned) ----
+    if ($user->role === 'presale') {
+        $projectsQuery->where(function ($q) use ($user) {
+            $q->where('presale_id', $user->id)
+              ->orWhereHas('assigned_presales', function ($sub) use ($user) {
+                  $sub->where('users.id', $user->id);
+              });
+        });
+    }
+
+    // ---- filter projects by customer / name ----
+    if (!empty($selectedCustomerId)) {
+        $projectsQuery->where('customer_id', $selectedCustomerId);
+    }
+    if ($projectKeyword !== '') {
+        $projectsQuery->where('name', 'LIKE', '%'.$projectKeyword.'%');
+    }
+
+    // ---- filter projects by STATUS via versions (so only projects that have matching versions appear) ----
+    if ($status === 'committed') {
+        // project must have at least one version with internal_summary.is_logged = 1
+        $projectsQuery->whereHas('versions', function ($vq) {
+            $vq->whereHas('internal_summary', function ($iq) {
+                $iq->where('is_logged', 1);
+            });
+        });
+    } elseif ($status === 'pending') {
+        // project must have a version that is not committed (no summary OR is_logged = 0/null)
+        $projectsQuery->whereHas('versions', function ($vq) {
+            $vq->where(function ($sub) {
+                $sub->whereDoesntHave('internal_summary')
+                    ->orWhereHas('internal_summary', function ($iq) {
+                        $iq->whereNull('is_logged')->orWhere('is_logged', 0);
+                    });
+            });
+        });
+    }
+
+    // ---- eager load relations & constrain VERSIONS to the selected status ----
+    $projectsQuery->with([
+        'customer',
+        'assigned_presales',
+        'versions' => function ($q) use ($status) {
+            $q->with(['internal_summary', 'quotations.products', 'latestQuotation'])
+              ->orderBy('created_at', 'desc');
+
+            if ($status === 'committed') {
+                $q->whereHas('internal_summary', function ($iq) {
+                    $iq->where('is_logged', 1);
+                });
+            } elseif ($status === 'pending') {
+                $q->where(function ($sub) {
+                    $sub->whereDoesntHave('internal_summary')
+                        ->orWhereHas('internal_summary', function ($iq) {
+                            $iq->whereNull('is_logged')->orWhere('is_logged', 0);
+                        });
+                });
+            }
+        },
+    ]);
+
+    $projects = $projectsQuery->orderBy('created_at', 'asc')->get();
+
+    // dropdown data
+    $customers = Customer::orderBy('name')->get();
+    $presales  = User::where('role', 'presale')->get();
+
+    return view('projects.index', compact(
+        'projects', 'customers', 'presales',
+        'selectedCustomerId', 'projectKeyword', 'status' // <-- pass status to view
+    ));
+}
+
+  
+  /*  public function index(Request $request)
 {
     $user = Auth::user();
     if (!$user) {
@@ -29,20 +116,13 @@ class ProjectController extends Controller
     // Base query untuk senarai projek + relations
     $projectsQuery = Project::with([
         'customer',
+        'versions.internal_summary',
         'versions.quotations.products',
         'versions.latestQuotation',
         'assigned_presales'
     ]);
 
-    // Scope projek ikut role (presale/product hanya nampak projek di bawah dia/assigned)
-    /*if (in_array($user->role, ['presale', 'product'])) {
-        $projectsQuery->where(function ($q) use ($user) {
-            $q->where('presale_id', $user->id)
-              ->orWhereHas('assigned_presales', function ($sub) use ($user) {
-                  $sub->where('users.id', $user->id);
-              });
-        });
-    }*/
+
     // Scope projek ikut role
 if ($user->role === 'presale') {
     // presale: hanya projek di bawah dia / assigned
@@ -53,7 +133,7 @@ if ($user->role === 'presale') {
           });
     });
 }
-// product & admin: can view all
+
 
 
     // Filter by customer (optional)
@@ -68,52 +148,11 @@ if ($user->role === 'presale') {
 
     $projects = $projectsQuery->orderBy('created_at', 'asc')->get();
 
-    // ===============================
-    // Scoped customers untuk dropdown
-    // ===============================
-    // Admin: semua customer
-    // Presale/Product: customer yang dia create (kalau wujud kolum customers.created_by)
    
-    /*if ($user->role === 'admin') {
-        $customers = Customer::orderBy('name')->get();
-    } else {
-        if (Schema::hasColumn('customers', 'created_by')) {
-            // STRICT: hanya customer yang user ni create
-            $customers = Customer::where('created_by', $user->id)
-                ->orderBy('name')
-                ->get();
-        } else {
-            // Fallback: derive dari projek yang user ada akses
-            $customers = Customer::whereHas('projects', function ($p) use ($user) {
-                    $p->where('presale_id', $user->id)
-                      ->orWhereHas('assigned_presales', function ($sub) use ($user) {
-                          $sub->where('users.id', $user->id);
-                      });
-                })
-                ->orderBy('name')
-                ->get();
-        }
-    }*/
-    if (in_array($user->role, ['admin', 'product'])) {
-    // admin & product: semua customer
+
+    // Everyone (admin, product, presale) sees ALL customers in the dropdown
     $customers = Customer::orderBy('name')->get();
-} else {
-    // presale: customer yang dia create (jika ada kolum), kalau tak, derive dari projek
-    if (Schema::hasColumn('customers', 'created_by')) {
-        $customers = Customer::where('created_by', $user->id)
-            ->orderBy('name')
-            ->get();
-    } else {
-        $customers = Customer::whereHas('projects', function ($p) use ($user) {
-                $p->where('presale_id', $user->id)
-                  ->orWhereHas('assigned_presales', function ($sub) use ($user) {
-                      $sub->where('users.id', $user->id);
-                  });
-            })
-            ->orderBy('name')
-            ->get();
-    }
-}
+
 
 
     $presales = User::where('role', 'presale')->get();
@@ -121,7 +160,7 @@ if ($user->role === 'presale') {
     return view('projects.index', compact(
         'projects', 'customers', 'presales', 'selectedCustomerId', 'projectKeyword'
     ));
-}
+}*/
 
 
 
@@ -154,9 +193,7 @@ if (in_array($user->role, ['admin', 'product'])) {
         $validated = $request->validate($rules);
         $customer = Customer::findOrFail($validated['customer_id']);
 
-        /*$presaleId = $user->role === 'admin' 
-            ? $validated['presale_id'] 
-            : $user->id;*/
+        //That means if Presale2 is creating the project, the project’s presale_id will be Presale2.
         $presaleId = in_array($user->role, ['admin', 'product'])
     ? $validated['presale_id']
     : $user->id; 
@@ -196,7 +233,8 @@ foreach ($existingProjects as $project) {
         'customer_id' => $validated['customer_id'],
         'presale_id' => $presaleId,
         'name' => $validated['name'],
-        'quotation_value' => 0.00
+        'quotation_value' => 0.00,
+        'status'          => 'pending',
     ]);
 
     // Auto-assign presale creator to assigned_presales
@@ -297,6 +335,35 @@ if (in_array($user->role, ['presale', 'product']) &&
 
 
 
+public function markCommitted($projectId)
+{
+    $project = Project::with('assigned_presales')->findOrFail($projectId);
+    $user = Auth::user();
+
+    if (in_array($user->role, ['presale','product']) &&
+        $project->presale_id !== $user->id &&
+        !$project->assigned_presales->contains('id', $user->id)) {
+        abort(403, 'Unauthorized');
+    }
+
+    $project->update(['status' => 'committed']);
+    return redirect()->route('projects.index')->with('success', 'Project marked as committed.');
+}
+
+public function markPending($projectId)
+{
+    $project = Project::with('assigned_presales')->findOrFail($projectId);
+    $user = Auth::user();
+
+    if (in_array($user->role, ['presale','product']) &&
+        $project->presale_id !== $user->id &&
+        !$project->assigned_presales->contains('id', $user->id)) {
+        abort(403, 'Unauthorized');
+    }
+
+    $project->update(['status' => 'pending']);
+    return redirect()->route('projects.index')->with('success', 'Project reverted to pending.');
+}
 
 
 public function duplicateVersion($versionId)

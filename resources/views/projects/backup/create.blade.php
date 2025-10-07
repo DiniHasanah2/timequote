@@ -109,14 +109,22 @@
             <a href="{{ route('versions.mpdraas.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.mpdraas.create' ? 'active-link' : '' }}">MP-DRaaS</a>
             <span class="breadcrumb-separator">»</span>
             @endif
-           <a href="{{ route('versions.security_service.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.create' ? 'active-link' : '' }}">Cloud Security</a>
+           <a href="{{ route('versions.security_service.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.create' ? 'active-link' : '' }}">Managed Services & Cloud Security</a>
             <span class="breadcrumb-separator">»</span>
                <a href="{{ route('versions.security_service.time.create', $version->id) }}"
    class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.time.create' ? 'active-link' : '' }}">
   Time Security Services
 </a>
 <span class="breadcrumb-separator">»</span>
-            <a href="{{ route('versions.non_standard_items.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.non_standard_items.create' ? 'active-link' : '' }}">Non-Standard Services</a>
+
+
+
+   <a href="{{ route('versions.non_standard_offerings.create', $version->id) }}"
+   class="breadcrumb-link {{ Route::currentRouteName() === 'versions.non_standard_offerings.create' ? 'active-link' : '' }}">
+  Standard Services
+</a>
+<span class="breadcrumb-separator">»</span>
+            <a href="{{ route('versions.non_standard_items.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.non_standard_items.create' ? 'active-link' : '' }}">3rd Party (Non-Standard)</a>
             <span class="breadcrumb-separator">»</span>
             <a href="{{ route('versions.internal_summary.show', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.internal_summary.show' ? 'active-link' : '' }}">Internal Summary</a>
               <span class="breadcrumb-separator">»</span>
@@ -241,7 +249,7 @@
    
         <!---"{{ asset('assets/ECS_Configuration_Template.csv') }}"--->
         
-         <a href="{{ asset('assets/ECSandBackup_Template_AutoCalculation_v1.250804 (UPDATE FORMULA).xlsx') }}"  class="btn btn-pink" download>
+         <a href="{{ asset('assets/ECSandBackup_Template_AutoCalculation_30092025.xlsx') }}"  class="btn btn-pink" download>
     <i class="bi bi-download"></i> Download Template </a>
   
 
@@ -252,52 +260,8 @@
 
 
 <br>
-<!---@if(session('importPreview'))
 
 
-    <div class="alert alert-info">Preview from imported Excel:</div>
-
-<pre>{{ print_r(session('importPreview'), true) }}</pre>
-
-    <div class="table-responsive">
-        <table class="table table-bordered table-sm small">
-            <thead class="table-light">
-                <tr>
-                    <th>No</th>
-                    @foreach(array_keys(session('importPreview')[0]) as $col)
-                        <th>{{ ucwords(str_replace('_', ' ', $col)) }}</th>
-                    @endforeach
-                </tr>
-            </thead>
-
-            <tbody>
-                @foreach(session('importPreview') as $i => $row)
-                    <tr>
-                        <td>{{ $i + 1 }}</td>
-                        @foreach($row as $value)
-                            <td>{{ $value }}</td>
-                        @endforeach
-                    </tr>
-                @endforeach
-            </tbody>
-        </table>
-    </div>
-@endif
-
-
-
-
-
-
-@if(session('importPreview'))
-    <form action="{{ route('ecs_configurations.store_preview', $version->id) }}" method="POST">
-        @csrf
-        <input type="hidden" name="source" value="backup">
-        <button type="submit" class="btn btn-success mt-2">
-            <i class="bi bi-save"></i> Save Imported Backup Data
-        </button>
-    </form>
-@endif--->
 
 @php $preview = session('importPreview'); @endphp
 @if(is_array($preview) && count($preview))
@@ -375,7 +339,7 @@
     <th colspan="2"><strong>Storage</strong></th>
     <th colspan="3"><strong>License</strong></th>
     <th colspan="3"><strong>Image and Snapshots</strong></th>
-    <th colspan="27"><strong>Backup</strong></th>
+    <th colspan="25"><strong>Backup</strong></th>
     <th><strong>DR Requirement</strong></th>
     <th><strong>Cold DR</strong></th>
     <th colspan="2"><strong>Warm DR</strong></th>
@@ -385,16 +349,16 @@
 
   <tr class="table-dark">
     <th colspan="3"></th>
-    <th colspan="6">ECS</th>
-    <th colspan="2">Storage</th>
-    <th colspan="3">License</th>
-    <th colspan="3">Image and Snapshots</th>
-    <th colspan="6">Cloud Server Backup Service (CSBS)</th>
+    <th colspan="6"></th>
+    <th colspan="2"></th>
+    <th colspan="3"></th>
+    <th colspan="3"></th>
+    <th colspan="5">Cloud Server Backup Service (CSBS)</th>
     <th colspan="7">Full Backup</th>
     <th colspan="7">Incremental Backup</th>
-    <th colspan="7">CSBS Replication</th>
+    <th colspan="6">CSBS Replication</th>
     <th colspan="2">DR Requirement</th>
-    <th colspan="2">Replication using CSDR</th>
+    <th colspan="2">Replication using DR</th>
     <th colspan="2"></th>
   </tr>
 
@@ -416,38 +380,31 @@
     <th>Snapshot Copies</th>
     <th>Additional Capacity (GB)</th>
     <th>Image Copies</th>
-
     <th>Standard Policy</th>
-    <th>Local Retention Copies</th>
-    <th>Total Storage</th>
+    <th>Total CSBS Storage</th>
     <th>Initial Data Size (GB)</th>
     <th>Incremental Change (%)</th>
     <th>Estimated Incremental Data Change (GB)</th>
-
     <th>Daily</th>
     <th>Weekly</th>
     <th>Monthly</th>
     <th>Yearly</th>
-    <th>Total Retention Full Copies</th>
-    <th>Estimated Storage for Full Backup<br><strong>(Suggestion)</strong></th>
-    <th>Estimated Storage for Full Backup</th>
-
-    <th>Daily2</th>
-    <th>Weekly2</th>
-    <th>Monthly2</th>
-    <th>Yearly2</th>
-    <th>Total Retention Increment Copies</th>
-    <th>Estimated Storage for Incremental Backup<br><strong>(Suggestion)</strong></th>
-    <th>Estimated Storage for Incremental Backup</th>
-
-    <th>CSBS Required?</th>
-    <th>Total Replication Copy Retained Second Site</th>
+    <th>Total CSBS Full Copies</th>
+    <th>Suggestion CSBS Full Backup Storage (GB)</th>
+    <th>CSBS Full Backup Storage (GB)</th>
+    <th>Daily</th>
+    <th>Weekly</th>
+    <th>Monthly</th>
+    <th>Yearly</th>
+    <th>Total CSBS Incremental Copies</th>
+   <th>Suggestion CSBS Incremental Backup Storage (GB)</th>
+    <th>CSBS Incremental Backup Storage (GB)</th>
+    <th>CSBS Replication Required?</th>
+    <th>Total CSBS Storage from Primary Site</th>
     <th>Additional Storage (GB)</th>
+    <th>Total CSBS Replication Storage (GB)</th>
     <th>RTO</th>
-    <th>RPO</th>
-    <th>Estimated Storage for CSBS Replication<br><strong>(Suggestion)</strong></th>
-    <th>Estimated Storage for CSBS Replication</th>
-
+    <th>RPO</th>  
     <th>DR Activation Required?</th>
     <th>Seed VM Required?</th>
     <th>CSDR Needed?</th>
@@ -465,7 +422,7 @@
 @php
     $rows = (isset($ecs_configurations) && count($ecs_configurations) > 0)
         ? $ecs_configurations
-        : [new \App\Models\ECSConfiguration]; // fallback kalau kosong
+        : [new \App\Models\ECSConfiguration]; 
 @endphp
 
 @foreach($rows as $i => $row)
@@ -484,7 +441,21 @@
                                     <option value="Cyberjaya" @selected(old("rows.$i.region", $row->region ?? '') == 'Cyberjaya')>Cyberjaya</option>
                                 </select>
                             </td>
-                            <td><input type="text" name="rows[{{ $i }}][vm_name]" class="form-control" value="{{ old("rows.$i.vm_name", $row->vm_name ?? '') }}"></td>
+
+                          
+                            
+                          <td>
+                        
+                        <input type="text"
+       name="rows[{{ $i }}][vm_name]"
+       class="form-control w-100"
+       style="min-width:220px"
+       value="{{ old("rows.$i.vm_name", $row->vm_name ?? '') }}">
+
+                        
+                        
+                        
+                        </td>
                             <td>
                                 <select name="rows[{{ $i }}][ecs_pin]" class="form-select">
                                     <option value="No" @selected(old("rows.$i.ecs_pin", $row->ecs_pin ?? '') == 'No')>No</option>
@@ -521,6 +492,7 @@
                     <option value="Microsoft Windows Std" @selected(old("rows.$i.license_operating_system", $row->license_operating_system ?? '') == 'Microsoft Windows Std')>Microsoft Windows Std</option>
                     <option value="Microsoft Windows DC" @selected(old("rows.$i.license_operating_system", $row->license_operating_system ?? '') == 'Microsoft Windows DC')>Microsoft Windows DC</option>
                      <option value="Red Hat Enterprise Linux" @selected(old("rows.$i.license_operating_system", $row->license_operating_system ?? '') == 'Red Hat Enterprise Linux')>Red Hat Enterprise Linux</option>
+                     
                 
 </select>
 
@@ -566,30 +538,40 @@
 
                 </td> 
 
-                   <td>   <input  name="rows[{{ $i }}][csbs_local_retention_copies]" class="form-control" value="{{ old("rows.$i.csbs_local_retention_copies", $row->csbs_local_retention_copies ?? '') }}" readonly style="background-color: black;color: white;">
-                </td>
-
-
-
+                  
                    <td>   <input  name="rows[{{ $i }}][csbs_total_storage]" class="form-control" value="{{ old("rows.$i.csbs_total_storage", $row->csbs_total_storage ?? '') }}" readonly style="background-color: black;color: white;">
                 </td>
 
 
-                   <td>   <input type="number" name="rows[{{ $i }}][csbs_initial_data_size]" class="form-control" value="{{ old("rows.$i.csbs_initial_data_size", $row->csbs_initial_data_size ?? 0) }}" min="0">
-                </td>
+                   <!---<td>   <input name="rows[{{ $i }}][csbs_initial_data_size]" class="form-control" value="{{ old("rows.$i.csbs_initial_data_size", $row->csbs_initial_data_size ?? 0) }}" min="0" readonly style="background-color: black;color: white;">
+                </td>--->
+
+                <td><input type="number" step="0.1"
+       name="rows[{{ $i }}][csbs_initial_data_size]"
+       class="form-control"
+       value="{{ old("rows.$i.csbs_initial_data_size", $row->csbs_initial_data_size ?? 0) }}"
+       min="0">
+</td>
 
                  <td>   <input type="number" name="rows[{{ $i }}][csbs_incremental_change]" class="form-control" value="{{ old("rows.$i.csbs_incremental_change", $row->csbs_incremental_change ?? 0) }}"  min="0">
                 </td>
 
 
 
-                  <td>   <input name="rows[{{ $i }}][csbs_estimated_incremental_data_change]" class="form-control" value="{{ old("rows.$i.csbs_estimated_incremental_data_change", $row->csbs_estimated_incremental_data_change ?? '') }}" readonly style="background-color: black;color: white;">
-                </td>
+                  <!---<td>   <input name="rows[{{ $i }}][csbs_estimated_incremental_data_change]" class="form-control" value="{{ old("rows.$i.csbs_estimated_incremental_data_change", $row->csbs_estimated_incremental_data_change ?? '') }}" readonly style="background-color: black;color: white;">
+                </td>--->
+
+
+<td><input step="1"
+       name="rows[{{ $i }}][csbs_estimated_incremental_data_change]"
+       class="form-control"
+       value="{{ old("rows.$i.csbs_estimated_incremental_data_change", $row->csbs_estimated_incremental_data_change ?? '') }}"
+       readonly style="background-color:black;color:white;">
+</td>
 
 
 
 
-                
                   <td>   <input type="number" name="rows[{{ $i }}][full_backup_daily]" class="form-control" value="{{ old("rows.$i.full_backup_daily", $row->full_backup_daily ?? 0) }}" min="0">
                 </td>
 
@@ -611,18 +593,32 @@
                   <td>   <input  name="rows[{{ $i }}][full_backup_total_retention_full_copies]" class="form-control" value="{{ old("rows.$i.full_backup_total_retention_full_copies", $row->full_backup_total_retention_full_copies ?? '') }}" readonly style="background-color: black;color: white;">
                 </td>
 
-               
+                
 
-               <td>
+                
+
+               <!---<td>
   <input name="rows[{{ $i }}][suggestion_estimated_storage_full_backup]"
          class="form-control"
          value="{{ old("rows.$i.suggestion_estimated_storage_full_backup", $row->suggestion_estimated_storage_full_backup ?? 0) }}"
          readonly style="background-color:black;color:white;">
+</td>--->
+
+<td><input step="0.1"
+       name="rows[{{ $i }}][suggestion_estimated_storage_full_backup]"
+       class="form-control"
+       value="{{ old("rows.$i.suggestion_estimated_storage_full_backup", $row->suggestion_estimated_storage_full_backup ?? 0) }}"
+       readonly style="background-color:black;color:white;">
 </td>
 
-                 <td><input type="number" name="rows[{{ $i }}][estimated_storage_full_backup]" class="form-control" value="{{ old("rows.$i.estimated_storage_full_backup", $row->estimated_storage_full_backup ?? '') }}" min="0"></td>
 
 
+
+  <td>
+    <input type="number" step="0.1" name="rows[{{ $i }}][estimated_storage_full_backup]" class="form-control" value="{{ old("rows.$i.estimated_storage_full_backup", $row->estimated_storage_full_backup ?? '') }}">
+  </td>
+
+     
                 
                   <td>   <input type="number" name="rows[{{ $i }}][incremental_backup_daily]" class="form-control" value="{{ old("rows.$i.incremental_backup_daily", $row->incremental_backup_daily ?? 0) }}" min="0">
                 </td>
@@ -652,6 +648,7 @@
 </td>
 
 
+
                                      <td><input type="number" name="rows[{{ $i }}][estimated_storage_incremental_backup]" class="form-control" value="{{ old("rows.$i.estimated_storage_incremental_backup", $row->estimated_storage_incremental_backup ?? '') }}" min="0"></td>
 
                  <td> 
@@ -665,13 +662,26 @@
 
 
 
-                   <td>   <input  name="rows[{{ $i }}][total_replication_copy_retained_second_site]" class="form-control" value="{{ old("rows.$i.total_replication_copy_retained_second_site", $row->total_replication_copy_retained_second_site ?? '') }}" readonly style="background-color: black;color: white;">
-                </td>
+                   <!---<td>   <input  name="rows[{{ $i }}][total_replication_copy_retained_second_site]" class="form-control" value="{{ old("rows.$i.total_replication_copy_retained_second_site", $row->total_replication_copy_retained_second_site ?? '') }}" readonly style="background-color: black;color: white;">
+                </td>--->
+
+               <td> <input name="rows[{{ $i }}][estimated_storage_csbs_replication]"
+       class="form-control"
+       value="{{ old("rows.$i.estimated_storage_csbs_replication", $row->estimated_storage_csbs_replication ?? 0) }}"
+       readonly style="background-color:black;color:white;"></td>
+
 
 
                    <td>   <input type="number" name="rows[{{ $i }}][additional_storage]" class="form-control" value="{{ old("rows.$i.additional_storage", $row->additional_storage ?? 0) }}" min="0">
                 </td>
 
+                   
+                <td>
+  <input name="rows[{{ $i }}][suggestion_estimated_storage_csbs_replication]"
+         class="form-control"
+         value="{{ old("rows.$i.suggestion_estimated_storage_csbs_replication", $row->suggestion_estimated_storage_csbs_replication ?? 0) }}"
+         readonly style="background-color:black;color:white;">
+</td>  
 
                 
                 <td><input type="number" name="rows[{{ $i }}][rto]" class="form-control" value="{{ old("rows.$i.rto", $row->rto ?? '') }}" placeholder="Enter hours"  min="0"></td>
@@ -679,21 +689,9 @@
 
                 <td><input type="text" name="rows[{{ $i }}][rpo]" class="form-control" value="{{ old("rows.$i.rpo", $row->rpo ?? '') }}" readonly style="background-color: black;color: white;"></td>
 
-                
-                <td>
-  <input name="rows[{{ $i }}][suggestion_estimated_storage_csbs_replication]"
-         class="form-control"
-         value="{{ old("rows.$i.suggestion_estimated_storage_csbs_replication", $row->suggestion_estimated_storage_csbs_replication ?? 0) }}"
-         readonly style="background-color:black;color:white;">
-</td>
-
-
-
-                   <td><input type="number" name="rows[{{ $i }}][estimated_storage_csbs_replication]" class="form-control" value="{{ old("rows.$i.estimated_storage_csbs_replication", $row->estimated_storage_csbs_replication ?? '') }}" min="0"></td>
-                
-                 
- <td> 
-              
+            
+<td>
+             
                 <select name="rows[{{ $i }}][dr_activation]" class="form-select">
                     <option value="No" @selected(old("rows.$i.dr_activation", $row->dr_activation ?? '') == 'No')>No</option>
                     <option value="Yes" @selected(old("rows.$i.dr_activation", $row->dr_activation ?? '') == 'Yes')>Yes</option>
@@ -727,8 +725,7 @@
 
                   
 
-
-<td>
+                <td>
   <input
     name="rows[{{ $i }}][ecs_dr]"
     class="form-control ecs-dr-input"
@@ -739,25 +736,15 @@
 </td>
 
 
-
-
-
-
-<!---<td>
-    <button type="button" class="btn btn-sm btn-outline-danger delete-row d-flex align-items-center gap-1" title="Delete">
-        <i class="bi bi-trash"></i> Delete
-    </button>
-</td>--->
-
 <td class="text-nowrap">
   <div class="d-flex align-items-center gap-2">
-    <!-- Checkbox untuk pilih row ini (tak ubah kolum lain) -->
+    
     <input type="checkbox"
            class="form-check-input row-check"
            value="{{ $row->id ?? '' }}"
            @disabled($isLocked)>
 
-    <!-- Butang delete sedia ada (kekal) -->
+   
     <button type="button"
             class="btn btn-sm btn-outline-danger delete-row d-flex align-items-center gap-1"
             title="Delete">
@@ -1067,6 +1054,13 @@ function attachDynamicListeners(row, index) {
   const suggInc    = q(`input[name="rows[${index}][suggestion_estimated_storage_incremental_backup]"]`);
   const suggRepl   = q(`input[name="rows[${index}][suggestion_estimated_storage_csbs_replication]"]`);
 
+  const estFull = q(`input[name="rows[${index}][estimated_storage_full_backup]"]`);
+const estInc  = q(`input[name="rows[${index}][estimated_storage_incremental_backup]"]`);
+const estPrim = q(`input[name="rows[${index}][estimated_storage_csbs_replication]"]`);
+
+
+const addStorage = q(`input[name="rows[${index}][additional_storage]"]`);
+
   function recalcRow() {
     const fullT = toInt(fullDaily?.value) + toInt(fullWeekly?.value) + toInt(fullMonthly?.value) + toInt(fullYearly?.value);
     const incT  = toInt(incDaily?.value)  + toInt(incWeekly?.value)  + toInt(incMonthly?.value)  + toInt(incYearly?.value);
@@ -1075,13 +1069,29 @@ function attachDynamicListeners(row, index) {
     if (incTotal)  incTotal.value  = incT;
 
 
-const init = toInt(initialSize?.value);
 
 
-const pctRaw = parseFloat(changePct?.value || 0);
+// Initial Data Size (GB) = 0.7 * (system_disk + data_disk)  → display 1 decimal
+const sysVal  = parseFloat(sysDisk?.value  || '0');
+const dataVal = parseFloat(dataDisk?.value || '0');
+const initCalc = 0.7 * (sysVal + dataVal);
+if (initialSize) initialSize.value = (Math.round(initCalc * 10) / 10).toFixed(1);
+
+
+//const init = toInt(initialSize?.value);
+const init = parseFloat(initialSize?.value || '0');
+
+
+/*const pctRaw = parseFloat(changePct?.value || 0);
 const estChangeRaw = init * (pctRaw / 100);
-if (estChangeOut) estChangeOut.value = estChangeRaw.toFixed(1);
+if (estChangeOut) estChangeOut.value = estChangeRaw.toFixed(1);*/
 
+
+
+const pctRaw = parseFloat(changePct?.value || '0');
+const estChangeRaw = init * (pctRaw / 100);
+const estChangeRounded = Math.ceil(estChangeRaw); // round up to integer GB
+if (estChangeOut) estChangeOut.value = estChangeRounded;
 
 
 
@@ -1096,7 +1106,10 @@ if (estChangeOut) estChangeOut.value = estChangeRaw.toFixed(1);
    
 
 
-const totalStore = init + (init * fullT) + (estChangeRaw * incT);
+/*const totalStore = init + (init * fullT) + (estChangeRaw * incT);
+if (totalStorage) totalStorage.value = (policy === 'No Backup') ? 0 : Math.ceil(totalStore);*/
+
+const totalStore = init + (init * fullT) + (estChangeRounded * incT);
 if (totalStorage) totalStorage.value = (policy === 'No Backup') ? 0 : Math.ceil(totalStore);
 
 
@@ -1112,16 +1125,59 @@ if (totalStorage) totalStorage.value = (policy === 'No Backup') ? 0 : Math.ceil(
     if (csdrStorage) csdrStorage.value = (csdrNeeded?.value === 'Yes') ? (sys + dat) : 0;
 
     // === Suggestions ===
-    if (suggFull) suggFull.value = init * fullT;
-    if (suggInc)  suggInc.value  = estChangeRaw * incT;
+    /*if (suggFull) suggFull.value = init * fullT;
+    if (suggInc)  suggInc.value  = estChangeRaw * incT;*/
+
+    //if (suggFull) suggFull.value = (init * fullT).toFixed(1);
+
+
+    //without 2 decimal point
+//if (suggFull) suggFull.value = (init * (fullT + 1)).toFixed(1);
+
+// Excel: Full = Initial × (1 + total full copies)
+const fullSuggestion = init * (fullT + 1);
+
+// suggestion: 1 decimal
+if (suggFull) suggFull.value = fullSuggestion.toFixed(1);
+
+// mirror ke "CSBS Full Backup Storage (GB)" dgn 1 decimal juga
+if (estFull) estFull.value  = fullSuggestion.toFixed(1);
+
+
+
+if (suggInc)  suggInc.value  = (estChangeRounded * incT).toFixed(1);
+
     
 
-const replSuggested = (init * fullT) + (estChangeRaw * incT);
+/*const replSuggested = (init * fullT) + (estChangeRaw * incT);
 if (suggRepl)
   suggRepl.value = (requiredSel?.value === 'Yes' && policy !== 'No Backup')
     ? Math.ceil(replSuggested)
-    : 0;
+    : 0;*/
 
+    /*const replSuggested = (init * fullT) + (estChangeRounded * incT);
+if (suggRepl)
+  suggRepl.value = (requiredSel?.value === 'Yes' && policy !== 'No Backup')
+    ? replSuggested.toFixed(1)
+    : 0;*/
+
+
+    /*const replSuggested = (init * (fullT + 1)) + (estChangeRounded * incT);
+const showRep = (requiredSel?.value === 'Yes' && policy !== 'No Backup');
+
+if (suggRepl) suggRepl.value = showRep ? replSuggested.toFixed(1) : 0;
+if (estPrim)  estPrim.value  = showRep ? replSuggested.toFixed(1) : 0;*/
+
+const replSuggested = (init * (fullT + 1)) + (estChangeRounded * incT);
+const showRep = (requiredSel?.value === 'Yes' && policy !== 'No Backup');
+
+// 👉 Additional Storage (GB) untuk "Total CSBS Replication Storage (GB)"
+const addVal = parseFloat(addStorage?.value || '0');
+const replWithAdd = replSuggested + (isNaN(addVal) ? 0 : addVal);
+
+// Suggestion (dengan Additional), Primary Site (tanpa Additional)
+if (suggRepl) suggRepl.value = showRep ? replWithAdd.toFixed(1) : 0;
+if (estPrim)  estPrim.value  = showRep ? replSuggested.toFixed(1) : 0;
 
 
 
@@ -1151,7 +1207,7 @@ if (suggRepl)
     fullDaily, fullWeekly, fullMonthly, fullYearly,
     incDaily, incWeekly, incMonthly, incYearly,
     initialSize, changePct, sysDisk, dataDisk,
-    requiredSel, csbsPolicy, csdrNeeded, rto
+    requiredSel, csbsPolicy, csdrNeeded, rto, addStorage
   ].forEach(el => el && el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', recalcRow));
 
   updateFlavour();
@@ -1194,15 +1250,15 @@ document.addEventListener('DOMContentLoaded', function () {
       else el.value = '';
     });
 
-    // Buang id tersembunyi kalau ada
+    
     const hid = newRow.querySelector(`input[name="rows[${idx}][id]"]`);
     if (hid) hid.value = '';
 
-    // Default penting supaya validasi pass
+    
     const sys = newRow.querySelector(`input[name="rows[${idx}][storage_system_disk]"]`);
     if (sys) sys.value = 40;
 
-    // Kosongkan semua output readonly
+   
     [
       'ecs_flavour_mapping','csbs_local_retention_copies','csbs_total_storage',
       'csbs_estimated_incremental_data_change','full_backup_total_retention_full_copies',
@@ -1329,10 +1385,10 @@ document.addEventListener('DOMContentLoaded', function () {
       else domOnly.push(tr);
     });
 
-    // 1) Buang terus baris yang belum ada id (baru)
+   
     domOnly.forEach(tr => tr.remove());
 
-    // 2) Kalau ada id, call bulk destroy
+   
     if (ids.length > 0) {
       try {
         const res = await fetch(`{{ route('ecs_configurations.bulk_destroy') }}`, {
@@ -1353,7 +1409,6 @@ document.addEventListener('DOMContentLoaded', function () {
           return;
         }
 
-        // Buang baris yang berjaya dipadam dari DB
         rowsChecked.forEach(cb => {
           const tr = cb.closest('tr');
           const hid = tr.querySelector('input[name^="rows"][name$="[id]"]');
@@ -1366,12 +1421,12 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     }
 
-    // Reset master checkbox & renumber No
+   
     if (checkAll) checkAll.checked = false;
     renumberNo();
   });
 
-  // Helper: susun semula nombor "No" (kolum 2)
+  
   function renumberNo(){
     Array.from(tbody.querySelectorAll('tr')).forEach((tr, idx) => {
       const noCell = tr.querySelector('td:nth-child(2)');
@@ -1400,7 +1455,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 	.active-link {
     	font-weight: bold;
-    	color: #FF82E6 !important; /* pink highlight */
+    	color: #FF82E6 !important; 
     	text-decoration: underline;
 	}
 	.breadcrumb-separator {

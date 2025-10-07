@@ -36,7 +36,7 @@
 </div>
 
 <div>
-    <table style="margin-top: 10px;"> <!-- tambahan margin atas kalau nak -->
+    <table style="margin-top: 10px;"> 
         <!-- table content -->
     </table>
 </div>

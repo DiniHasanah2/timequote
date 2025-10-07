@@ -209,18 +209,18 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-  // isi network_code & auto-close via data-bs-dismiss
+ 
   document.querySelectorAll('.pick-net-service-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.getElementById('network_code').value = btn.dataset.code ?? '';
-      // kalau form Add tersembunyi, tunjukkan
+    
       const addForm = document.getElementById('addForm');
       if (addForm && addForm.style.display === 'none') addForm.style.display = 'block';
       document.getElementById('min_bw')?.focus();
     });
   });
 
-  // carian pantas
+ 
   const q = document.getElementById('net-svc-search');
   const tbody = document.getElementById('net-svc-body');
   q?.addEventListener('input', function(){
@@ -230,7 +230,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // fallback kalau backdrop tertinggal (optional)
+  
   document.addEventListener('hidden.bs.modal', () => {
     document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
     document.body.classList.remove('modal-open');

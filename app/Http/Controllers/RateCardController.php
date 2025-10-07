@@ -10,7 +10,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 
 class RateCardController extends Controller
 {
-    public function showRateCard($versionId)
+    /*public function showRateCard($versionId)
     {
         $version = Version::with([
             'internal_summary',
@@ -41,7 +41,34 @@ class RateCardController extends Controller
             'version',
             'rateCardItems'
         ));
+    }*/
+    public function showRateCard($versionId)
+{
+    $version = Version::with([
+        'internal_summary',
+        'region',
+        'project.customer',
+        'security_service',
+    ])->findOrFail($versionId);
+
+    // use snapshot if already lock; if not,build live summary
+    $summary = $version->internal_summary;
+    if (!$summary || !($summary->is_locked ?? false)) {
+        $summary = $this->buildLiveSummary($version); 
     }
+
+    $pricing = config('pricing');
+
+    // Base items (use $summary — sama interface like InternalSummary)
+    $rateCardItems = $this->calculateRateCardItems($summary, $pricing);
+
+    // Managed Services (kekal macam sedia ada — baca terus dari security_service)
+    $managedItems  = $this->calculateManagedItems($version->security_service, $pricing);
+    $rateCardItems = array_merge($rateCardItems, $managedItems);
+
+    return view('projects.security_service.ratecard', compact('version','rateCardItems'));
+}
+
 
     private function calculateRateCardItems($internalSummary, $pricing)
     {
@@ -143,6 +170,7 @@ class RateCardController extends Controller
             $priceKey = $this->getBandwidthPriceKey($summary->kl_bandwidth);
             $price = $pricing[$priceKey]['price_per_unit'] ?? 0;
             $items[] = [
+                'category' => 'Network',
                 'name' => 'KL Bandwidth',
                 'quantity' => $summary->kl_bandwidth,
                 'unit' => 'Mbps',
@@ -157,6 +185,7 @@ class RateCardController extends Controller
             $priceKey = $this->getBandwidthPriceKey($summary->cyber_bandwidth);
             $price = $pricing[$priceKey]['price_per_unit'] ?? 0;
             $items[] = [
+                'category' => 'Network',
                 'name' => 'Cyberjaya Bandwidth',
                 'quantity' => $summary->cyber_bandwidth,
                 'unit' => 'Mbps',
@@ -171,6 +200,7 @@ class RateCardController extends Controller
             $priceKey = $this->getBandwidthPriceKey($summary->kl_bandwidth_with_antiddos);
             $price = $pricing[$priceKey]['price_per_unit'] ?? 0;
             $items[] = [
+                'category' => 'Network',
                 'name' => 'KL Bandwidth with Anti-DDoS',
                 'quantity' => $summary->kl_bandwidth_with_antiddos,
                 'unit' => 'Mbps',
@@ -185,6 +215,7 @@ class RateCardController extends Controller
             $priceKey = $this->getBandwidthPriceKey($summary->cyber_bandwidth_with_antiddos);
             $price = $pricing[$priceKey]['price_per_unit'] ?? 0;
             $items[] = [
+                'category' => 'Network',
                 'name' => 'Cyberjaya Bandwidth with Anti-DDoS',
                 'quantity' => $summary->cyber_bandwidth_with_antiddos,
                 'unit' => 'Mbps',
@@ -207,6 +238,7 @@ class RateCardController extends Controller
                 $price = $pricing[$priceKey]['price_per_unit'] ?? 0;
                 $region = strpos($field, 'kl_') === 0 ? 'Kuala Lumpur' : 'Cyberjaya';
                 $items[] = [
+                    'category' => 'Network',
                     'name' => $name,
                     'quantity' => $summary->$field,
                     'unit' => 'Unit',
@@ -228,6 +260,7 @@ class RateCardController extends Controller
                 $price = $pricing[$priceKey]['price_per_unit'] ?? 0;
                 $region = strpos($field, 'kl_') === 0 ? 'Kuala Lumpur' : 'Cyberjaya';
                 $items[] = [
+                    'category' => 'Network',
                     'name' => $name,
                     'quantity' => $summary->$field,
                     'unit' => 'Unit',
@@ -249,6 +282,7 @@ class RateCardController extends Controller
                 $price = $pricing[$priceKey]['price_per_unit'] ?? 0;
                 $region = strpos($field, 'kl_') === 0 ? 'Kuala Lumpur' : 'Cyberjaya';
                 $items[] = [
+                    'category' => 'Network',
                     'name' => $name,
                     'quantity' => $summary->$field,
                     'unit' => 'Unit',
@@ -270,6 +304,7 @@ class RateCardController extends Controller
                 $price = $pricing[$priceKey]['price_per_unit'] ?? 0;
                 $region = strpos($field, 'kl_') === 0 ? 'Kuala Lumpur' : 'Cyberjaya';
                 $items[] = [
+                    'category' => 'Network',
                     'name' => $name,
                     'quantity' => $summary->$field,
                     'unit' => 'Unit',
@@ -285,6 +320,7 @@ class RateCardController extends Controller
             $priceKey = $this->getVPLLPriceKey($summary->kl_virtual_private_leased_line);
             $price = $pricing[$priceKey]['price_per_unit'] ?? 0;
             $items[] = [
+                'category' => 'Network',
                 'name' => 'KL Virtual Private Leased Line (vPLL)',
                 'quantity' => $summary->kl_virtual_private_leased_line,
                 'unit' => 'Mbps',
@@ -299,6 +335,7 @@ class RateCardController extends Controller
             $priceKey = $this->getVPLLPriceKey($summary->cyber_virtual_private_leased_line);
             $price = $pricing[$priceKey]['price_per_unit'] ?? 0;
             $items[] = [
+                'category' => 'Network',
                 'name' => 'Cyberjaya Virtual Private Leased Line (vPLL)',
                 'quantity' => $summary->cyber_virtual_private_leased_line,
                 'unit' => 'Mbps',
@@ -312,6 +349,7 @@ class RateCardController extends Controller
         if ($summary->kl_vpll_l2br > 0) {
             $price = $pricing['CNET-L2BR-SHR-INT']['price_per_unit'] ?? 0;
             $items[] = [
+                'category' => 'Network',
                 'name' => 'KL vPLL L2BR',
                 'quantity' => $summary->kl_vpll_l2br,
                 'unit' => 'Pair',
@@ -338,6 +376,7 @@ class RateCardController extends Controller
                 $price = $pricing[$priceKey]['price_per_unit'] ?? 0;
                 $region = strpos($field, 'kl_') === 0 ? 'Kuala Lumpur' : 'Cyberjaya';
                 $items[] = [
+                    'category' => 'Network',
                     'name' => $name,
                     'quantity' => $summary->$field,
                     'unit' => 'Unit',
@@ -359,6 +398,7 @@ class RateCardController extends Controller
                 $price = $pricing[$priceKey]['price_per_unit'] ?? 0;
                 $region = strpos($field, 'kl_') === 0 ? 'Kuala Lumpur' : 'Cyberjaya';
                 $items[] = [
+                    'category' => 'Network',
                     'name' => $name,
                     'quantity' => $summary->$field,
                     'unit' => 'Domain',
@@ -381,12 +421,14 @@ class RateCardController extends Controller
         if ($summary->kl_evs > 0) {
             $price = $pricing['CSTG-EVS-SHR-STD']['price_per_unit'] ?? 0;
             $items[] = [
+               
                 'name' => 'KL Elastic Volume Service (EVS)',
                 'quantity' => $summary->kl_evs,
                 'unit' => 'GB',
                 'price_per_unit' => $price,
                 'total_price' => $summary->kl_evs * $price,
-                'region' => 'Kuala Lumpur'
+                'region' => 'Kuala Lumpur',
+                'category' => 'Storage',
             ];
         }
 
@@ -394,12 +436,15 @@ class RateCardController extends Controller
         if ($summary->cyber_evs > 0) {
             $price = $pricing['CSTG-EVS-SHR-STD']['price_per_unit'] ?? 0;
             $items[] = [
+                
                 'name' => 'Cyberjaya Elastic Volume Service (EVS)',
                 'quantity' => $summary->cyber_evs,
                 'unit' => 'GB',
                 'price_per_unit' => $price,
                 'total_price' => $summary->cyber_evs * $price,
-                'region' => 'Cyberjaya'
+                'region' => 'Cyberjaya',
+                'category' => 'Storage',
+
             ];
         }
 
@@ -412,7 +457,9 @@ class RateCardController extends Controller
                 'unit' => 'GB',
                 'price_per_unit' => $price,
                 'total_price' => $summary->kl_scalable_file_service * $price,
-                'region' => 'Kuala Lumpur'
+                'region' => 'Kuala Lumpur',
+                'category' => 'Storage',
+
             ];
         }
 
@@ -425,7 +472,9 @@ class RateCardController extends Controller
                 'unit' => 'GB',
                 'price_per_unit' => $price,
                 'total_price' => $summary->cyber_scalable_file_service * $price,
-                'region' => 'Cyberjaya'
+                'region' => 'Cyberjaya',
+                'category' => 'Storage',
+
             ];
         }
 
@@ -438,7 +487,9 @@ class RateCardController extends Controller
                 'unit' => 'GB',
                 'price_per_unit' => $price,
                 'total_price' => $summary->kl_object_storage_service * $price,
-                'region' => 'Kuala Lumpur'
+                'region' => 'Kuala Lumpur',
+                'category' => 'Storage',
+
             ];
         }
 
@@ -451,7 +502,9 @@ class RateCardController extends Controller
                 'unit' => 'GB',
                 'price_per_unit' => $price,
                 'total_price' => $summary->cyber_object_storage_service * $price,
-                'region' => 'Cyberjaya'
+                'region' => 'Cyberjaya',
+                'category' => 'Storage',
+
             ];
         }
 
@@ -464,7 +517,9 @@ class RateCardController extends Controller
                 'unit' => 'GB',
                 'price_per_unit' => $price,
                 'total_price' => $summary->kl_snapshot_storage * $price,
-                'region' => 'Kuala Lumpur'
+                'region' => 'Kuala Lumpur',
+                'category' => 'Storage',
+
             ];
         }
 
@@ -477,7 +532,9 @@ class RateCardController extends Controller
                 'unit' => 'GB',
                 'price_per_unit' => $price,
                 'total_price' => $summary->cyber_snapshot_storage * $price,
-                'region' => 'Cyberjaya'
+                'region' => 'Cyberjaya',
+                'category' => 'Storage',
+
             ];
         }
 
@@ -490,7 +547,9 @@ class RateCardController extends Controller
                 'unit' => 'GB',
                 'price_per_unit' => $price,
                 'total_price' => $summary->kl_image_storage * $price,
-                'region' => 'Kuala Lumpur'
+                'region' => 'Kuala Lumpur',
+                'category' => 'Storage',
+
             ];
         }
 
@@ -503,7 +562,9 @@ class RateCardController extends Controller
                 'unit' => 'GB',
                 'price_per_unit' => $price,
                 'total_price' => $summary->cyber_image_storage * $price,
-                'region' => 'Cyberjaya'
+                'region' => 'Cyberjaya',
+                'category' => 'Storage',
+
             ];
         }
 
@@ -540,7 +601,8 @@ class RateCardController extends Controller
                     'unit' => $unit,
                     'price_per_unit' => $price,
                     'total_price' => $summary->$field * $price,
-                    'region' => $region
+                    'region' => $region,
+                    'category' => 'Security',
                 ];
             }
         }
@@ -559,6 +621,7 @@ class RateCardController extends Controller
         // KL
         if ((int)($summary->kl_insight_vmonitoring ?? 0) > 0) {
             $items[] = [
+                'category' => 'Monitoring',
                 'name' => 'Monitoring TCS inSight vMonitoring',
                 'unit' => 'Unit',
                 'region' => 'Kuala Lumpur',
@@ -571,6 +634,7 @@ class RateCardController extends Controller
         // CJ
         if ((int)($summary->cyber_insight_vmonitoring ?? 0) > 0) {
             $items[] = [
+                'category' => 'Monitoring',
                 'name' => 'Monitoring TCS inSight vMonitoring',
                 'unit' => 'Unit',
                 'region' => 'Cyberjaya',
@@ -621,6 +685,7 @@ class RateCardController extends Controller
                     'quantity' => $klQty,
                     'price_per_unit' => $price,
                     'total_price' => $klQty * $price,
+                    'category' => 'Backup',
                 ];
             }
 
@@ -632,6 +697,7 @@ class RateCardController extends Controller
                     'quantity' => $cjQty,
                     'price_per_unit' => $price,
                     'total_price' => $cjQty * $price,
+                    'category' => 'Backup',
                 ];
             }
         }
@@ -639,7 +705,7 @@ class RateCardController extends Controller
         return $items;
     }
 
-    // ======================= LICENSE =======================
+    
     private function calculateLicenseItems($summary, $pricing)
     {
         $items = [];
@@ -670,6 +736,7 @@ class RateCardController extends Controller
                     'quantity' => $klQty,
                     'price_per_unit' => $price,
                     'total_price' => $klQty * $price,
+                    'category' => 'License',
                 ];
             }
             if ($cjQty > 0) {
@@ -680,6 +747,7 @@ class RateCardController extends Controller
                     'quantity' => $cjQty,
                     'price_per_unit' => $price,
                     'total_price' => $cjQty * $price,
+                    'category' => 'License',
                 ];
             }
         }
@@ -687,7 +755,7 @@ class RateCardController extends Controller
         return $items;
     }
 
-    // ======================= COMPUTE =======================
+   
     private function calculateComputeItems($summary, $pricing)
     {
         $items = [];
@@ -714,7 +782,8 @@ class RateCardController extends Controller
                         'unit' => 'Unit',
                         'price_per_unit' => $price,
                         'total_price' => $klQty * $price,
-                        'region' => 'Kuala Lumpur'
+                        'region' => 'Kuala Lumpur',
+                        'category' => 'Compute',
                     ];
                 }
 
@@ -725,7 +794,8 @@ class RateCardController extends Controller
                         'unit' => 'Unit',
                         'price_per_unit' => $price,
                         'total_price' => $cyberQty * $price,
-                        'region' => 'Cyberjaya'
+                        'region' => 'Cyberjaya',
+                        'category' => 'Compute',
                     ];
                 }
             }
@@ -734,7 +804,7 @@ class RateCardController extends Controller
         return $items;
     }
 
-    // ======================= PROFESSIONAL =======================
+   
     private function calculateProfessionalServices($summary, $pricing)
     {
         $items = [];
@@ -743,7 +813,7 @@ class RateCardController extends Controller
             $priceKey = $this->getMandayPriceKey($summary->mandays);
             $price = $pricing[$priceKey]['price_per_unit'] ?? 0;
             $items[] = [
-                'category'       => 'Professional', // ← group heading
+                'category'       => 'Professional', 
                 'name'           => 'Professional Services',
                 'quantity'       => $summary->mandays,
                 'unit'           => 'Day',
@@ -756,7 +826,7 @@ class RateCardController extends Controller
         return $items;
     }
 
-    // ======================= HELPERS =======================
+  
     private function getBandwidthPriceKey($bandwidth)
     {
         if ($bandwidth <= 10) return 'CNET-BWS-CIA-10';
@@ -804,4 +874,141 @@ class RateCardController extends Controller
 
         return $pdf->download('ratecard.pdf');
     }
+
+
+
+
+
+
+    private function buildLiveSummary(\App\Models\Version $version): \stdClass
+{
+    $s = new \stdClass();
+    $region = $version->region;
+    $sec    = $version->security_service;
+    $ecs    = \App\Models\ECSConfiguration::where('version_id', $version->id)->get();
+
+   
+    foreach ([
+        'mandays',
+        'kl_bandwidth','cyber_bandwidth',
+        'kl_bandwidth_with_antiddos','cyber_bandwidth_with_antiddos',
+        'kl_included_elastic_ip','cyber_included_elastic_ip',
+        'kl_elastic_ip','cyber_elastic_ip',
+        'kl_elastic_load_balancer','cyber_elastic_load_balancer',
+        'kl_direct_connect_virtual','cyber_direct_connect_virtual',
+        'kl_l2br_instance','cyber_l2br_instance',
+        'kl_virtual_private_leased_line','cyber_virtual_private_leased_line',
+        'kl_vpll_l2br',
+        'kl_nat_gateway_small','kl_nat_gateway_medium','kl_nat_gateway_large','kl_nat_gateway_xlarge',
+        'cyber_nat_gateway_small','cyber_nat_gateway_medium','cyber_nat_gateway_large','cyber_nat_gateway_xlarge',
+        'kl_gslb','cyber_gslb',
+        'kl_insight_vmonitoring','cyber_insight_vmonitoring',
+        'kl_evs','cyber_evs',
+    'kl_scalable_file_service','cyber_scalable_file_service',
+    'kl_object_storage_service','cyber_object_storage_service',
+    
+      'kl_snapshot_storage','cyber_snapshot_storage',
+    'kl_image_storage','cyber_image_storage',
+
+    ] as $f) {
+        $s->$f = (int)($region->$f ?? 0);
+    }
+
+    
+    foreach ([
+        'kl_firewall_fortigate','cyber_firewall_fortigate',
+        'kl_firewall_opnsense','cyber_firewall_opnsense',
+        'kl_shared_waf','cyber_shared_waf',
+        'kl_antivirus','cyber_antivirus',
+        'kl_cloud_vulnerability','cyber_cloud_vulnerability',
+    ] as $f) {
+        $s->$f = (int)($sec->$f ?? 0);
+    }
+
+    
+    $s->ecs_flavour_mapping = $ecs->pluck('ecs_flavour_mapping')->filter()->unique()->implode(', ');
+    $s->version_id = $version->id;
+
+  
+    try {
+        if (method_exists(\App\Http\Controllers\QuotationController::class, 'getLicenseSummary')) {
+            $lic = app(\App\Http\Controllers\QuotationController::class)->getLicenseSummary($ecs);
+        } elseif (method_exists(\App\Http\Controllers\InternalSummaryController::class, 'getLicenseSummary')) {
+            $lic = app(\App\Http\Controllers\InternalSummaryController::class)->getLicenseSummary($ecs);
+        } else {
+            $lic = [];
+        }
+        $s->kl_windows_std   = (int)($lic['windows_std']['Kuala Lumpur'] ?? 0);
+        $s->cyber_windows_std= (int)($lic['windows_std']['Cyberjaya'] ?? 0);
+        $s->kl_windows_dc    = (int)($lic['windows_dc']['Kuala Lumpur'] ?? 0);
+        $s->cyber_windows_dc = (int)($lic['windows_dc']['Cyberjaya'] ?? 0);
+        $s->kl_rds           = (int)($lic['rds_sal']['Kuala Lumpur'] ?? 0);
+        $s->cyber_rds        = (int)($lic['rds_sal']['Cyberjaya'] ?? 0);
+        $s->kl_sql_web       = (int)($lic['sql_web']['Kuala Lumpur'] ?? 0);
+        $s->cyber_sql_web    = (int)($lic['sql_web']['Cyberjaya'] ?? 0);
+        $s->kl_sql_std       = (int)($lic['sql_std']['Kuala Lumpur'] ?? 0);
+        $s->cyber_sql_std    = (int)($lic['sql_std']['Cyberjaya'] ?? 0);
+        $s->kl_sql_ent       = (int)($lic['sql_ent']['Kuala Lumpur'] ?? 0);
+        $s->cyber_sql_ent    = (int)($lic['sql_ent']['Cyberjaya'] ?? 0);
+        $s->kl_rhel_1_8      = (int)($lic['rhel_1_8']['Kuala Lumpur'] ?? 0);
+        $s->cyber_rhel_1_8   = (int)($lic['rhel_1_8']['Cyberjaya'] ?? 0);
+        $s->kl_rhel_9_127    = (int)($lic['rhel_9_127']['Kuala Lumpur'] ?? 0);
+        $s->cyber_rhel_9_127 = (int)($lic['rhel_9_127']['Cyberjaya'] ?? 0);
+    } catch (\Throwable $e) {
+       
+        foreach ([
+            'kl_windows_std','cyber_windows_std','kl_windows_dc','cyber_windows_dc',
+            'kl_rds','cyber_rds','kl_sql_web','cyber_sql_web','kl_sql_std','cyber_sql_std',
+            'kl_sql_ent','cyber_sql_ent','kl_rhel_1_8','cyber_rhel_1_8','kl_rhel_9_127','cyber_rhel_9_127',
+        ] as $f) { $s->$f = 0; }
+    }
+
+
+    foreach ([
+    'kl_evs','cyber_evs',
+    'kl_scalable_file_service','cyber_scalable_file_service',
+    'kl_object_storage_service','cyber_object_storage_service',
+    'kl_snapshot_storage','cyber_snapshot_storage',
+    'kl_image_storage','cyber_image_storage',
+] as $f) {
+    if (!property_exists($s, $f)) $s->$f = 0;
+}
+
+
+    
+try {
+    if (method_exists(\App\Http\Controllers\QuotationController::class, 'getStorageSummary')) {
+        $stg = app(\App\Http\Controllers\QuotationController::class)->getStorageSummary($ecs);
+
+        $map = [
+            'kl_evs' => ['KL','EVS'], 'cyber_evs' => ['CJ','EVS'],
+            'kl_scalable_file_service' => ['KL','SFS'], 'cyber_scalable_file_service' => ['CJ','SFS'],
+            'kl_object_storage_service' => ['KL','OBS'], 'cyber_object_storage_service' => ['CJ','OBS'],
+            'kl_snapshot_storage' => ['KL','SNAPSHOT'], 'cyber_snapshot_storage' => ['CJ','SNAPSHOT'],
+            'kl_image_storage' => ['KL','IMAGE'], 'cyber_image_storage' => ['CJ','IMAGE'],
+        ];
+        foreach ($map as $field => [$r,$k]) {
+            $val = (int)($stg[$r][$k] ?? 0);
+            if ($val > 0) {      
+                $s->$field = $val;
+            }
+        }
+    }
+
+   
+    foreach ([
+        'kl_full_backup_capacity','cyber_full_backup_capacity',
+        'kl_incremental_backup_capacity','cyber_incremental_backup_capacity',
+        'kl_replication_retention_capacity','cyber_replication_retention_capacity',
+    ] as $f) { $s->$f = (int)($region->$f ?? 0); }
+
+} catch (\Throwable $e) {
+   
+}
+
+
+
+    return $s;
+}
+
 }

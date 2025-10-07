@@ -130,6 +130,8 @@ public function destroy($versionId, $itemId)
                  ->with('success', 'Item updated successfully!');
 
 }
+
+
 public function import(Request $request, $versionId)
 {
     $version = Version::with('project')->findOrFail($versionId);
@@ -145,12 +147,11 @@ public function import(Request $request, $versionId)
 }
 
 
- // ===== NEW: Upload any reference file =====
     public function uploadAnyFile(Request $request, $versionId)
     {
         $version = Version::with('project.customer')->findOrFail($versionId);
 
-        // Benarkan PDF, CSV, Excel, Images, Word, PowerPoint, Text — adjust ikut keperluan
+       
         $request->validate([
             'ref_file' => 'required|file|max:51200|mimes:pdf,csv,txt,xlsx,xls,doc,docx,ppt,pptx,png,jpg,jpeg,webp'
         ], [
@@ -163,8 +164,14 @@ public function import(Request $request, $versionId)
         $mime = $f->getMimeType();
         $original = $f->getClientOriginalName();
 
-        // simpan bawah public disk supaya boleh preview via Storage::url
-        $dir = "ns_items/{$versionId}";
+       
+        //$dir = "ns_items/{$versionId}";
+
+
+
+        $dirBase = $request->routeIs('versions.non_standard_offerings.files.upload') ? 'ns_offerings' : 'ns_items';
+$dir = "{$dirBase}/{$versionId}";
+
         $storedPath = $f->store($dir, 'public'); // storage/app/public/ns_items/{version}/xxxx
 
         NonStandardItemFile::create([

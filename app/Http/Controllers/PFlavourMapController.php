@@ -10,7 +10,7 @@ class PFlavourMapController extends Controller
     {
         
 
-    $highlight = $request->query('highlight'); // e.g. ?highlight=c3.large
+    $highlight = $request->query('highlight'); 
         $flavours = PFlavourMap::orderBy('created_at', 'asc')->get();
 
         return view('flavour.index', compact('flavours','highlight'));

@@ -3,7 +3,7 @@
     $licenseKL = collect($licenseRateCard)->sum('kl_price');
     $licenseCJ = collect($licenseRateCard)->sum('cj_price');
 
-    // ECS (guard kalau controller tak pass)
+    // ECS 
     $klEcsTotal = $klEcsTotal ?? collect($ecsSummary)->sum('kl_price');
     $cjEcsTotal = $cjEcsTotal ?? collect($ecsSummary)->sum('cj_price');
 
@@ -14,7 +14,7 @@
     $klBackupTotal  = collect($backupSummary ?? [])->sum('kl_price');
     $cjBackupTotal  = collect($backupSummary ?? [])->sum('cj_price');
 
-    // ikut skrin: license ambil total kalau ada, jika tidak fallback KL+CJ
+   
     $licenseTotal = $totalLicenseCharges ?? ($licenseKL + $licenseCJ);
 
     // === TIADA double count ===

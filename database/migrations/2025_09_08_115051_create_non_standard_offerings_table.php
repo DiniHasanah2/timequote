@@ -26,15 +26,15 @@ return new class extends Migration {
             $table->string('service_code', 64)->nullable();
 
             // Commercials
-            $table->string('unit', 64)->nullable();                 // e.g. Unit / GB / Hours
+            $table->string('unit', 64)->nullable();                 
             $table->integer('quantity')->default(1);
             $table->integer('months')->default(1);
 
-            $table->decimal('unit_price_per_month', 12, 4)->default(0); // ambil dari service* kalau ada
+            $table->decimal('unit_price_per_month', 12, 4)->default(0); 
             $table->decimal('mark_up', 5, 2)->default(0);
-            $table->decimal('selling_price', 12, 2)->default(0);        // qty*months*unit_price*(1+markup%)
+            $table->decimal('selling_price', 12, 2)->default(0);      
 
-            // Optional: kalau kau nak tahu dia clone dari item asal
+         
             $table->uuid('source_non_standard_item_id')->nullable();
 
             $table->timestamps();

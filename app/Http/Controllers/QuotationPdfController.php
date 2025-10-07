@@ -54,7 +54,7 @@ class QuotationPdfController extends Controller
 
 
             // --- Logo (base64) ---
-$logoPath = public_path('assets/time_logo.png'); // tukar kalau path lain
+$logoPath = public_path('assets/time_logo.png'); 
 $logoBase64 = null;
 if (is_file($logoPath)) {
     $logoBase64 = 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath));
@@ -69,7 +69,7 @@ if (is_file($logoPath)) {
                 'project'                   => $version->project,
                 'mode'                      => $mode,
                 'viewOnly'                  => 1,     // hide links/btn
-                'isPdf'                     => 1,     // if you want conditional css
+                'isPdf'                     => 1,     
                 'managedSummary'            => $managedSummary,
                 'totalManagedCharges'       => $totalManagedCharges,
                 'licenseRateCard'           => $licenseRateCard,

@@ -176,16 +176,16 @@ public function import(Request $request)
         return back()->with('error', 'Failed to open the CSV file.');
     }
 
-    $header = fgetcsv($file); // skip header
+    $header = fgetcsv($file); 
 
     $created = 0;
-    $skipped = []; // simpan sebab skip
-    $line    = 1;  // header = line 1
+    $skipped = [];
+    $line    = 1; 
 
     while (($row = fgetcsv($file)) !== false) {
         $line++;
 
-        // skip row kosong
+       
         $nonEmpty = array_filter($row, fn($v) => $v !== null && trim($v) !== '');
         if (count($nonEmpty) === 0) continue;
 
@@ -195,23 +195,23 @@ public function import(Request $request)
             continue;
         }
 
-        // Cari service kategori Compute
+        
         $service = Service::where('code', $ecsCode)
             ->where('category_name', 'Compute')
             ->first();
 
         if (!$service) {
-            // kalau nak hard-fail, tukar kepada: return back()->with('error', "Service code $ecsCode not found (Compute).");
+          
             $skipped[] = "Line $line ($ecsCode): service not found in Services (Compute)";
             continue;
         }
 
         ECSFlavour::create([
             'ecs_code'  => $ecsCode,
-            // FORCE ikut Product Name dari Services (abaikan kolum CSV [1] kalau ada)
+           
             'flavour_name' => $service->name,
 
-            // ikut template kau: index ≥ 2 adalah flavour fields
+          
             'vCPU'      => (int)($row[2]  ?? 0),
             'RAM'       => (int)($row[3]  ?? 0),
             'type'      => (string)($row[4] ?? ''),

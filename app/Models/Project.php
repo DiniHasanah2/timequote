@@ -19,6 +19,7 @@ class Project extends Model
         'name',
         'quotation_value',
         'customer_name',
+          'status', 
     ];
 
     protected static function booted()

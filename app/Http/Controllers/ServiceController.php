@@ -19,38 +19,50 @@ class ServiceController extends Controller
     protected function getActiveCatalog(Request $request): PriceCatalog
 {
     if ($request->filled('catalog')) {
-        $cat = PriceCatalog::find($request->catalog);
-        if ($cat) return $cat;
+        if ($cat = PriceCatalog::find($request->catalog)) return $cat;
     }
-    // cari guna ?version=... tapi ikut version_name
     if ($request->filled('version')) {
-        $cat = PriceCatalog::where('version_name', $request->version)->first();
-        if ($cat) return $cat;
+        if ($cat = PriceCatalog::where('version_name',$request->version)->first()) return $cat;
     }
-    $current = PriceCatalog::where('is_current', true)->first();
-    if ($current) return $current;
 
-    // auto-buat default
+    
+    if ($draft = PriceCatalog::where('is_current', false)
+            ->whereNull('effective_to')
+            ->orderByDesc('effective_from')
+            ->orderByDesc('created_at')
+            ->first()) {
+        return $draft;
+    }
+
+   
+    if ($current = PriceCatalog::where('is_current', true)->first()) {
+        return $current;
+    }
+
+    
     return PriceCatalog::create([
         'id'             => (string) Str::uuid(),
-        'version_code'   => 'v(testing)',
-        'version_name'   => 'v(testing)',
+        'version_code'   => 'v0',
+        'version_name'   => 'v0-draft',
         'effective_from' => now()->toDateString(),
-        'is_current'     => true,
-        'notes'          => 'Initial Catalog',
+        'is_current'     => false,          
+        'notes'          => 'Auto-created draft on first run',
+       
     ]);
 }
 
+
 public function index(Request $request)
 {
-    
     if ($request->boolean('reset')) {
         session()->forget('services.filters');
+      
+        $request->request->remove('catalog');
     }
 
-    $keys = ['category','code','sort','catalog'];
-
     
+    $keys = ['category','code','sort','q'];
+
     if (!$request->hasAny($keys) && session()->has('services.filters')) {
         foreach (session('services.filters') as $k => $v) {
             if ($v !== null && $v !== '') {
@@ -59,12 +71,12 @@ public function index(Request $request)
         }
     }
 
-   
     session(['services.filters' => $request->only($keys)]);
-    // ===== TAMAT BLOK TAMBAHAN =====
 
-    // ========== Which catalog are we "viewing" ==========
-    $viewCatalog = $this->getActiveCatalog($request); // you already have this helper
+   
+
+    $viewCatalog = $this->getActiveCatalog($request); 
+    
 
     // ========== Current / Next / Last ==========
     $currentCatalog = PriceCatalog::where('is_current', true)->first();
@@ -87,7 +99,7 @@ public function index(Request $request)
     $allCategories = Service::select('category_name')->distinct()->pluck('category_name');
     $allServiceCode = Service::select('code')->distinct()->pluck('code');
 
-    // ===== base query join to service_prices using the VIEWING catalog =====
+    
     $query = Service::query()
         ->select([
             'services.*',
@@ -107,6 +119,20 @@ public function index(Request $request)
     if ($request->filled('code')) {
         $query->where('services.code', $request->code);
     }
+// ===== search (q) =====
+if ($request->filled('q')) {
+    $q = trim($request->q);
+    $query->where(function($w) use ($q) {
+        $like = "%{$q}%";
+        $w->where('services.name', 'like', $like)
+          ->orWhere('services.code', 'like', $like)
+          ->orWhere('services.category_name', 'like', $like)
+          ->orWhere('services.category_code', 'like', $like)
+          ->orWhere('services.description', 'like', $like);
+    });
+}
+
+    
 
     // ===== sort =====
     switch ($request->sort) {
@@ -162,7 +188,7 @@ public function index(Request $request)
         $catalog = $this->getActiveCatalog($request);
 
         DB::transaction(function () use ($request, $catalog) {
-            // 1) create service master (masih simpan harga lama utk compat)
+            // 1) create service master 
             $service = Service::create([
                 'id' => (string) Str::uuid(),
                 'category_id' => $request->category_id,
@@ -177,7 +203,7 @@ public function index(Request $request)
                 'transfer_price_per_unit' => $request->transfer_price_per_unit,
             ]);
 
-            // 2) create harga untuk catalog aktif
+            // 2) create price for active catalog
             ServicePrice::create([
                 'id' => (string) Str::uuid(),
                 'price_catalog_id' => $catalog->id,
@@ -189,7 +215,7 @@ public function index(Request $request)
             ]);
         });
 
-        //$this->updatePricingConfig($this->getActiveCatalog($request)->id);
+       
 
 
 
@@ -199,13 +225,7 @@ public function index(Request $request)
         return redirect()->route('services.index', ['catalog' => $catalog->id])->with('success', 'Service added successfully.');
     }
 
-    /*public function edit($id)
-    {
-        $service = Service::findOrFail($id);
-        $categories = Category::all();
-
-        return view('products.service.edit', compact('service', 'categories'));
-    }*/
+    
     public function edit(Request $request, $id)
 {
     $catalog = $this->getActiveCatalog($request);
@@ -252,7 +272,7 @@ public function update(Request $request, $id)
     DB::transaction(function () use ($request, $id, $catalog, $locked) {
         $service = Service::findOrFail($id);
 
-        // track perubahan non-price
+       
         $originalValues = $service->toArray();
         $changes = [];
 
@@ -266,7 +286,7 @@ public function update(Request $request, $id)
             }
         }
 
-        // Sentiasa benarkan update field bukan harga
+        
         $payload = [
             'category_id'      => $request->category_id,
             'category_name'    => $request->category_name,
@@ -277,7 +297,7 @@ public function update(Request $request, $id)
             'description'      => $request->description,
         ];
 
-        // Kalau TAK locked, barulah boleh update harga master (jika memang nak kekalkan behavior ni)
+      
         if (!$locked) {
             $payload += [
                 'price_per_unit'             => $request->price_per_unit,
@@ -288,7 +308,7 @@ public function update(Request $request, $id)
 
         $service->update($payload);
 
-        // Kalau TAK locked, update harga dalam jadual version (service_prices)
+      
         if (!$locked) {
             $sp = ServicePrice::firstOrNew([
                 'price_catalog_id' => $catalog->id,
@@ -312,7 +332,7 @@ public function update(Request $request, $id)
         }
     });
 
-    // Masih ok untuk regenerate config walaupun locked (no harm).
+   
     $this->updatePricingConfig($catalog->id);
 
     $msg = $locked
@@ -330,10 +350,20 @@ public function update(Request $request, $id)
 
 
 
-    private function isCatalogLocked(PriceCatalog $catalog): bool
+
+
+
+
+private function isCatalogLocked(PriceCatalog $catalog): bool
 {
-    return ($catalog->is_current ?? false) || !is_null($catalog->effective_to);
+    
+    $ended     = !is_null($catalog->effective_to);
+    $committed = !is_null($catalog->committed_at);
+
+    return $ended || $committed;
 }
+
+
 
 
     public function import(Request $request)
@@ -349,15 +379,19 @@ public function update(Request $request, $id)
 
         DB::transaction(function () use ($file, $catalog) {
             while (($row = fgetcsv($file)) !== false) {
-                // CSV layout rujuk template sedia ada:
-                // [Category Name, Category Code, Name, Code, Measurement Unit, Description, Price, RateCard, Transfer]
-                $category = Category::where('name', $row[0])->first();
-                if (!$category) {
-                    // skip kalau category tak wujud
-                    continue;
-                }
+              
+                $category = Category::firstOrCreate(
+    ['name' => trim($row[0])],
+    [
+        'id'            => (string) Str::uuid(),
+        'category_code' => $row[1] ? trim($row[1]) : \Str::slug(trim($row[0])),
+    ]
+);
 
-                // cari/insert service master
+
+                
+
+             
                 $service = Service::firstOrCreate(
                     [
                         'code' => $row[3],
@@ -370,14 +404,14 @@ public function update(Request $request, $id)
                         'name' => $row[2],
                         'measurement_unit' => $row[4],
                         'description' => $row[5] ?? null,
-                        // simpan juga ke table lama utk compat
+                       
                         'price_per_unit' => (float)($row[6] ?? 0),
                         'rate_card_price_per_unit' => (float)($row[7] ?? 0),
                         'transfer_price_per_unit' => (float)($row[8] ?? 0),
                     ]
                 );
 
-                // update field master jika berubah
+                // update field master 
                 $service->update([
                     'category_id' => $category->id,
                     'category_name' => $row[0],
@@ -390,7 +424,7 @@ public function update(Request $request, $id)
                     'transfer_price_per_unit' => (float)($row[8] ?? 0),
                 ]);
 
-                // insert/update harga untuk catalog aktif
+                // insert/update price for active catalog
                 ServicePrice::updateOrCreate(
                     [
                         'price_catalog_id' => $catalog->id,
@@ -417,7 +451,7 @@ public function update(Request $request, $id)
     {
         $catalog = $this->getActiveCatalog($request);
 
-        // join ikut catalog
+      
         $rows = Service::query()
             ->select([
                 'services.id',
@@ -477,7 +511,7 @@ public function update(Request $request, $id)
                 ]);
             }
 
-            fclose($handle); // (fix: sebelum ni typo fcloe)
+            fclose($handle); 
         };
 
         return Response::stream($callback, 200, $headers);
@@ -569,13 +603,13 @@ public function bulkPreview(Request $request)
     $service = Service::findOrFail($id);
 
     DB::transaction(function () use ($service) {
-        // padam harga versi-versa yang berkait
+       
         ServicePrice::where('service_id', $service->id)->delete();
-        // padam master
+      
         $service->delete();
     });
 
-    // regenerate pricing.php (ikut catalog current)
+    
     $current = PriceCatalog::where('is_current', true)->first();
     $this->updatePricingConfig(optional($current)->id);
 
@@ -612,7 +646,7 @@ public function bulkPreview(Request $request)
 
     DB::transaction(function () use ($services, $catalog, &$updated) {
         foreach ($services as $service) {
-            // log harga dari master(service) → version yang dipilih
+           
             $values = [
                 'price_per_unit'           => (float)$service->price_per_unit,
                 'rate_card_price_per_unit' => (float)$service->rate_card_price_per_unit,
@@ -688,7 +722,7 @@ public function bulkAdjust(Request $request)
                 'service_id'       => $service->id,
             ]);
 
-            // seed dari master kalau row baru
+           
             if (!$sp->exists) {
                 $sp->price_per_unit           = (float)$service->price_per_unit;
                 $sp->rate_card_price_per_unit = (float)$service->rate_card_price_per_unit;
@@ -738,7 +772,7 @@ public function bulkAdjust(Request $request)
 
 public function priceHistory(Service $service)
 {
-    // Join all versions this service appears in
+    
     $rows = ServicePrice::query()
         ->select([
             'price_catalogs.version_name',
@@ -754,7 +788,7 @@ public function priceHistory(Service $service)
         ->orderByDesc('service_prices.updated_at')
         ->get();
 
-    // compute deltas vs previous row (just for display)
+    
     $withDelta = [];
     $prev = null;
     foreach ($rows as $r) {

@@ -8,9 +8,33 @@ use App\Models\Service;
 use App\Models\NonStandardOffering;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use App\Models\NonStandardItemFile;
 
 class NonStandardOfferingController extends Controller
 {
+    public function create($versionId)
+{
+    $version = Version::with('project')->findOrFail($versionId);
+
+   
+    $categories = \App\Models\Category::orderBy('name')->get();
+    $services   = \App\Models\Service::orderBy('name')->get();
+    $offering_items = \App\Models\NonStandardOffering::where('version_id', $versionId)
+                        ->latest()->get();
+
+      $ref_files = \App\Models\NonStandardItemFile::where('version_id', $versionId)
+                    ->latest()->get();
+
+    return view('projects.non_standard_offerings.create', [
+        'project'        => $version->project,
+        'version'        => $version,
+        'categories'     => $categories,
+        'services'       => $services,
+        'offering_items' => $offering_items,
+         'ref_files'      => $ref_files,
+    ]);
+}
+
     public function store(Request $request, $versionId)
     {
         $version = Version::with('project.customer')->findOrFail($versionId);

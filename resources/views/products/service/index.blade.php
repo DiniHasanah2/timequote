@@ -25,9 +25,12 @@
 
   <div class="card-body py-2">
 
-  @php
-  // locked kalau version ni current ATAU dah ended (ada effective_to)
-  $isLocked = ($catalog->is_current ?? false) || !empty($catalog->effective_to);
+
+
+@php
+  $ended    = !is_null($catalog->effective_to);
+  $committed= !is_null($catalog->committed_at);
+  $isLocked = $ended || $committed;  // BUKAN ikut is_current lagi
 @endphp
 
 
@@ -255,12 +258,17 @@
         <div class="mb-2">
           <label class="form-label">Clone From</label>
           <select name="source_catalog_id" class="form-select">
-            <option value="">(Start empty)</option>
+            <!----<option value="">(Start empty)</option>
             @foreach($catalogs as $c)
               <option value="{{ $c->id }}" {{ ($catalog->id ?? null)==$c->id ? 'selected' : '' }}>
                 {{ $c->version_name }} @if($c->is_current) (current) @endif
               </option>
-            @endforeach
+            @endforeach---->
+            <option value="" selected>(Start empty)</option>
+@foreach($catalogs as $c)
+  <option value="{{ $c->id }}">{{ $c->version_name }} @if($c->is_current) (current) @endif</option>
+@endforeach
+
           </select>
           <small class="text-muted">Choose a source version to copy all prices.</small>
         </div>
@@ -300,15 +308,15 @@
       </button>
     </form>
 
-    {{-- Commit hanya bila bukan current --}}
-    @unless($catalog->is_current)
-      <button type="button"
-              class="btn btn-outline-danger btn-sm"
-              data-bs-toggle="modal"
-              data-bs-target="#commitVersionModal">
-        Commit This Version
-      </button>
-    @endunless
+  @if(!$isLocked)   {{-- locked = ended/already committed --}}
+  <button type="button"
+          class="btn btn-outline-danger btn-sm"
+          data-bs-toggle="modal"
+          data-bs-target="#commitVersionModal">
+    Commit This Version
+  </button>
+@endif
+
 
   @else
     {{-- Bila locked, tunjuk butang disabled + hint --}}
@@ -354,10 +362,82 @@
 </div>--->
 
 
+<form method="GET" action="{{ route('services.index') }}" class="mb-3">
+  <div class="d-flex align-items-end gap-2 flex-wrap">
+
+    <!-- LEFT: filters (ambil ruang) -->
+    <div class="d-flex align-items-end gap-2 flex-wrap flex-grow-1">
+
+      <div class="d-flex flex-column">
+        <label class="form-label mb-1">Filter by Category</label>
+        <select name="category" class="form-select" style="min-width: 220px;"
+                onchange="this.form.submit()">
+          <option value="">-- All Categories --</option>
+          @foreach ($allCategories as $cat)
+            <option value="{{ $cat }}" {{ request('category') == $cat ? 'selected' : '' }}>
+              {{ $cat }}
+            </option>
+          @endforeach
+        </select>
+      </div>
+
+      <div class="d-flex flex-column">
+        <label class="form-label mb-1">Sort by</label>
+        <select name="sort" class="form-select" style="min-width: 200px;"
+                onchange="this.form.submit()">
+          <option value="">-- Default --</option>
+          <option value="name_asc" {{ request('sort') == 'name_asc' ? 'selected' : '' }}>Name (A → Z)</option>
+          <option value="name_desc" {{ request('sort') == 'name_desc' ? 'selected' : '' }}>Name (Z → A)</option>
+          <option value="price_low_high" {{ request('sort') == 'price_low_high' ? 'selected' : '' }}>Price (Low → High)</option>
+          <option value="price_high_low" {{ request('sort') == 'price_high_low' ? 'selected' : '' }}>Price (High → Low)</option>
+        </select>
+      </div>
+
+      <div class="d-flex flex-column">
+        <label class="form-label mb-1">Search</label>
+        <div class="input-group" style="min-width: 380px;">
+          <input type="text"
+                 name="q"
+                 value="{{ request('q') }}"
+                 class="form-control"
+                 placeholder="Type name / code / desc..."
+                 onkeydown="if(event.key==='Enter'){ this.form.submit(); }">
+
+          <!-- Search -->
+          <button class="btn btn-pink" type="submit">Search</button>
+
+          <!-- Reset sebelah Search (kekal catalog semasa) -->
+          <!---<a href="{{ route('services.index', ['reset' => 1, 'catalog' => $catalog->id]) }}"
+             class="btn btn-outline-pink">Reset</a>--->
+             <a href="{{ route('services.index', ['reset' => 1]) }}"
+   class="btn btn-outline-pink">Reset</a>
+
+        </div>
+      </div>
+
+    </div> 
+
+    <!-- RIGHT: actions (akan duduk hujung kanan) -->
+    <div class="ms-auto d-flex align-items-center gap-2">
+      <a href="#" class="btn btn-pink"
+         onclick="document.getElementById('addForm').style.display='block'; return false;">
+        Add New
+      </a>
+      <a href="#" class="btn btn-pink" data-bs-toggle="modal" data-bs-target="#importModal">
+        Import
+      </a>
+      <a href="{{ route('services.export', ['catalog' => $catalog->id ?? request('catalog')]) }}"
+         class="btn btn-pink">
+        Export
+      </a>
+    </div>
+
+  </div>
+</form>
 
 
 
-<form method="GET" action="{{ route('services.index') }}" class="row g-3 mb-3">
+<!---<form method="GET" action="{{ route('services.index') }}" class="row g-3 mb-3">
     <div class="col-md-2">
       
         <label class="form-label">Filter by Category</label>
@@ -369,15 +449,7 @@
         </select>
     </div>
 
-   <!---<div class="col-md-2">
-    <label class="form-label">Filter by Service Code</label>
-    <select name="code" class="form-select" onchange="this.form.submit()">
-        <option value="">-- All Service Code --</option>
-        @foreach ($allServiceCode as $servicecode)
-            <option value="{{ $servicecode }}" {{ request('code') == $servicecode ? 'selected' : '' }}>{{ $servicecode }}</option>
-        @endforeach
-    </select>
-</div>--->
+   
 
 
   
@@ -393,6 +465,27 @@
         </select>
     </div>
 
+    <div class="col-md-2">
+        <label class="form-label">Search</label>
+        <div class="d-flex gap-2">
+            <input
+                type="text"
+                name="q"
+                value="{{ request('q') }}"
+                class="form-control"
+                placeholder="Type name / code / desc..."
+                onkeydown="if(event.key==='Enter'){ this.form.submit(); }"
+            >
+            <button class="btn btn-pink" type="submit">Search</button>
+            <button class="btn btn-pink" href="{{ route('services.index', ['reset' => 1]) }}" class="small text-danger text-decoration-none">
+            Reset filters
+        </button>
+        </div>
+        @if(request('q'))
+            <small class="text-muted">Showing results for: <strong>{{ request('q') }}</strong></small>
+        @endif
+    </div>
+    
 
 
 
@@ -421,7 +514,7 @@
 
 
 
-</form>
+</form>--->
 
 
 
@@ -514,10 +607,19 @@
     <td>{{ $service->measurement_unit }}</td>
      <td>{{ $service->charge_duration }}</td>
    
-    <td>{{ number_format((float)($service->v_price_per_unit ?? $service->price_per_unit), 4) }}</td>
+    <!---<td>{{ number_format((float)($service->v_price_per_unit ?? $service->price_per_unit), 4) }}</td>
 <td>{{ number_format((float)($service->v_rate_card_price_per_unit ?? $service->rate_card_price_per_unit), 4) }}</td>
-<td>{{ number_format((float)($service->v_transfer_price_per_unit ?? $service->transfer_price_per_unit), 4) }}</td>
+<td>{{ number_format((float)($service->v_transfer_price_per_unit ?? $service->transfer_price_per_unit), 4) }}</td>--->
 
+<td>
+  {{ $service->v_price_per_unit !== null ? number_format((float)$service->v_price_per_unit, 4) : '' }}
+</td>
+<td>
+  {{ $service->v_rate_card_price_per_unit !== null ? number_format((float)$service->v_rate_card_price_per_unit, 4) : '' }}
+</td>
+<td>
+  {{ $service->v_transfer_price_per_unit !== null ? number_format((float)$service->v_transfer_price_per_unit, 4) : '' }}
+</td>
 
  
 <td style="max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
@@ -538,7 +640,7 @@
 
                 @empty
                     <tr>
-                        <td colspan="10" class="text-center text-muted">No services found.</td>
+                        <td colspan="14" class="text-center text-muted">No services found.</td>
                     </tr>
                 @endforelse
             </tbody>
@@ -739,10 +841,28 @@
 </div>
 
 
-  <div class="mb-3">
+  <!---<div class="mb-3">
                 <label for="charge_duration" class="form-label">Charge Duration</label>
-                <input type="text" name="charge_duration" id="charge_duration" class="form-control bg-light" value="{{ $service->charge_duration }}" readonly required>
-            </div>
+                <input type="text" name="charge_duration" id="charge_duration" class="form-control bg-light" readonly required>
+            </div>--->
+
+
+
+
+            <div class="mb-3">
+  <label for="charge_duration" class="form-label">Charge Duration</label>
+  <select name="charge_duration" id="charge_duration" class="form-select" required>
+      <option value="">-- Select Duration --</option>
+
+      <option value="Daily"     {{ old('charge_duration')==='Daily' ? 'selected' : '' }}>Daily</option>
+      <option value="Hourly"    {{ old('charge_duration')==='Hourly' ? 'selected' : '' }}>Hourly</option>
+      <option value="Monthly"   {{ old('charge_duration')==='Monthly' ? 'selected' : '' }}>Monthly</option>
+      
+      <option value="Yearly"    {{ old('charge_duration')==='Yearly' ? 'selected' : '' }}>Yearly</option>
+     
+  </select>
+</div>
+
             
 <div class="mb-3">
     <label for="description" class="form-label">Product Description</label>
@@ -796,6 +916,7 @@
     <div class="modal-dialog modal-lg">
         <form method="POST" action="{{ route('services.import') }}" enctype="multipart/form-data" class="modal-content">
             @csrf
+            <input type="hidden" name="catalog" value="{{ $catalog->id }}">
             <div class="modal-header">
                 <h5 class="modal-title">Import Services (CSV)</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -849,7 +970,7 @@ document.addEventListener('DOMContentLoaded', function () {
   function updateSelCount() {
     const n = rowChecks().filter(cb => cb.checked).length;
     if (selCount) selCount.textContent = n;
-    // disable butang kalau tiada pilihan
+   
     bulkButtons.forEach(btn => btn.disabled = (n === 0));
   }
 
@@ -861,10 +982,10 @@ document.addEventListener('DOMContentLoaded', function () {
   }
   rowChecks().forEach(cb => cb.addEventListener('change', updateSelCount));
 
-  // buat global supaya boleh dipanggil dari onclick
+  
   window.submitSelected = function(formId) {
     const ids = rowChecks().filter(cb => cb.checked).map(cb => cb.value);
-    if (!ids.length) return; // safety: butang dah disabled, tapi guard juga
+    if (!ids.length) return; 
     const form = document.getElementById(formId);
     const container = form.querySelector('.selected-container');
     container.innerHTML = '';
@@ -878,7 +999,7 @@ document.addEventListener('DOMContentLoaded', function () {
     form.submit();
   };
 
-  // at first set count & disable state
+  
   updateSelCount();
 });
 </script>

@@ -82,9 +82,16 @@
             </a>
             <span class="breadcrumb-separator">»</span>
 
+
+   <a href="{{ route('versions.non_standard_offerings.create', $version->id) }}"
+   class="breadcrumb-link {{ Route::currentRouteName() === 'versions.non_standard_offerings.create' ? 'active-link' : '' }}">
+  Standard Services
+</a>
+<span class="breadcrumb-separator">»</span>
+
             <a href="{{ route('versions.non_standard_items.create', $version->id) }}"
                class="breadcrumb-link {{ Route::currentRouteName() === 'versions.non_standard_items.create' ? 'active-link' : '' }}">
-               Non-Standard Services
+               3rd Party (Non-Standard)
             </a>
             <span class="breadcrumb-separator">»</span>
 
@@ -744,7 +751,7 @@
                                 <td>{!! $period('dr_evs_period') !!}</td>
                             </tr>
 
-                            {{-- DR ECS flavours loop (OK dalam snippet kau) --}}
+                          
                             @foreach(($usedFlavours ?? collect()) as $flavour)
                                 @php
                                     $flavourWithDR = $flavour . '.dr';

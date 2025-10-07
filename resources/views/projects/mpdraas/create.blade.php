@@ -44,14 +44,22 @@
             <a href="{{ route('versions.mpdraas.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.mpdraas.create' ? 'active-link' : '' }}">MP-DRaaS</a>
             <span class="breadcrumb-separator">»</span>
          
-             <a href="{{ route('versions.security_service.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.create' ? 'active-link' : '' }}">Cloud Security</a>
+             <a href="{{ route('versions.security_service.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.create' ? 'active-link' : '' }}">Managed Services & Cloud Security</a>
             <span class="breadcrumb-separator">»</span>
                <a href="{{ route('versions.security_service.time.create', $version->id) }}"
    class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.time.create' ? 'active-link' : '' }}">
   Time Security Services
 </a>
 <span class="breadcrumb-separator">»</span>
-            <a href="{{ route('versions.non_standard_items.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.non_standard_items.create' ? 'active-link' : '' }}">Non-Standard Services</a>
+
+
+   <a href="{{ route('versions.non_standard_offerings.create', $version->id) }}"
+   class="breadcrumb-link {{ Route::currentRouteName() === 'versions.non_standard_offerings.create' ? 'active-link' : '' }}">
+  Standard Services
+</a>
+<span class="breadcrumb-separator">»</span>
+
+            <a href="{{ route('versions.non_standard_items.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.non_standard_items.create' ? 'active-link' : '' }}">3rd Party (Non-Standard)</a>
             <span class="breadcrumb-separator">»</span>
             <a href="{{ route('versions.internal_summary.show', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.internal_summary.show' ? 'active-link' : '' }}">Internal Summary</a>
               <span class="breadcrumb-separator">»</span>
@@ -287,17 +295,18 @@
     tr.querySelector('.cj-amount').textContent = fmt(cjAmt);
     tr.querySelector('.total-amount').textContent = fmt(tot);
 
-    // autosave ke server
+    // autosave to server
     fetch(autosaveUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+         'Accept': 'application/json',
         'X-CSRF-TOKEN': token
       },
       body: JSON.stringify({ code: code, kl_qty: klQty, cj_qty: cjQty })
     }).then(r => r.json()).then(j => {
       if(!j.ok){ console.warn('Autosave error', j); }
-      // kalau nak update summary total global, boleh baca j.summary
+      
     }).catch(e => console.error(e));
   }
 
@@ -411,7 +420,7 @@
                         <thead class="table-dark">
                             <tr>
                                 <th colspan="2"><strong>MP-DRaaS VM</strong></th>
-                                <th colspan="22"><strong>DR Resources</strong></th>
+                                <th colspan="23"><strong>DR Resources</strong></th>
                             
                            
                             </tr>
@@ -422,7 +431,7 @@
                             <th colspan="2">Storage</th>
                             <th colspan="3">Monthly License</th>
                             <th colspan="3">Utilization</th>
-                            <th colspan="10"></th>
+                            <th colspan="12"></th>
                        
                             
                         </tr>
@@ -455,12 +464,25 @@
                             <td>Amount of Data Change per sync (Mbits)</td>
                             <td>Replication Bandwidth Required (Mbps)</td>
                             <td>RPO that can be achieved (Min)</td>
-
+                            <td>Action</td>
                         </tr>
 </thead>
+<tbody id="vm-body">
+    @forelse($vms as $i => $vm)
+        @include('projects.mpdraas._row', ['i' => $i, 'vm' => $vm, 'version' => $version])
+    @empty
+        {{-- Tiada VM lagi: render 1 row kosong index 0 --}}
+        @include('projects.mpdraas._row', ['i' => 0, 'version' => $version])
+    @endforelse
+</tbody>
+
+{{-- Template untuk Add Row (index placeholder __INDEX__) --}}
+<template id="vm-template">
+    @include('projects.mpdraas._row', ['i' => '__INDEX__', 'version' => $version])
+</template>
 
 
-                        <tr>
+                        <!---<tr>
                          <td>1</td>
                           <td><input type="text" name="vm_name" class="form-control w-100" style="min-width: 120px;" value="{{ old('vm_name', $mpdraas->vm_name ?? '') }}"></td>
                           <td>    
@@ -532,7 +554,7 @@
                   <select name="solution_type" class="form-select">
                     <option value="None" @selected(old('solution_type', $mpdraas->solution_type ?? '') == 'None')>None</option>
                 <option value="EVS" @selected(old('solution_type', $mpdraas->solution_type ?? '') == 'EVS')>EVS</option>
-                <!---<option value="OBS" @selected(old('solution_type', $mpdraas->solution_type ?? '') == 'OBS')>OBS</option>--->
+             
               
                 
 </select>
@@ -582,18 +604,79 @@
 
 
 
-                        </tr>
+                        </tr>--->
                         
                                            
                           
                     </tbody>
                 </table>
-                
-                <div>
+               <div class="d-flex flex-column align-items-start">
+  <button type="button" id="btn-add-vm" class="btn btn-pink mb-2">
+    Add Row
+  </button>
+
+  <button type="submit" 
+    class="btn fw-normal shadow-sm mb-2"
+    style="
+      font-weight:400;
+      --bs-btn-color:#fff;
+      --bs-btn-bg:#FF82E6;
+      --bs-btn-border-color:#FF82E6;
+      --bs-btn-hover-color:#fff;
+      --bs-btn-hover-bg:#e66fd5;
+      --bs-btn-hover-border-color:#e66fd5;
+      --bs-btn-focus-shadow-rgb:255,130,230;
+      --bs-btn-active-color:#fff;
+      --bs-btn-active-bg:#d95fc3;
+      --bs-btn-active-border-color:#d95fc3;
+      --bs-btn-disabled-color:#fff;
+      --bs-btn-disabled-bg:#f2b7eb;
+      --bs-btn-disabled-border-color:#f2b7eb;">
+    Save MPDRaaS
+  </button>
+
+  <!-- alert kecil, rapat bawah Save -->
+  <div class="alert alert-danger mt-1 mb-0 py-1 px-2 small d-inline-block"
+       role="alert"
+       style="font-size:.8rem; max-width:460px;">
+    ⚠️ Ensure you click <strong>Save</strong> before continuing to the next step!
+  </div>
+</div>
+ 
+           <!---<div class="d-flex flex-column align-items-start">
   <button type="button" id="btn-add-vm" class="btn btn-pink">
     Add Row
   </button>
-</div>
+
+
+  <button type="submit" 
+    class="btn fw-normal shadow-sm"
+        style="
+          font-weight:400;
+          --bs-btn-color:#fff;
+          --bs-btn-bg:#FF82E6;
+          --bs-btn-border-color:#FF82E6;
+          --bs-btn-hover-color:#fff;
+          --bs-btn-hover-bg:#e66fd5;
+          --bs-btn-hover-border-color:#e66fd5;
+          --bs-btn-focus-shadow-rgb:255,130,230;
+          --bs-btn-active-color:#fff;
+          --bs-btn-active-bg:#d95fc3;
+          --bs-btn-active-border-color:#d95fc3;
+          --bs-btn-disabled-color:#fff;
+          --bs-btn-disabled-bg:#f2b7eb;
+          --bs-btn-disabled-border-color:#f2b7eb;">
+    Save MPDRaaS
+  </button>
+
+ 
+  <div class="alert alert-danger mt-2 mb-0 py-1 px-2 small d-inline-block"
+       role="alert"
+       style="font-size:.8rem; max-width:460px;">
+    ⚠️ Ensure you click <strong>Save</strong> before continuing to the next step!
+  </div>
+</div>--->
+
 
             </div>
 </div>
@@ -622,473 +705,24 @@
 
                      
   <div class="d-flex flex-column align-items-centre gap-2">
-            <div class="d-flex justify-content-end gap-3"> <!-- Added gap-3 for spacing -->
-                <button type="submit" class="btn btn-pink">Save MPDRaaS</button>
+            <div class="d-flex justify-content-end gap-3"> 
+                
 
                 
                 <a href="{{ route('versions.security_service.create', $version->id) }}"  
                    class="btn btn-secondary me-2" 
                    role="button">
-                   Next: Security Services <i class="bi bi-arrow-right"></i>
+                   Next: Managed Services & Cloud Security <i class="bi bi-arrow-right"></i>
                 </a> 
             </div>
 
             
-              <div class="alert alert-danger py-1 px-2 small mb-0" role="alert" style="font-size: 0.8rem;">
-            ⚠️ Ensure you click <strong>Save</strong> before continuing to the next step!
-    </div>
+            
 
     </div>
         </form>
     </div>
 </div>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const systemDiskInput = document.getElementById('system_disk');
-        const dataDiskInput = document.getElementById('data_disk');
-        const usedSystemDisk = document.getElementById('used_system_disk');
-        const usedDataDisk = document.getElementById('used_data_disk');
-
-        function syncUsedSystemDisk() {
-            usedSystemDisk.value = systemDiskInput.value;
-        }
-
-        function syncUsedDataDisk() {
-            usedDataDisk.value = dataDiskInput.value;
-        }
-
-        // Initial sync on page load
-        syncUsedSystemDisk();
-        syncUsedDataDisk();
-
-        // Sync on input
-        systemDiskInput.addEventListener('input', syncUsedSystemDisk);
-        dataDiskInput.addEventListener('input', syncUsedDataDisk);
-    });
-</script>
-
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const systemDiskInput = document.getElementById('system_disk');
-    const dataDiskInput = document.getElementById('data_disk');
-    const ddChangeInput = document.getElementById('dd_change');
-    const dataChangeOutput = document.getElementById('data_change');
-
-    function calculateDataChange() {
-        const system = parseFloat(systemDiskInput.value) || 0;
-        const data = parseFloat(dataDiskInput.value) || 0;
-        const ddPercent = parseFloat(ddChangeInput.value) || 0;
-
-        const totalDisk = system + data;
-        const result = totalDisk * (ddPercent / 100);
-
-        dataChangeOutput.value = result.toFixed(2);
-    }
-
-    // Recalculate whenever user changes any field
-    systemDiskInput.addEventListener('input', calculateDataChange);
-    dataDiskInput.addEventListener('input', calculateDataChange);
-    ddChangeInput.addEventListener('input', calculateDataChange);
-
-    // Initial calculation on page load
-    calculateDataChange();
-});
-</script>
-
-
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const systemDiskInput = document.getElementById('system_disk');
-    const dataDiskInput = document.getElementById('data_disk');
-    const ddChangeInput = document.getElementById('dd_change');
-    const dataChangeSizeOutput = document.getElementById('data_change_size');
-
-    function calculateDataChangeSize() {
-        const system = parseFloat(systemDiskInput.value) || 0;
-        const data = parseFloat(dataDiskInput.value) || 0;
-        const ddPercent = parseFloat(ddChangeInput.value) || 0;
-
-        const totalDisk = system + data;
-        const dataChangeSize = totalDisk * (ddPercent / 100) * 1024 * 8;
-
-        dataChangeSizeOutput.value = dataChangeSize.toFixed(2); // in Megabits
-    }
-
-    // Run once on load
-    calculateDataChangeSize();
-
-    // Update whenever inputs change
-    systemDiskInput.addEventListener('input', calculateDataChangeSize);
-    dataDiskInput.addEventListener('input', calculateDataChangeSize);
-    ddChangeInput.addEventListener('input', calculateDataChangeSize);
-});
-</script>
-
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const replicationFrequencyInput = document.getElementById('replication_frequency');
-    const numReplicationOutput = document.getElementById('num_replication');
-
-    function calculateNumReplication() {
-        const freq = parseFloat(replicationFrequencyInput.value) || 0;
-
-        if (freq > 0) {
-            const result = Math.ceil(1440 / freq); // 1440 mins/day
-            numReplicationOutput.value = result;
-        } else {
-            numReplicationOutput.value = 0;
-        }
-    }
-
-    // Run on load
-    calculateNumReplication();
-
-    // Recalculate on input
-    replicationFrequencyInput.addEventListener('input', calculateNumReplication);
-});
-</script>
-
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const systemDiskInput = document.getElementById('system_disk');
-    const dataDiskInput = document.getElementById('data_disk');
-    const usedSystemDiskInput = document.getElementById('used_system_disk');
-    const usedDataDiskInput = document.getElementById('used_data_disk');
-    const ddChangeInput = document.getElementById('dd_change');
-    const dataChangeInput = document.getElementById('data_change');
-    const dataChangeSizeInput = document.getElementById('data_change_size');
-    const replicationFrequencyInput = document.getElementById('replication_frequency');
-    const numReplicationInput = document.getElementById('num_replication');
-    const amountDataChangeInput = document.getElementById('amount_data_change');
-    const replicationBandwidthInput = document.getElementById('replication_bandwidth');
-    const rpoAchievedInput = document.getElementById('rpo_achieved');
-    const bandwidthRequirementInput = document.getElementById('bandwidth_requirement');
-
-    function calculateAll() {
-        const system = parseFloat(systemDiskInput.value) || 0;
-        const data = parseFloat(dataDiskInput.value) || 0;
-        const ddPercent = parseFloat(ddChangeInput.value) || 0;
-        const freq = parseFloat(replicationFrequencyInput.value) || 0;
-
-        // Sync used_system_disk & used_data_disk
-        usedSystemDiskInput.value = system;
-        usedDataDiskInput.value = data;
-
-        // 1. data_change
-        const dataChange = (system + data) * (ddPercent / 100);
-        dataChangeInput.value = dataChange.toFixed(2);
-
-        // 2. data_change_size
-        const dataChangeSize = dataChange * 1024 * 8;
-        dataChangeSizeInput.value = dataChangeSize.toFixed(0);
-
-        // 3. num_replication
-        const numReplication = freq > 0 ? Math.ceil(1440 / freq) : 0;
-        numReplicationInput.value = numReplication;
-
-        // 4. amount_data_change
-        const amountDataChange = (numReplication > 0)
-            ? Math.ceil(dataChangeSize / numReplication)
-            : 0;
-        amountDataChangeInput.value = amountDataChange;
-
-        // 5. replication_bandwidth
-        const bandwidth = (freq > 0)
-            ? Math.ceil((amountDataChange / (freq * 60)) * 10) / 10
-            : 0;
-        replicationBandwidthInput.value = bandwidth;
-
-        // 6. rpo_achieved
-        const rpo = (bandwidth > 0)
-            ? (amountDataChange / bandwidth) / 60
-            : 0;
-        rpoAchievedInput.value = rpo.toFixed(2);
-
-        // 7. bandwidth_requirement
-        bandwidthRequirementInput.value = bandwidth < 2 ? 2 : Math.round(bandwidth);
-    }
-
-    // Trigger on change of any dependent input
-    [
-        systemDiskInput,
-        dataDiskInput,
-        ddChangeInput,
-        replicationFrequencyInput
-    ].forEach(input => input.addEventListener('input', calculateAll));
-
-    // Initial run
-    calculateAll();
-});
-</script>
-
-
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const solutionTypeInput = document.querySelector('select[name="solution_type"]');
-    const systemDiskInput = document.getElementById('system_disk');
-    const dataDiskInput = document.getElementById('data_disk');
-    const usedSystemDiskInput = document.getElementById('used_system_disk');
-    const usedDataDiskInput = document.getElementById('used_data_disk');
-    const dataChangeInput = document.getElementById('data_change');
-
-    const evsMain = document.getElementById('evs_main');
-    const evsUsed = document.getElementById('evs_used');
-    const evsDelta = document.getElementById('evs_delta');
-    const evsTotalReplication = document.getElementById('evs_total_replication');
-
-    function updateEVSStorageSummary() {
-        const selected = solutionTypeInput.value;
-        if (selected !== 'EVS') {
-            evsMain.textContent = '0';
-            evsUsed.textContent = '0';
-            evsDelta.textContent = '0';
-            evsTotalReplication.textContent = '0';
-            return;
-        }
-
-        const systemDisk = parseFloat(systemDiskInput.value) || 0;
-        const dataDisk = parseFloat(dataDiskInput.value) || 0;
-        const usedSystemDisk = parseFloat(usedSystemDiskInput.value) || 0;
-        const usedDataDisk = parseFloat(usedDataDiskInput.value) || 0;
-        const dataChange = parseFloat(dataChangeInput.value) || 0;
-
-        const main = systemDisk + dataDisk;
-        const used = usedSystemDisk + usedDataDisk;
-        const delta = dataChange;
-        const totalReplication = used + delta;
-
-        evsMain.textContent = main.toFixed(0);
-        evsUsed.textContent = used.toFixed(0);
-        evsDelta.textContent = delta.toFixed(2);
-        evsTotalReplication.textContent = totalReplication.toFixed(2);
-
-        document.getElementById('main_input').value = main.toFixed(0);
-document.getElementById('used_input').value = used.toFixed(0);
-document.getElementById('delta_input').value = delta.toFixed(2);
-document.getElementById('total_replication_input').value = totalReplication.toFixed(2);
-
-    }
-
-
-
-
-    
-    // Trigger when relevant inputs change
-    [
-        solutionTypeInput,
-        systemDiskInput,
-        dataDiskInput,
-        usedSystemDiskInput,
-        usedDataDiskInput,
-        dataChangeInput
-    ].forEach(input => {
-        input.addEventListener('input', updateEVSStorageSummary);
-        input.addEventListener('change', updateEVSStorageSummary);
-    });
-
-    // Run on page load
-    updateEVSStorageSummary();
-});
-</script>
-
-
-
-
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const solutionTypeInput = document.querySelector('select[name="solution_type"]');
-    const systemDiskInput = document.getElementById('system_disk');
-    const dataDiskInput = document.getElementById('data_disk');
-    const usedSystemDiskInput = document.getElementById('used_system_disk');
-    const usedDataDiskInput = document.getElementById('used_data_disk');
-    const dataChangeInput = document.getElementById('data_change');
-
-    const obsMain = document.getElementById('obs_main');
-    const obsUsed = document.getElementById('obs_used');
-    const obsDelta = document.getElementById('obs_delta');
-    const obsTotalReplication = document.getElementById('obs_total_replication');
-
-    function updateOBSStorageSummary() {
-        const selected = solutionTypeInput.value;
-        if (selected !== 'OBS') {
-            obsMain.textContent = '0';
-            obsUsed.textContent = '0';
-            obsDelta.textContent = '0';
-            obsTotalReplication.textContent = '0';
-            return;
-        }
-
-        const systemDisk = parseFloat(systemDiskInput.value) || 0;
-        const dataDisk = parseFloat(dataDiskInput.value) || 0;
-        const usedSystemDisk = parseFloat(usedSystemDiskInput.value) || 0;
-        const usedDataDisk = parseFloat(usedDataDiskInput.value) || 0;
-        const dataChange = parseFloat(dataChangeInput.value) || 0;
-
-        const main = systemDisk + dataDisk;
-        const used = usedSystemDisk + usedDataDisk;
-        const delta = dataChange;
-        const totalReplication = used + delta;
-
-        obsMain.textContent = main.toFixed(0);
-        obsUsed.textContent = used.toFixed(0);
-        obsDelta.textContent = delta.toFixed(2);
-        obsTotalReplication.textContent = totalReplication.toFixed(2);
-
-        document.getElementById('main_input').value = main.toFixed(0);
-document.getElementById('used_input').value = used.toFixed(0);
-document.getElementById('delta_input').value = delta.toFixed(2);
-document.getElementById('total_replication_input').value = totalReplication.toFixed(2);
-
-    }
-
-    // Trigger when relevant inputs change
-    [
-        solutionTypeInput,
-        systemDiskInput,
-        dataDiskInput,
-        usedSystemDiskInput,
-        usedDataDiskInput,
-        dataChangeInput
-    ].forEach(input => {
-        input.addEventListener('input', updateOBSStorageSummary);
-        input.addEventListener('change', updateOBSStorageSummary);
-    });
-
-    // Run on page load
-    updateOBSStorageSummary();
-});
-</script>
-
-
-
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const replicationBandwidthInput = document.getElementById('replication_bandwidth');
-    const bandwidthRequirementOutput = document.getElementById('bandwidth_requirement');
-
-    function calculateBandwidthRequirement() {
-        const replicationBandwidth = parseFloat(replicationBandwidthInput.value) || 0;
-        const result = replicationBandwidth < 2 ? 2 : replicationBandwidth;
-        bandwidthRequirementOutput.value = result.toFixed(2); // or toFixed(0) if you want it rounded
-    }
-
-    // Run on load
-    calculateBandwidthRequirement();
-
-    // Recalculate when replication_bandwidth changes
-    replicationBandwidthInput.addEventListener('input', calculateBandwidthRequirement);
-});
-</script>
-
-
-
-
-<script>
-    // Fungsi untuk menghitung flavour mapping
-    function calculateFlavourMapping(vcpuInput, vramInput) {
-        // Daftar flavour yang tersedia (dapat disesuaikan)
-        const flavours = [
-            { name: 'm3.micro', vcpu: 1, vram: 1 },
-            { name: 'm3.small', vcpu: 1, vram: 2 },
-            { name: 'c3.large', vcpu: 2, vram: 4 },
-            { name: 'm3.large', vcpu: 2, vram: 8 },
-            { name: 'r3.large', vcpu: 2, vram: 16 },
-            { name: 'c3.xlarge', vcpu: 4, vram: 8 },
-            { name: 'm3.xlarge', vcpu: 4, vram: 16 },
-            { name: 'r3.xlarge', vcpu: 4, vram: 32 },
-
-            { name: 'c3.2xlarge', vcpu: 8, vram: 16 },
-            { name: 'm3.2xlarge', vcpu: 8, vram: 32 },
-            { name: 'r3.2xlarge', vcpu: 8, vram: 64 },
-            { name: 'm3.3xlarge', vcpu: 12, vram: 48 },
-            { name: 'c3.4xlarge', vcpu: 16, vram: 32 },
-            { name: 'm3.4xlarge', vcpu: 16, vram: 64 },
-            { name: 'r3.4xlarge', vcpu: 16, vram: 128 },
-            { name: 'm3.6xlarge', vcpu: 24, vram: 96 },
-            { name: 'c3.8xlarge', vcpu: 32, vram: 64 },
-            { name: 'm3.8xlarge', vcpu: 32, vram: 128 },
-            { name: 'r3.8xlarge', vcpu: 32, vram: 256 },
-            { name: 'r3.12xlarge', vcpu: 48, vram: 384 },
-            { name: 'c3.16xlarge', vcpu: 64, vram: 128 },
-            { name: 'm3.16xlarge', vcpu: 64, vram: 256 },
-            { name: 'r3.16xlarge', vcpu: 64, vram: 512 },
-
-            { name: 'c3p.xlarge', vcpu: 4, vram: 8 },
-            { name: 'm3p.xlarge', vcpu: 4, vram: 16 },
-            { name: 'r3p.xlarge', vcpu: 4, vram: 32 },
-            { name: 'c3p.2xlarge', vcpu: 8, vram: 16 },
-            { name: 'm3p.2xlarge', vcpu: 8, vram: 32 },
-            { name: 'r3p.2xlarge', vcpu: 8, vram: 64 },
-            { name: 'm3p.3xlarge', vcpu: 12, vram: 48 },
-            { name: 'c3p.4xlarge', vcpu: 16, vram: 32 },
-             { name: 'm3p.4xlarge', vcpu: 16, vram: 64 },
-    { name: 'r3p.4xlarge', vcpu: 16, vram: 64 },
-    { name: 'm3p.6xlarge', vcpu: 24, vram: 96 },
-    { name: 'c3p.8xlarge', vcpu: 32, vram: 64 },
-    { name: 'm3p.8xlarge', vcpu: 32, vram: 128 },
-    { name: 'r3p.8xlarge', vcpu: 32, vram: 128 },
-    { name: 'm3p.12xlarge', vcpu: 48, vram: 192 },
-    { name: 'r3p.12xlarge', vcpu: 48, vram: 384 },
-    { name: 'm3p.16xlarge', vcpu: 64, vram: 256 },
-    { name: 'r3p.16xlarge', vcpu: 64, vram: 512 },
-    { name: 'r3p.46xlarge.metal', vcpu: 64, vram: 1408 },
-    { name: 'm3gnt4.xlarge', vcpu: 4, vram: 16 },
-    { name: 'm3gnt4.2xlarge', vcpu: 8, vram: 32 },
-    { name: 'm3gnt4.4xlarge', vcpu: 16, vram: 64 },
-    { name: 'm3gnt4.8xlarge', vcpu: 32, vram: 128 },
-    { name: 'm3gnt4.16xlarge', vcpu: 64, vram: 256 },
-    { name: 'r3p.46xlarge.ddh', vcpu: 342, vram: 1480 }
-
-
-
-
-          
-          
-        ];
-
-        // Filter flavour yang memenuhi kebutuhan
-        const suitableFlavours = flavours.filter(flavour => 
-            flavour.vcpu >= vcpuInput && flavour.vram >= vramInput
-        );
-
-        // Urutkan berdasarkan vCPU dan vRAM terkecil
-        suitableFlavours.sort((a, b) => {
-            if (a.vcpu !== b.vcpu) return a.vcpu - b.vcpu;
-            return a.vram - b.vram;
-        });
-
-        // Ambil flavour pertama yang memenuhi atau kembalikan null
-        return suitableFlavours.length > 0 ? suitableFlavours[0].name : null;
-    }
-
-
-
-
-
-    // Event listener untuk input vCPU dan vRAM
-    document.addEventListener('DOMContentLoaded', function() {
-        const vcpuInput = document.querySelector('input[name="vcpu"]');
-        const vramInput = document.querySelector('input[name="vram"]');
-        const flavourMappingInput = document.querySelector('input[name="flavour_mapping"]');
-
-        function updateFlavourMapping() {
-            const vcpu = parseInt(vcpuInput.value) || 0;
-            const vram = parseInt(vramInput.value) || 0;
-            
-            if (vcpu > 0 && vram > 0) {
-                const flavour = calculateFlavourMapping(vcpu, vram);
-                flavourMappingInput.value = flavour || 'No suitable flavour found';
-            } else {
-                flavourMappingInput.value = '';
-            }
-        }
-
-        vcpuInput.addEventListener('input', updateFlavourMapping);
-        vramInput.addEventListener('input', updateFlavourMapping);
-    });
-
-</script>
 
 @php
 $FLAVOURS = [
@@ -1111,14 +745,12 @@ $FLAVOURS = [
 (function(){
   const CSRF = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
   const UPSERT_URL  = "{{ route('versions.mpdraas.vms.upsert', $version->id) }}";
-  // destroy url pakai placeholder, nanti kita ganti :id bila delete
-  const DESTROY_URL_TMPL = @json(route('versions.mpdraas.vms.destroy', [$version->id, ':id']));
+  const DESTROY_URL_TMPL = @json(url('versions/'.$version->id.'/mpdraas/vms/:id'));
 
   const vmBody = document.getElementById('vm-body');
-  const tmpl   = document.getElementById('vm-template').querySelector('tr');
+  const tmpl   = document.getElementById('vm-template').content.querySelector('tr');
   const addBtn = document.getElementById('btn-add-vm');
 
-  // helper
   function debounce(fn, ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
   function ceil10(x){ return Math.ceil(x*10)/10; }
 
@@ -1126,24 +758,73 @@ $FLAVOURS = [
     vmBody.querySelectorAll('tr.vm-row').forEach((tr, idx) => {
       const no = tr.querySelector('.row-no');
       if(no){ no.textContent = idx + 1; }
-      // update name="rows[i][field]" ke index baru
       tr.querySelectorAll('[name^="rows["]').forEach(inp => {
-        
-    
-        
-        
-        
-inp.name = inp.name.replace(/rows\[(\d+|__INDEX__)\]/, `rows[${idx}]`);
-
+        inp.name = inp.name.replace(/rows\[(\d+|__INDEX__)\]/, `rows[${idx}]`);
       });
       tr.dataset.index = idx;
     });
   }
 
-  const FLAVOURS = @json($FLAVOURS);
+  // ====== KIRA & UPDATE STORAGE SUMMARY (EVS/OBS) ======
+  function updateStorageSummary(){
+    const sum = {
+      EVS: {main:0, used:0, delta:0},
+      OBS: {main:0, used:0, delta:0},
+    };
 
+    vmBody.querySelectorAll('tr.vm-row').forEach(tr => {
+      const g = sel => tr.querySelector(sel);
+      const type = (g('.solution_type')?.value || 'None').toUpperCase();
+
+      if(type !== 'EVS' && type !== 'OBS') return;
+
+      const sys     = parseFloat(g('.system_disk')?.value || 0);
+      const dat     = parseFloat(g('.data_disk')?.value || 0);
+      const usedSys = parseFloat(g('.used_system_disk')?.value || 0);
+      const usedDat = parseFloat(g('.used_data_disk')?.value || 0);
+      const delta   = parseFloat(g('.data_change')?.value || 0); // GB
+
+      sum[type].main  += (sys + dat);
+      sum[type].used  += (usedSys + usedDat);
+      sum[type].delta += delta;
+    });
+
+    const evsTotal = sum.EVS.used + sum.EVS.delta;
+    const obsTotal = sum.OBS.used + sum.OBS.delta;
+
+    // Tulis ke jadual
+    const evsMainEl = document.getElementById('evs_main');
+    if (evsMainEl) {
+      evsMainEl.textContent = sum.EVS.main.toFixed(0);
+      document.getElementById('evs_used').textContent  = sum.EVS.used.toFixed(0);
+      document.getElementById('evs_delta').textContent = sum.EVS.delta.toFixed(2);
+      document.getElementById('evs_total_replication').textContent = evsTotal.toFixed(2);
+    }
+
+    const obsMainEl = document.getElementById('obs_main');
+    if (obsMainEl) {
+      obsMainEl.textContent = sum.OBS.main.toFixed(0);
+      document.getElementById('obs_used').textContent  = sum.OBS.used.toFixed(0);
+      document.getElementById('obs_delta').textContent = sum.OBS.delta.toFixed(2);
+      document.getElementById('obs_total_replication').textContent = obsTotal.toFixed(2);
+    }
+
+    // Simpan dalam hidden input (ikut flow asal: guna jumlah EVS)
+    const mainInput  = document.getElementById('main_input');
+    const usedInput  = document.getElementById('used_input');
+    const deltaInput = document.getElementById('delta_input');
+    const totInput   = document.getElementById('total_replication_input');
+    if (mainInput && usedInput && deltaInput && totInput){
+      mainInput.value  = sum.EVS.main.toFixed(0);
+      usedInput.value  = sum.EVS.used.toFixed(0);
+      deltaInput.value = sum.EVS.delta.toFixed(2);
+      totInput.value   = evsTotal.toFixed(2);
+    }
+  }
+  // ====== TAMAT: STORAGE SUMMARY ======
 
   function autoFlavour(vcpu, vram){
+    const FLAVOURS = @json($FLAVOURS);
     let best = null;
     for(const [name,v,c] of FLAVOURS){
       if(v >= vcpu && c >= vram){
@@ -1197,17 +878,14 @@ inp.name = inp.name.replace(/rows\[(\d+|__INDEX__)\]/, `rows[${idx}]`);
     const rpo = bw > 0 ? (perSync / bw) / 60 : 0;
     if(g('.rpo_achieved')) g('.rpo_achieved').value = rpo.toFixed(2);
 
-    // return bw untuk summary atas
     return bw;
   }
 
   const debouncedSave = debounce(saveRow, 500);
 
   function collectPayload(tr){
-    // baca semua input by class yang kita support
     function val(sel){ const el = tr.querySelector(sel); return el ? el.value : null; }
-
-    const payload = {
+    return {
       id: tr.dataset.id || null,
       row_no: parseInt(tr.dataset.index || 0),
 
@@ -1235,7 +913,6 @@ inp.name = inp.name.replace(/rows\[(\d+|__INDEX__)\]/, `rows[${idx}]`);
       replication_bandwidth: +val('.replication_bandwidth') || 0,
       rpo_achieved: +val('.rpo_achieved') || 0,
     };
-    return payload;
   }
 
   function saveRow(tr){
@@ -1248,16 +925,13 @@ inp.name = inp.name.replace(/rows\[(\d+|__INDEX__)\]/, `rows[${idx}]`);
     .then(r => r.json())
     .then(j => {
       if(!j.ok){ console.warn('upsert error', j); return; }
-      // simpan id daripada server (create kali pertama)
       tr.dataset.id = j.vm.id;
-      // untuk DELETE nanti, kita letak link id pada data-delete-url
       tr.dataset.deleteUrl = DESTROY_URL_TMPL.replace(':id', j.vm.id);
     })
     .catch(err => console.error(err));
   }
 
   function updateTopBandwidthRequirement(){
-    // ambil max replication_bandwidth dari semua row
     let maxBw = 0;
     vmBody.querySelectorAll('tr.vm-row .replication_bandwidth').forEach(inp => {
       const v = parseFloat(inp.value || 0);
@@ -1270,30 +944,31 @@ inp.name = inp.name.replace(/rows\[(\d+|__INDEX__)\]/, `rows[${idx}]`);
   }
 
   function wireRow(tr){
-    // bila ada input berubah -> re-calc + debounced autosave + update summary atas
     const inputs = tr.querySelectorAll('input, select');
     inputs.forEach(el => {
       el.addEventListener('input', () => {
         calcRow(tr);
         updateTopBandwidthRequirement();
+        updateStorageSummary();   // <= penting
         debouncedSave(tr);
       });
       el.addEventListener('change', () => {
         calcRow(tr);
         updateTopBandwidthRequirement();
+        updateStorageSummary();   // <= penting
         debouncedSave(tr);
       });
     });
 
-    // butang delete
     const delBtn = tr.querySelector('.btn-delete-row');
     if(delBtn){
       delBtn.addEventListener('click', () => {
         const id = tr.dataset.id;
-        if(!id){ // kalau belum pernah save di server, terus buang je
+        if(!id){
           tr.remove();
           renumberRows();
           updateTopBandwidthRequirement();
+          updateStorageSummary(); // <= penting
           return;
         }
         const url = (tr.dataset.deleteUrl || DESTROY_URL_TMPL.replace(':id', id));
@@ -1305,6 +980,7 @@ inp.name = inp.name.replace(/rows\[(\d+|__INDEX__)\]/, `rows[${idx}]`);
             tr.remove();
             renumberRows();
             updateTopBandwidthRequirement();
+            updateStorageSummary(); // <= penting
           }else{
             console.warn('delete error', j);
           }
@@ -1312,24 +988,21 @@ inp.name = inp.name.replace(/rows\[(\d+|__INDEX__)\]/, `rows[${idx}]`);
       });
     }
 
-    // initial calc & autosave (optional kalau nak terus persist)
-    const bw = calcRow(tr);
-    updateTopBandwidthRequirement();
+    calcRow(tr);
   }
 
-  // wire existing rows
+  // Wire sedia ada
   vmBody.querySelectorAll('tr.vm-row').forEach(wireRow);
   renumberRows();
   updateTopBandwidthRequirement();
+  updateStorageSummary(); // <= kira awal
 
   // Add Row
   addBtn?.addEventListener('click', () => {
     const idx = vmBody.querySelectorAll('tr.vm-row').length;
     const clone = tmpl.cloneNode(true);
-    // Tukar semua name="rows[__INDEX__][x]" kepada rows[idx][x]
     clone.querySelectorAll('[name]').forEach(inp => {
       inp.name = inp.name.replace('__INDEX__', idx);
-      // kosongkan nilai default
       if(inp.tagName === 'INPUT'){ inp.value = ''; }
       if(inp.classList.contains('vcpu') || inp.classList.contains('vram') ||
          inp.classList.contains('system_disk') || inp.classList.contains('data_disk') ||
@@ -1343,10 +1016,9 @@ inp.name = inp.name.replace(/rows\[(\d+|__INDEX__)\]/, `rows[${idx}]`);
     vmBody.appendChild(clone);
     wireRow(clone);
     renumberRows();
-    // autosave terus untuk cipta rekod kosong (optional)
     saveRow(clone);
+    updateStorageSummary(); // <= selepas tambah baris
   });
-
 })();
 </script>
 

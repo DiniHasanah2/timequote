@@ -12,26 +12,39 @@ use Carbon\Carbon;
 
 class CustomerController extends Controller
 {
-public function index(): \Illuminate\View\View
+
+
+public function index(Request $request): View
 {
     $user = Auth::user();
 
     $query = Customer::query();
 
+   
     if ($user->role === 'presale') {
         if ($user->division) {
-        
             $query->ofDivision($user->division);
-
-          
         } else {
-        
             $query->whereRaw('1=0');
         }
     }
-   
+
+    
+    $keyword    = trim($request->query('q', ''));
+    $department = $request->query('department');
+
+    if ($keyword !== '') {
+        $query->where('name', 'LIKE', "%{$keyword}%");
+    }
+
+    if (!empty($department)) {
+        $query->where('department', $department);
+    }
 
     $customers = $query->orderBy('created_at', 'asc')->get();
+
+
+    
 
     $presales = in_array($user->role, ['admin','product'])
         ? \App\Models\User::where('role', 'presale')->orderBy('name')->get()
@@ -39,10 +52,13 @@ public function index(): \Illuminate\View\View
 
     $clientManagers = \App\Models\ClientManager::orderBy('name')->get();
 
-    
-    return view('customers.index', compact('customers', 'presales', 'clientManagers', 'user'));
-}
+    $deptMap = $this->deptMap;
+    $deptOptions = ($user->role === 'presale' && $user->division)
+        ? ($deptMap[$user->division] ?? [])
+        : array_values(array_unique(array_merge($deptMap['Enterprise'], $deptMap['Wholesale'])));
 
+    return view('customers.index', compact('customers', 'presales', 'clientManagers', 'user', 'deptOptions'));
+}
 
     
 

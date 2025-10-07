@@ -308,7 +308,7 @@ if (optional($summary)->is_logged) {
             'cyber_object_storage_service' => 'nullable|integer|min:0',
         ]);
 
-        // Tambahkan data tambahan
+        
         $validated['project_id'] = $version->project_id;
         $validated['customer_id'] = $version->project->customer_id;
         $validated['presale_id'] = $version->project->presale_id;
@@ -316,7 +316,7 @@ if (optional($summary)->is_logged) {
 
          $drLocation = $validated['dr_location'];
 
-    // Dapatkan existing region (kalau update)
+   
     $existingRegion = Region::where('version_id', $version->id)->first();
 
     // Handle content_delivery_network

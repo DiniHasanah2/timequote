@@ -60,7 +60,20 @@
             <a href="{{ route('projects.index') }}" class="btn btn-pink">Reset</a>
           </div>
         @endif
+
+        {{-- Filter by Status --}}
+<div class="ms-2" style="display:inline-block; min-width:180px;">
+  <label class="form-label d-block mb-1">Filter by Status</label>
+  <select name="status" class="form-select" onchange="this.form.submit()">
+      <option value="">— All Status —</option>
+      <option value="pending"   {{ request('status')==='pending' ? 'selected' : '' }}>Pending</option>
+      <option value="committed" {{ request('status')==='committed' ? 'selected' : '' }}>Committed</option>
+  </select>
+</div>
+
       </form>
+
+      
 
       {{-- RIGHT: Action buttons --}}
       <div class="d-flex flex-wrap gap-2">
@@ -103,6 +116,19 @@
 @endif
 </div>--->
 
+
+
+@if(request()->filled('customer_id') && $projects->isEmpty())
+  <div class="alert alert-warning border-0 shadow-sm rounded-3 py-2 px-3 d-flex align-items-center gap-2 mb-2">
+    <i class="bi bi-info-circle" style="font-size:1.1rem;"></i>
+    <div>
+      <div class="fw-semibold">No projects found under this customer that being assigned to you.</div>
+      <small class="text-dark-emphasis">You can create a new project using the <strong>Add Project</strong> button above.</small>
+    </div>
+  </div>
+@endif
+
+
 {{-- Project Table --}}
 <div class="card shadow-sm">
     <div class="card-body p-3">
@@ -112,7 +138,7 @@
                     <th>Customer Name</th>
                     <th>Project Name</th>
                     <th>Project Version</th>
-                    <!---<th>Project Type</th>--->
+                    <th>Status</th>
                     <th>Date Created</th>
                     <th>Last Edited Date</th>
                     <th>Quotation Value (RM)</th>
@@ -128,7 +154,20 @@
                         <td>{{ $project->customer->name }}</td>
                         <td>{{ $project->name }}</td>
                         <td>{{ $version->version_name }} (v{{ $version->version_number }})</td>
-                        <!---<td></td>--->
+                       <td>
+  @php
+    // baca flag commit pada Internal Summary untuk version ini
+    $isCommitted = optional($version->internal_summary)->is_logged === true;
+  @endphp
+
+  @if($isCommitted)
+    <span class="badge rounded-pill text-bg-success">Committed</span>
+  @else
+    <span class="badge rounded-pill text-bg-warning">Pending</span>
+  @endif
+</td>
+
+
                         <td>{{ $version->created_at->format('d/m/Y') }}</td>
                         <td>{{ $version->updated_at->format('d/m/Y') }}</td>
                         <!---<td>{{ number_format($version->quotations->sum('total_amount'), 2) }}</td>--->
@@ -202,6 +241,11 @@
                     </tr>
                     @endforeach
                 @empty
+
+
+
+
+                
                 <tr>
                     <td colspan="10" class="text-center text-muted">No projects found.</td>
                 </tr>

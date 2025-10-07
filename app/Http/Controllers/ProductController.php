@@ -23,7 +23,7 @@ class ProductController extends Controller
         $quotations = Quotation::with('project.customer', 'version')->get(); // make sure ada relation
         $services = Service::all();
 
-        // Assign availableQuotations = all quotations (boleh filter ikut logik sebenar kalau perlu)
+      
         $availableQuotations = $quotations;
 
     return view('products.index', compact('products', 'customers', 'quotations', 'services',  'availableQuotations' ));

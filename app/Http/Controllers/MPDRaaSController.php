@@ -15,7 +15,9 @@ class MPDRaaSController extends Controller
     public function create($versionId)
     {
         $version = Version::with(['project', 'mpdraas'])->findOrFail($versionId);
-        $region  = Region::where('version_id', $versionId)->firstOrFail();
+        //$region  = Region::where('version_id', $versionId)->firstOrFail();
+
+        $region = Region::where('version_id', $version->id)->first();
 
      
         $codes = [
@@ -47,11 +49,17 @@ class MPDRaaSController extends Controller
             ];
         }
 
+          // ready VM2
+    $vms = MPDRaaSVM::where('version_id', $versionId)
+        ->orderBy('row_no')
+        ->get();
+
         return view('projects.mpdraas.create', [
             'project'       => $version->project,
             'version'       => $version,
             'mpdraas'       => $version->mpdraas,
             'drNetworkRows' => $drNetworkRows,
+            'vms'           => $vms,  
         ]);
     }
 
@@ -65,19 +73,19 @@ class MPDRaaSController extends Controller
             'mpdraas_location'        => 'required|in:None,Kuala Lumpur,Cyberjaya',
             'num_proxy'               => 'nullable|integer',
             'vm_name'                 => 'nullable|string|max:255',
-            'always_on'               => 'required|in:Yes,No',
-            'pin'                     => 'required|in:Yes,No',
+            'always_on'               => 'nullable|in:Yes,No',
+            'pin'                     => 'nullable|in:Yes,No',
             'vcpu'                    => 'nullable|integer|min:0',
             'vram'                    => 'nullable|integer|min:0',
             'flavour_mapping'         => 'nullable|string|max:255',
             'system_disk'             => 'nullable|integer|min:0',
             'data_disk'               => 'nullable|integer|min:0',
-            'operating_system'        => 'required|in:Linux,Microsoft Windows Std,Microsoft Windows DC,Red Hat Enterprise Linux',
+            'operating_system'        => 'nullable|in:Linux,Microsoft Windows Std,Microsoft Windows DC,Red Hat Enterprise Linux',
             'rds_count'               => 'nullable|integer|min:0',
-            'm_sql'                   => 'required|in:None,Web,Standard,Enterprise',
+            'm_sql'                   => 'nullable|in:None,Web,Standard,Enterprise',
             'used_system_disk'        => 'nullable|integer|min:0',
             'used_data_disk'          => 'nullable|integer|min:0',
-            'solution_type'           => 'required|in:None,EVS,OBS',
+            'solution_type'           => 'nullable|in:None,EVS,OBS',
             'rto_expected'            => 'nullable|integer|min:0',
             'dd_change'               => 'nullable|integer|min:0',
             'data_change'             => 'nullable|numeric|min:0',
@@ -87,7 +95,7 @@ class MPDRaaSController extends Controller
             'amount_data_change'      => 'nullable|numeric|min:0',
             'replication_bandwidth'   => 'nullable|numeric|min:0',
             'rpo_achieved'            => 'nullable|numeric|min:0',
-            'ddos_requirement'        => 'required|in:Yes,No',
+            'ddos_requirement'        => 'nullable|in:Yes,No',
             'bandwidth_requirement'   => 'nullable|numeric|min:0',
             'main'                    => 'nullable|numeric|min:0',
             'used'                    => 'nullable|numeric|min:0',
@@ -138,11 +146,11 @@ class MPDRaaSController extends Controller
         $klQty = (float)$request->input('kl_qty', 0);
         $cjQty = (float)$request->input('cj_qty', 0);
 
-        // Kiraan asas: qty × price (kalau nak darab activation days, boleh tambah * $days)
+       
         $klAmount = $klQty * $price;
         $cjAmount = $cjQty * $price;
 
-        // Pastikan ada rekod MPDRaaS untuk version ni
+     
         $mp = MPDRaaS::firstOrCreate(
             ['version_id' => $version->id],
             [
@@ -186,9 +194,7 @@ class MPDRaaSController extends Controller
         ]);
     }
 
-    /**
-     * (Kekalkan helper ni kalau kau guna untuk benda lain)
-     */
+  
     private function calculateFlavourMapping(?int $vcpu, ?int $vram): string
     {
         $vcpu = $vcpu ?? 0;
@@ -388,7 +394,7 @@ public function autosaveField(Request $request, $versionId)
         ]
     );
 
-    // Khas: jika user ubah vcpu/vram, auto isi flavour_mapping server-side (fallback)
+    
     if (in_array($field, ['vcpu','vram'])) {
         $data = $mp->toArray();
         $data[$field] = is_numeric($value) ? (int)$value : 0;
@@ -499,11 +505,17 @@ public function upsertVm(Request $request, $versionId)
     return response()->json(['ok'=>true, 'vm'=>$vm]);
 }
 
+
+
 public function destroyVm($versionId, MPDRaaSVM $vm)
 {
+    if ((int)$vm->version_id !== (int)$versionId) {
+        return response()->json(['ok' => false, 'message' => 'Forbidden'], 403);
+    }
     $vm->delete();
     return response()->json(['ok'=>true]);
 }
+
 
 }
 

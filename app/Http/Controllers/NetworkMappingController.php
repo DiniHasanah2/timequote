@@ -72,50 +72,6 @@ public function store(Request $request)
     }
 }
 
-/*public function store(Request $request)
-{
-    $validated = $request->validate([
-        'network_code' => 'required|string|unique:network_mappings,network_code',
-        'min_bw'  => 'required|numeric|min:0',
-        'max_bw'  => 'required|numeric|min:0|gte:min_bw',
-        'eip_foc' => 'required|integer|min:0',
-        'anti_ddos' => 'nullable|in:on',
-    ]);
-
-    try {
-        DB::beginTransaction();
-
-        // 1) Create record
-        $created = NetworkMapping::create([
-            'network_code' => $validated['network_code'],
-            'min_bw'       => $validated['min_bw'],
-            'max_bw'       => $validated['max_bw'],
-            'eip_foc'      => $validated['eip_foc'],
-            'anti_ddos'    => $request->has('anti_ddos'),
-        ]);
-
-        // 2) Log creation (di SINI tempatnya)
-        NetworkMappingLog::create([
-            'network_mapping_id' => $created->id,
-            'action'     => 'created',
-            'old_values' => null,
-            'new_values' => $created->only(['network_code','min_bw','max_bw','eip_foc','anti_ddos']),
-            'user_id'    => auth()->id(),
-            'ip_address' => $request->ip(),
-            'user_agent' => $request->header('User-Agent'),
-        ]);
-
-        DB::commit();
-
-        return redirect()
-            ->route('network-mappings.index')
-            ->with('success', 'Network mapping added successfully.');
-    } catch (\Throwable $e) {
-        DB::rollBack();
-        return back()->withErrors(['error' => $e->getMessage()])->withInput();
-    }
-}*/
-
 
 
 public function edit($id)

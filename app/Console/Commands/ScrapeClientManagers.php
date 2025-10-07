@@ -18,13 +18,13 @@ class ScrapeClientManagers extends Command
         $searchName = $this->argument('name');
         $url = "https://estation.time.com.my/employee-search-result?name=" . urlencode($searchName) . "&staff_no=&division=";
 
-        $client = new Client(['verify' => false]); // bypass SSL if needed
-        $response = $client->get($url); //create URL based on name that needed to be search
+        $client = new Client(['verify' => false]); 
+        $response = $client->get($url); 
         $html = (string) $response->getBody();
 
         $crawler = new Crawler($html);
 
-        // FIND ROW in table result
+        
         $crawler->filter('table tbody tr')->each(function ($row) {
             $columns = $row->filter('td')->each(fn ($td) => trim($td->text()));
 

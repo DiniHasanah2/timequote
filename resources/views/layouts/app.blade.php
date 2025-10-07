@@ -127,12 +127,26 @@
     background-repeat: no-repeat;
     background-position: right 0.75rem center;
     background-size: 0.65rem auto;
-    /*appearance: none;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    background-image: none !important;
-    padding-right: 2rem;*/
+   
 }
+
+/* Right section in appbar */
+.app-bar { justify-content: space-between; }  /* push kanan */
+.user-chip {
+  display: inline-flex; align-items: center; gap: .5rem;
+  padding: .35rem .6rem; border: 1px solid rgba(255,255,255,.2);
+  border-radius: 999px; color: #fff; background: rgba(255,255,255,.06);
+  backdrop-filter: blur(2px);
+}
+.role-badge {
+  font-size: .72rem; padding: .15rem .45rem; border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.25);
+  background: rgba(255,255,255,.12); color:#fff;
+}
+/* optional: beza warna ikut role */
+.role-admin   { background: #c92a2a; }
+.role-presale { background: #2b8a3e; }
+.role-product { background: #1c7ed6; }
 
         
     </style>
@@ -236,10 +250,38 @@
 {{-- Main Content --}}
 <div id="main">
     {{-- Top App Bar --}}
-    <div class="app-bar">
+    <!---<div class="app-bar">
         <i class="bi bi-list hamburger" onclick="toggleSidebar()"></i>
         <div class="fs-5 text-white fw-normal">timeQuote</div>
+    </div>--->
+    <div class="app-bar">
+  <div class="d-flex align-items-center gap-3">
+    <i class="bi bi-list hamburger" onclick="toggleSidebar()"></i>
+    <div class="fs-5 text-white fw-normal">timeQuote</div>
+  </div>
+
+  @auth
+    <div class="d-flex align-items-center gap-2 text-white">
+      <span class="d-none d-sm-inline text-white-50 small">Login as</span>
+      <div class="user-chip">
+        <i class="bi bi-person-circle"></i>
+        <span class="fw-semibold">
+          {{ Auth::user()->name ?? Auth::user()->username }}
+        </span>
+        @php
+          $role = strtolower(Auth::user()->role ?? '');
+          $roleClass = in_array($role, ['admin','presale','product']) ? 'role-'.$role : '';
+        @endphp
+        <span class="role-badge {{ $roleClass }}">
+          {{ ucfirst($role) }}
+        </span>
+      </div>
     </div>
+  @endauth
+</div>
+
+
+    
 
     <div class="p-4">
         @yield('content')

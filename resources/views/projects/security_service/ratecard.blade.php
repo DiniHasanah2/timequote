@@ -1,10 +1,33 @@
 @extends('layouts.app')
 
 @php
-    $solution_type = $solution_type ?? $version->solution_type ?? null;
+  $solution_type = $solution_type ?? $version->solution_type ?? null;
+  $wmName  = auth()->user()->name ?? 'User';
+  $wmEmail = auth()->user()->email ?? '';
+  $wmTime  = now()->format('Y-m-d H:i');
 @endphp
 
 @section('content')
+
+<div class="screen-watermark" aria-hidden="true">
+  <svg width="100%" height="100%">
+    <defs>
+      <pattern id="wm" width="300" height="200" patternUnits="userSpaceOnUse"
+               patternTransform="rotate(-30)">
+        <text x="0" y="60"  font-size="12" fill="rgba(0,0,0,0.08)">{{ $wmName }}</text>
+        <text x="0" y="100" font-size="12" fill="rgba(0,0,0,0.08)">{{ $wmEmail }}</text>
+        <text x="0" y="140" font-size="12" fill="rgba(0,0,0,0.08)">{{ $wmTime }}</text>
+      </pattern>
+    </defs>
+    <rect width="100%" height="100%" fill="url(#wm)"/>
+  </svg>
+</div>
+
+
+
+
+
+
 <div class="card shadow-sm protect">
     <div class="card-header d-flex justify-between align-items-center">
         <div class="breadcrumb-text">
@@ -28,14 +51,22 @@
             <a href="{{ route('versions.mpdraas.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.mpdraas.create' ? 'active-link' : '' }}">MP-DRaaS</a>
             <span class="breadcrumb-separator">»</span>
             @endif
-            <a href="{{ route('versions.security_service.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.create' ? 'active-link' : '' }}">Cloud Security</a>
+            <a href="{{ route('versions.security_service.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.create' ? 'active-link' : '' }}">Managed Services & Cloud Security</a>
             <span class="breadcrumb-separator">»</span>
             <a href="{{ route('versions.security_service.time.create', $version->id) }}"
                class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.time.create' ? 'active-link' : '' }}">
                Time Security Services
             </a>
             <span class="breadcrumb-separator">»</span>
-            <a href="{{ route('versions.non_standard_items.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.non_standard_items.create' ? 'active-link' : '' }}">Non-Standard Services</a>
+
+
+   <a href="{{ route('versions.non_standard_offerings.create', $version->id) }}"
+   class="breadcrumb-link {{ Route::currentRouteName() === 'versions.non_standard_offerings.create' ? 'active-link' : '' }}">
+  Standard Services
+</a>
+<span class="breadcrumb-separator">»</span>
+
+            <a href="{{ route('versions.non_standard_items.create', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.non_standard_items.create' ? 'active-link' : '' }}">3rd Party (Non-Standard)</a>
             <span class="breadcrumb-separator">»</span>
             <a href="{{ route('versions.internal_summary.show', $version->id) }}" class="breadcrumb-link {{ Route::currentRouteName() === 'versions.internal_summary.show' ? 'active-link' : '' }}">Internal Summary</a>
             <span class="breadcrumb-separator">»</span>
@@ -50,19 +81,33 @@
         <button type="button" class="btn-close" style="margin-left: auto;" onclick="window.location.href='{{ route('projects.index') }}'"></button>
     </div>
 
-    @php
-    $wm = rawurlencode(
-        trim((auth()->user()->name ?? 'User') . ' • ' . (auth()->user()->email ?? ''))
-        . ' • ' . now()->format('Y-m-d H:i')
-    );
-@endphp
-
-{{-- Watermark overlay & print blocker --}}
-<div class="screen-watermark" aria-hidden="true"></div>
-<div id="print-blocker" aria-hidden="true">Printing is disabled for this page.</div>
+    
 
 
-<!---<div class="sensitive revealed" id="ratecardSensitive">--->
+
+
+
+
+
+
+
+
+
+
+
+
+<!---<div class="screen-watermark" aria-hidden="true"
+     style="position: fixed; inset: 0; pointer-events: none; z-index: 2147483647;
+     background-image: url('data:image/svg+xml;utf8,
+       <svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;300&quot; height=&quot;200&quot;>
+         <text x=&quot;0&quot; y=&quot;60&quot; font-size=&quot;12&quot; fill=&quot;rgba(0,0,0,0.08)&quot; transform=&quot;rotate(-30 20,100)&quot;>{{ $wmName }}</text>
+         <text x=&quot;0&quot; y=&quot;100&quot; font-size=&quot;12&quot; fill=&quot;rgba(0,0,0,0.08)&quot; transform=&quot;rotate(-30 20,100)&quot;>{{ $wmEmail }}</text>
+         <text x=&quot;0&quot; y=&quot;140&quot; font-size=&quot;12&quot; fill=&quot;rgba(0,0,0,0.08)&quot; transform=&quot;rotate(-30 20,100)&quot;>{{ $wmTime }}</text>
+       </svg>');
+     background-repeat: repeat;
+     background-size: 200px 120px;">
+</div>--->
+
 
 <div id="ratecardSensitive">
 
@@ -84,7 +129,7 @@
                 </thead>
                 <tbody>
                     @php
-                        // === Grouping: guna $item['category'] kalau ada; kalau tak, fallback ke perkataan pertama nama ===
+                      
                         $groupedItems = [];
                         foreach($rateCardItems as $item) {
                             $category = $item['category'] ?? explode(' ', $item['name'])[0];
@@ -92,6 +137,16 @@
                         }
                         $grandTotal = 0;
                     @endphp
+
+                    @php
+  $desired = ['Professional','Network','Compute','License','Storage','Security','Backup','Monitoring'];
+  uksort($groupedItems, function($a,$b) use ($desired){
+      $pa = array_search($a, $desired); $pa = ($pa === false) ? 999 : $pa;
+      $pb = array_search($b, $desired); $pb = ($pb === false) ? 999 : $pb;
+      return $pa <=> $pb;
+  });
+@endphp
+
 
                     @foreach($groupedItems as $category => $items)
                         <tr style="background-color: #e76ccf; font-weight: bold;">
@@ -181,10 +236,6 @@
   // Block right-click
   document.addEventListener('contextmenu', function(e){ e.preventDefault(); }, {capture:true});
 
-  // (Pilihan) blurkan bila tab hilang fokus – deterrent lembut
-  // document.addEventListener('visibilitychange', () => {
-  //   document.body.style.filter = document.hidden ? 'blur(6px)' : '';
-  // });
 </script>
 
 
@@ -205,12 +256,32 @@
 
 <style>
 /* ── Watermark skrin (ulang teks menyerong) ────────────────────────────── */
-.screen-watermark{
+
+
+
+/*.screen-watermark{
   position: fixed; inset: 0; pointer-events: none; z-index: 2147483647;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='400'><text x='0' y='220' font-size='22' fill='rgba(0,0,0,0.12)' transform='rotate(-30 0,200)'>{{ $wm }}</text></svg>");
+  background-image: url("data:image/svg+xml;utf8,
+    <svg xmlns='http://www.w3.org/2000/svg' width='300' height='200'>
+      <text x='0' y='60' font-size='12' fill='rgba(0,0,0,0.08)' transform='rotate(-30 20,100)'>{{ $wmName }}</text>
+      <text x='0' y='100' font-size='12' fill='rgba(0,0,0,0.08)' transform='rotate(-30 20,100)'>{{ $wmEmail }}</text>
+      <text x='0' y='140' font-size='12' fill='rgba(0,0,0,0.08)' transform='rotate(-30 20,100)'>{{ $wmTime }}</text>
+    </svg>");
   background-repeat: repeat;
-  background-size: 600px 400px;
-}
+  background-size: 200px 120px;
+
+}*/
+
+.screen-watermark{
+    position: fixed; inset: 0;
+    z-index: 2147483647;       /* on top of everything */
+    pointer-events: none;      /* don’t block clicks */
+  }
+  @media print{
+    .screen-watermark{ display:none !important; } /* optional for print */
+  }
+
+
 
 
 

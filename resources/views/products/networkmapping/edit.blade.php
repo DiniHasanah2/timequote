@@ -112,7 +112,6 @@
                 $old = $log->old_values ?? [];
                 $new = $log->new_values ?? [];
 
-                // Paparan nama user: cuba .user->name, kalau tiada guna user_id, kalau tiada 'System'
                 $userLabel = optional($log->user)->name ?? ($log->user_id ?? 'System');
 
                 // Label cantik untuk field

@@ -1,4 +1,4 @@
-{{-- resources/views/projects/non_standard_items/create.blade.php --}}
+
 @extends('layouts.app')
 
 @php use Illuminate\Support\Facades\Storage; @endphp
@@ -113,9 +113,9 @@
                class="breadcrumb-link {{ Route::currentRouteName() === 'versions.security_service.time.create' ? 'active-link' : '' }}">Time Security Services</a>
             <span class="breadcrumb-separator">»</span>
 
+           
 
-        
-<a href="{{ route('versions.non_standard_offerings.create', $version->id) }}"
+            <a href="{{ route('versions.non_standard_offerings.create', $version->id) }}"
    class="breadcrumb-link {{ Route::currentRouteName() === 'versions.non_standard_offerings.create' ? 'active-link' : '' }}">
   Standard Services
 </a>
@@ -125,6 +125,8 @@
             <a href="{{ route('versions.non_standard_items.create', $version->id) }}"
                class="breadcrumb-link {{ Route::currentRouteName() === 'versions.non_standard_items.create' ? 'active-link' : '' }}">3rd Party (Non-Standard)</a>
             <span class="breadcrumb-separator">»</span>
+
+            
 
             <a href="{{ route('versions.internal_summary.show', $version->id) }}"
                class="breadcrumb-link {{ Route::currentRouteName() === 'versions.internal_summary.show' ? 'active-link' : '' }}">Internal Summary</a>
@@ -164,30 +166,7 @@
 
 
 
-
-         {{-- ===================== IMPORT EXCEL (for Non-Standard Items) ===================== --}}
-        <form method="POST" action="{{ route('versions.non_standard_items.import', $version->id) }}"
-              enctype="multipart/form-data" class="mb-4">
-            @csrf
-            <div class="d-flex gap-3 align-items-end">
-                <div>
-                    <label class="form-label">Import Non-Standard Items from Excel (.xlsx)</label>
-                    <input type="file" name="import_file" class="form-control" required>
-                </div>
-                <button type="submit" class="btn btn-pink me-2">
-                    <i class="bi bi-upload"></i> Import Excel
-                </button>
-                <a href="{{ asset('storage/Non_Standard_Template.xlsx') }}" class="btn btn-pink me-2">
-                    <i class="bi bi-download"></i> Download Template
-                </a>
-            </div>
-        </form>
-
-         
-        {{-- ===================== NON-STANDARD ITEMS (EXISTING TABLE) ===================== --}}
-        <div class="table-responsive mb-4" style="overflow-x:auto; white-space:nowrap;">
-
-           <a href="#"
+        <a href="#"
    class="btn me-2 mb-3 fw-semibold shadow-sm"
    style="
      --bs-btn-color:#fff;
@@ -202,123 +181,264 @@
      --bs-btn-active-border-color:#d95fc3;
      --bs-btn-disabled-color:#fff;
      --bs-btn-disabled-bg:#f2b7eb;
-     --bs-btn-disabled-border-color:#f2b7eb;
-   "
-   onclick="document.getElementById('addForm').style.display='block'; return false;">
-  Add New (Non-Standard Item)
+     --bs-btn-disabled-border-color:#f2b7eb;"
+     
+   onclick="toggleOfferingForm(true); return false;">
+  Add New (Standard Services)
 </a>
 
 
+
+        {{-- ===================== OFFERING LIST (SEPARATE TABLE) ===================== --}}
+<div class="table-responsive mb-4" style="overflow-x:auto; white-space:nowrap;">
+  <table class="table table-bordered" style="min-width: 2000px;">
+    <thead class="table-dark">
+      <tr>
+        <th colspan="10">Standard Services (Non-Standard Offering)</th>
+      </tr>
+      <tr>
+        <th>No</th>
+        <th>Category</th>
+        <th>Service</th>
+        <th>Unit</th>
+        <th>Qty</th>
+        <th>Months</th>
+        <th>Unit Price/Month (RM)</th>
+        <th>Markup %</th>
+        <th>Selling Price (RM)</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      @forelse($offering_items as $i => $o)
+        <tr>
+          <td>{{ $i + 1 }}</td>
+          <td>{{ $o->category_name }} ({{ $o->category_code }})</td>
+          <td>
+            {{ $o->service_name }}
+            <small class="text-muted">{{ $o->service_code }}</small>
+          </td>
+          <td>{{ $o->unit }}</td>
+          <td>{{ $o->quantity }}</td>
+         
+          <td>{{ (int) $o->months }}</td>
+
+          <td>{{ number_format($o->unit_price_per_month, 4) }}</td>
+          <td>{{ number_format($o->mark_up, 2) }}</td>
+          <td>{{ number_format($o->selling_price, 2) }}</td>
+          <td class="d-flex gap-2">
+            <a class="btn btn-sm btn-pink"
+               href="{{ route('versions.non_standard_offerings.edit', [$version->id, $o->id]) }}">
+              <i class="bi bi-pencil"></i> Edit
+            </a>
+            <form method="POST"
+                  action="{{ route('versions.non_standard_offerings.destroy', [$version->id, $o->id]) }}"
+                  onsubmit="return confirm('Delete this offering?')">
+              @csrf
+              @method('DELETE')
+              <button class="btn btn-sm btn-danger">Delete</button>
+            </form>
+          </td>
+        </tr>
+      @empty
+        <tr>
+          <td colspan="10" class="text-center text-muted">No offering added.</td>
+        </tr>
+      @endforelse
+    </tbody>
+  </table>
+</div>
+
+
+
+<div id="offeringForm" class="card mb-4" style="display:none;">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <strong>Standard Services (Non-Standard Offering)</strong>
+    <small class="text-muted">Pick Category → Service, then set Quantity &amp; Months</small>
+  </div>
+
+  <div class="card-body">
+    <form method="POST" action="{{ route('versions.non_standard_offerings.store', $version->id) }}">
+      @csrf
+
+      {{-- Limit width + center --}}
+      <div class="row justify-content">
+        <div class="col-12 col-sm-10 col-md-9 col-lg-8 col-xl-7">
+
+          {{-- Category (full width) --}}
+        <div class="row g-3 align-items-end">
+            <div class="col-12 col-md-10">
+            <label class="form-label">Category</label>
+            <select id="off_cat" name="category_id" class="form-select" required>
+              <option value="">— Select —</option>
+              @foreach($categories as $c)
+                <option value="{{ $c->id }}">{{ $c->name }} ({{ $c->category_code }})</option>
+              @endforeach
+            </select>
+          </div>
+            </div>
+            <br>
+
+          {{-- Service + Unit (sebelah-sebelah pada md+) --}}
+          <div class="row g-3 align-items-end">
+            <div class="col-12 col-md-10">
+              <label class="form-label">Service</label>
+              <select id="off_svc" name="service_id" class="form-select" required></select>
+              <div class="form-text">List filters by Category.</div>
+            </div>
            
-            <table class="table table-bordered" style="min-width: 2000px;">
-                
-                <thead class="table-dark">
-                      <tr>
-                        <th colspan="8">3rd Party (Non-Standard Services)</th>
-                       
-                    </tr>
-                    <tr>
-                        <th>No</th>
-                        <th>Item Name</th>
-                        <th>Unit</th>
-                        <th>Quantity</th>
-                        <th>Cost (RM)</th>
-                        <th>Markup (%)</th>
-                        <th>Selling Price (RM)</th>
-                        <th>Action</th>
-                    </tr>
-                  
-                </thead>
-                @php $allItems = $non_standard_items; @endphp
-                <tbody>
-                    @forelse ($allItems as $index => $item)
-                        <tr>
-                            <td>{{ $index + 1 }}</td>
-                            <td>{{ $item['item_name'] ?? '' }}</td>
-                            <td>{{ $item['unit'] ?? '' }}</td>
-                            <td>{{ $item['quantity'] ?? '' }}</td>
-                            <td>{{ number_format($item['cost'] ?? 0, 2) }}</td>
-                            <td>{{ (int) ($item['mark_up'] ?? 0) }}</td>
-                            <td>{{ number_format($item['selling_price'] ?? 0, 2) }}</td>
-                            <td>
-                                @if(isset($item['id']))
-                                    <div class="d-flex gap-2">
-                                        <a href="{{ route('non_standard_items.edit', [$version->id, $item['id']]) }}"
-                                           class="btn btn-sm btn-pink">
-                                            <i class="bi bi-pencil"></i> Edit
-                                        </a>
-                                        <form action="{{ route('non_standard_items.destroy', ['version' => $version->id, 'item' => $item['id']]) }}"
-                                              method="POST" onsubmit="return confirm('Are you sure?');">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button class="btn btn-sm btn-danger">Delete</button>
-                                        </form>
+          </div>
+
+          {{-- Qty / Months / Unit Price / Markup / Total --}}
+          <div class="row g-3 mt-1">
+
+            <div class="col-6 col-md-3">
+              <label class="form-label">Unit</label>
+              <input type="text" id="off_unit" name="unit" class="form-control bg-light" readonly value="Unit">
+            </div>
+
+            <div class="col-6 col-md-3">
+              <label class="form-label">Quantity</label>
+              <input type="number" id="off_qty" name="quantity" class="form-control" value="1" min="1" required>
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label">Months</label>
+        
+              <input type="number" id="off_months" name="months" class="form-control" value="1" min="1" step="1" required>
+
+              
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label">Unit Price / month (RM)</label>
+              <input type="number" id="off_unit_price" name="unit_price_per_month" class="form-control" step="0.0001" min="0" required>
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label">Markup %</label>
+              <input type="number" id="off_markup" name="mark_up" class="form-control" value="0" min="0">
+            </div>
+            <div class="col-12 col-md-4">
+              <label class="form-label">Total (Auto)</label>
+              <input type="text" id="off_total_preview" class="form-control bg-light" readonly>
+            </div>
+          </div>
+
+          <div class="d-flex gap-2 mt-4">
+            <button class="btn btn-pink" type="submit">Add to Offering</button>
+            <button type="button" class="btn btn-outline-secondary"
+                    onclick="toggleOfferingForm(false)">Cancel</button>
+          </div>
+
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function toggleOfferingForm(show) {
+    const el = document.getElementById('offeringForm');
+    el.style.display = show ? 'block' : 'none';
+    if (show) {
+   
+      setTimeout(() => document.getElementById('off_cat')?.focus(), 0);
+    } else {
+   
+    }
+  }
+</script>
+
+
+
+
+
+
+
+        {{-- ===================== Any-file upload for reference ===================== --}}
+        <form action="{{ route('versions.non_standard_offerings.files.upload', $version->id) }}"
+              method="POST" enctype="multipart/form-data" class="mb-3 mx-3">
+            @csrf
+            <label class="form-label mb-1">Import Files (PDF/CSV/TXT/Excel/PPT)</label>
+            <div class="input-group" style="max-width: 640px;">
+                <input type="file" name="ref_file" class="form-control" required
+                       accept=".pdf,.csv,.txt,.xlsx,.xls,.doc,.docx,.ppt,.pptx,.png,.jpg,.jpeg,.webp">
+                <button type="submit" class="btn btn-pink">
+                    <i class="bi bi-upload"></i> Import Any Files
+                </button>
+            </div>
+        </form>
+
+        @if(($ref_files ?? collect())->count())
+            <div class="card mb-4 mx-3">
+                <div class="card-header"><strong>Reference Files</strong></div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        @foreach($ref_files as $f)
+                            @php
+                                $url     = Storage::url($f->stored_path);
+                                $isPdf   = str_starts_with($f->mime_type, 'application/pdf');
+                                $isImg   = str_starts_with($f->mime_type, 'image/');
+                                $isCsv   = ($f->ext === 'csv') || ($f->mime_type === 'text/csv');
+                                $isTxt   = ($f->ext === 'txt') || ($f->mime_type === 'text/plain');
+                                $isOffice= in_array($f->ext, ['doc','docx','ppt','pptx','xls','xlsx']);
+                            @endphp
+                            <div class="col-12 col-md-6 col-xl-4">
+                                <div class="card h-100 shadow-sm">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-start mb-2">
+                                            <div style="max-width:70%">
+                                                <div class="fw-bold text-truncate" title="{{ $f->original_name }}">{{ $f->original_name }}</div>
+                                                <div class="text-muted small">{{ strtoupper($f->ext) }} • {{ number_format($f->size_bytes/1024,1) }} KB</div>
+                                            </div>
+                                            <div class="d-flex gap-2">
+                                                <a class="btn btn-sm btn-outline-secondary"
+                                                   href="{{ route('versions.non_standard_offerings.files.download', [$version->id, $f->id]) }}">
+                                                    <i class="bi bi-download"></i>
+                                                </a>
+                                                <form action="{{ route('versions.non_standard_offerings.files.delete', [$version->id, $f->id]) }}"
+                                                      method="POST" onsubmit="return confirm('Delete this file?')">
+                                                    @csrf @method('DELETE')
+                                                    <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                                                </form>
+                                            </div>
+                                        </div>
+
+                                        @if($isImg)
+                                            <img src="{{ $url }}" alt="" class="img-fluid rounded" style="max-height:220px;object-fit:cover;">
+                                        @elseif($isPdf)
+                                            <div class="ratio ratio-4x3 border rounded">
+                                                <iframe src="{{ $url }}" title="PDF preview" style="border:0;"></iframe>
+                                            </div>
+                                        @elseif($isCsv)
+                                            <details>
+                                                <summary class="small mb-2">Preview CSV</summary>
+                                                <object data="{{ $url }}" type="text/csv" style="width:100%;height:180px;border:1px solid #eee;"></object>
+                                                <div class="small text-muted mt-1">Open full file via Download.</div>
+                                            </details>
+                                        @elseif($isTxt)
+                                            <details>
+                                                <summary class="small mb-2">Preview Text</summary>
+                                                <iframe src="{{ $url }}" style="width:100%;height:180px;border:1px solid #eee;"></iframe>
+                                            </details>
+                                        @elseif($isOffice)
+                                            <div class="alert alert-info py-2 small mb-0">
+                                                Preview not supported here. Use <strong>Download</strong> to open {{ strtoupper($f->ext) }} file.
+                                            </div>
+                                        @else
+                                            <div class="alert alert-secondary py-2 small mb-0">
+                                                Unsupported preview. Please download to view.
+                                            </div>
+                                        @endif
+
                                     </div>
-                                @else
-                                    <span class="badge bg-secondary">Imported</span>
-                                @endif
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="8" class="text-muted text-center">No non-standard items added.</td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-
-        </div>
-
-        {{-- ===================== ADD ITEM FORM (EXISTING FLOW) ===================== --}}
-        <div id="addForm" class="card mt-4 shadow-sm" style="display:none;">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">Add New Item</h5>
-                <button type="button" class="btn-close"
-                        onclick="document.getElementById('addForm').style.display='none'"></button>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div> {{-- row --}}
+                </div>
             </div>
-            <div class="card-body">
-                <form method="POST" action="{{ route('versions.non_standard_items.store', $version->id) }}">
-                    @csrf
+        @endif
 
-                    <div class="mb-3">
-                        <label for="item_name" class="form-label">Item Name</label>
-                        <input type="text" name="item_name" id="item_name" class="form-control" required>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="unit" class="form-label">Unit</label>
-                        <select name="unit" id="unit" class="form-select" required>
-                            @foreach (['Unit','GB','Mbps','Pair','Domain','VM','Hours','Days'] as $opt)
-                                <option value="{{ $opt }}">{{ $opt }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="quantity" class="form-label">Quantity</label>
-                        <input type="number" name="quantity" id="quantity" class="form-control" required min="0">
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="cost" class="form-label">Cost (RM)</label>
-                        <input type="number" name="cost" id="cost" class="form-control" required min="0" step="0.01">
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="mark_up" class="form-label">Markup (%)</label>
-                        <input type="number" name="mark_up" id="mark_up" class="form-control" required min="0" step="0.01">
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="selling_price" class="form-label">Selling Price</label>
-                        <input step="any" name="selling_price" id="selling_price" class="form-control" readonly
-                               style="background-color: black; color: white;">
-                    </div>
-
-                    <button type="submit" class="btn btn-pink">Save Item</button>
-                </form>
-            </div>
-        </div>
 
         <br>
 
@@ -326,23 +446,28 @@
    
         {{-- ===================== NAVIGATION BUTTONS ===================== --}}
         <div class="d-flex justify-content-between align-items-center mt-4 p-2 mx-3">
-            <a href="{{ route('versions.non_standard_offerings.create', $version->id) }}"
+            <a href="{{ route('versions.security_service.time.create', $version->id) }}"
                class="btn btn-secondary" role="button">
                 <i class="bi bi-arrow-left"></i> Previous Step
             </a>
 
-            <a href="{{ route('versions.internal_summary.show', $version->id) }}"
+            <!---<a href="{{ route('versions.internal_summary.show', $version->id) }}"
                class="btn btn-secondary" role="button">
                 View Internal Summary <i class="bi bi-arrow-right"></i>
-            </a>
+            </a>--->
+
+
+                  <a href="{{ route('versions.non_standard_items.create', $version->id) }}" class="btn btn-secondary me-2" role="button">Next:  3rd Party (Non-Standard) <i class="bi bi-arrow-right"></i></a>
+
+               
+         
+            
         </div>
 
         
     </div> {{-- card-body --}}
 
         
-      
-
 </div> {{-- card --}}
 
 {{-- ===================== Scripts ===================== --}}

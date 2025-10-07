@@ -12,7 +12,7 @@ class BackfillServicePricesSeeder extends Seeder
 {
     public function run(): void
     {
-        // wujudkan catalog current kalau belum ada
+      
         $catalog = PriceCatalog::firstOrCreate(
             ['version_code' => 'v3.1.0'],
             [

@@ -9,8 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('ecs_configurations', function (Blueprint $table) {
-            // Letak ikut turutan dengan 'after'. Tukar nama kolum di bawah
-            // supaya posisi jadi sebelum kolum sasaran yang kau nak.
+           
             $table->integer('suggestion_estimated_storage_full_backup')
                   ->nullable()
                   ->after('full_backup_total_retention_full_copies');

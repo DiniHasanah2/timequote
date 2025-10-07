@@ -18,7 +18,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('ecs_configurations', function (Blueprint $table) {
-            // rollback ke default lama (ikut struktur lama kau)
+         
             $table->string('ecs_dr')->default('No')->change();
         });
     }

@@ -1,1 +1,1 @@
-category_name,category_code,code,name,measurement_unit,description,price_per_unit,rate_card_price_per_unit,transfer_price_per_unit
+category_name,category_code,name,code,measurement_unit,charge_duration,price_per_unit,rate_card_price_per_unit,transfer_price_per_unit,description

@@ -137,6 +137,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('region/dr-settings/create', [RegionController::class, 'createDr'])->name('versions.region.dr.create');
         Route::post('region/dr-settings', [RegionController::class, 'storeDr'])->name('versions.region.dr.store');
 
+     
+
+
         Route::get('mpdraas', [MPDRaaSController::class, 'create'])->name('versions.mpdraas.create');
         Route::post('mpdraas', [MPDRaaSController::class, 'store'])->name('versions.mpdraas.store');
 
@@ -259,9 +262,12 @@ Route::get('ratecard-pdf', [\App\Http\Controllers\RateCardController::class, 'do
         Route::get('non-standard-items/{item}/edit', [NonStandardItemController::class, 'edit'])->name('non_standard_items.edit');
         Route::put('non-standard-items/{item}', [NonStandardItemController::class, 'update'])->name('non_standard_items.update');
 
-        // =================== Non-Standard Offerings (Standard Services) ===================
-        // >>> Baru: letak dalam versions/{version} supaya controller dapat $versionId
+       
         Route::prefix('non-standard-offerings')->group(function () {
+
+             Route::get('create', [NonStandardOfferingController::class, 'create'])
+        ->name('versions.non_standard_offerings.create');
+        
             Route::post('/', [NonStandardOfferingController::class, 'store'])
                 ->name('versions.non_standard_offerings.store');
 
@@ -273,6 +279,26 @@ Route::get('ratecard-pdf', [\App\Http\Controllers\RateCardController::class, 'do
 
             Route::delete('{offering}', [NonStandardOfferingController::class, 'destroy'])
                 ->name('versions.non_standard_offerings.destroy');
+
+
+            
+
+            Route::post('files', [NonStandardItemController::class, 'uploadAnyFile'])
+            ->name('versions.non_standard_offerings.files.upload');
+
+
+
+            Route::get('files/{file}/download', [NonStandardItemController::class, 'downloadAnyFile'])
+    ->name('versions.non_standard_offerings.files.download');
+
+Route::delete('files/{file}', [NonStandardItemController::class, 'deleteAnyFile'])
+    ->name('versions.non_standard_offerings.files.delete');
+
+        /*Route::get('files/{file}/download', [NonStandardItemController::class, 'filesDownload'])
+            ->name('versions.non_standard_offerings.files.download');
+
+        Route::delete('files/{file}', [NonStandardItemController::class, 'filesDelete'])
+            ->name('versions.non_standard_offerings.files.delete');*/
         });
 
         // Inside Route::prefix('versions/{version}')
@@ -299,6 +325,10 @@ Route::get('ratecard-pdf', [\App\Http\Controllers\RateCardController::class, 'do
         ->name('projects.service_description');
     Route::get('/services/from-pdf', [ServiceDescriptionController::class, 'showFromPdf'])->name('services.from_pdf');
 
+    Route::post('/projects/{project}/commit',  [ProjectController::class, 'markCommitted'])
+        ->name('projects.commit');
+    Route::post('/projects/{project}/pending', [ProjectController::class, 'markPending'])
+        ->name('projects.pending');
     // Projects & Versions
     Route::resource('projects', ProjectController::class);
     Route::resource('projects.versions', VersionController::class)->only(['create', 'store']);
@@ -377,14 +407,7 @@ Route::post('/services/bulk-adjust', [ServiceController::class, 'bulkAdjust'])
 Route::post('/services/bulk-preview', [ServiceController::class, 'bulkPreview'])
     ->name('services.bulkPreview');
 
-// ===== Resource (elak duplikasi destroy) =====
-// Pilih salah satu:
-// A) Guna destroy daripada resource → buang route manual DELETE
 Route::resource('services', ServiceController::class);
-
-// B) ATAU kekalkan route manual DELETE, exclude destroy dari resource:
-// Route::resource('services', ServiceController::class)->except(['destroy']);
-// Route::delete('/services/{id}', [ServiceController::class, 'destroy'])->name('services.destroy');
 
 
     // ECS Flavours

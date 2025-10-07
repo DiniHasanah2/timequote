@@ -21,7 +21,12 @@
 
  
 
-  <td>
+  <!---<td>
+  <input name="rows[{{ $i }}][vm_name]" class="form-control vm_name w-100"
+         value="{{ old("rows.$i.vm_name", $v->vm_name ?? '') }}">
+</td>--->
+
+<td class="vm-col-name" style="min-width: 150px;">
   <input name="rows[{{ $i }}][vm_name]" class="form-control vm_name w-100"
          value="{{ old("rows.$i.vm_name", $v->vm_name ?? '') }}">
 </td>
@@ -76,7 +81,13 @@
            value="{{ old("rows.$i.data_disk", $v->data_disk ?? 0) }}">
   </td>
 
-<td>
+
+  
+
+
+
+
+  <td class="vm-col-os" style="min-width: 250px;">
   <select name="rows[{{ $i }}][operating_system]"
           class="form-select operating_system w-100"
           style="min-width:140px;">
@@ -123,7 +134,7 @@
   <select name="rows[{{ $i }}][solution_type]"
           class="form-select solution_type w-100"
           style="min-width:140px;">
-    @foreach(['None','EVS','OBS'] as $opt)
+    @foreach(['None','EVS'] as $opt)
       <option value="{{ $opt }}"
         @selected(old("rows.$i.solution_type", $v->solution_type ?? 'None') === $opt)>
         {{ $opt }}
@@ -179,7 +190,7 @@
   </td>
 
   <td class="text-center">
-  <input type="checkbox" class="form-check-input vm-check me-2">
+  <!---<input type="checkbox" class="form-check-input vm-check me-2">--->
   <button type="button" class="btn btn-sm btn-outline-danger btn-delete-row">
     Delete
   </button>
